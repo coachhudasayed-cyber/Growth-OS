@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  UserProfile, Client, TodoTask, BudgetAlarm, BudgetRechargeRecord,
+  UserProfile, Client, Employee, TodoTask, BudgetAlarm, BudgetRechargeRecord,
   Agreement, PaymentRecord, DailyWorkLog, BrandAudit, ContentPlanItem,
   AdsPlanItem, ClientAdsStageStrategy, ClientDailyReport, WeeklyReport,
   MonthlyReport, QuarterlyReport, AdminDailyReport, NoteItem
@@ -23,6 +23,17 @@ const profileFromRow = (row: any): UserProfile => ({
   clientId: row.client_id || undefined
 });
 
+const employeeFromResponse = (row: any): Employee => ({
+  id: row.id,
+  email: row.email,
+  name: row.name,
+  phone: row.phone || '',
+  assignments: (row.assignments || []).map((item: any) => ({
+    clientId: item.client_id,
+    compensation: Number(item.compensation)
+  }))
+});
+
 export function useAppData() {
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -30,6 +41,7 @@ export function useAppData() {
   const [retrySyncCount, setRetrySyncCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [todos, setTodos] = useState<TodoTask[]>([]);
   const [budgetAlarms, setBudgetAlarms] = useState<BudgetAlarm[]>([]);
@@ -58,10 +70,14 @@ export function useAppData() {
     }
     const [clientResult, userResult] = await Promise.all([
       supabase.from('clients').select('data'),
-      supabase.from('profiles').select('id,email,name,role,client_id')
+      supabase.from('profiles').select('id,email,name,role,client_id,phone')
     ]);
     if (clientResult.error) throw clientResult.error;
     if (userResult.error) throw userResult.error;
+    const assignmentResult = profileResult.data.role === 'admin'
+      ? await supabase.from('employee_assignments').select('employee_id,client_id,compensation')
+      : { data: [], error: null };
+    if (assignmentResult.error) throw assignmentResult.error;
     const rows: StoredRecord[] = [];
     for (let start = 0; ; start += 1000) {
       const result = await supabase.from('app_records')
@@ -77,7 +93,15 @@ export function useAppData() {
       `${row.collection}:${row.record_id}`, JSON.stringify(row)
     ]));
     setUsers((userResult.data || []).map(profileFromRow));
-    setClients((clientResult.data || []).map(row => row.data as Client));
+    setEmployees((userResult.data || []).filter(row => row.role === 'employee').map(row => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      phone: row.phone || '',
+      assignments: (assignmentResult.data || []).filter(item => item.employee_id === row.id)
+        .map(item => ({ clientId: item.client_id, compensation: Number(item.compensation) }))
+    })));
+    setClients((clientResult.data || []).map(row => row.data as Client).filter(client => client.clientRole !== 'employee'));
     setTodos(byCollection('todos') as TodoTask[]);
     setBudgetAlarms(byCollection('budgetAlarms') as BudgetAlarm[]);
     setAgreements(byCollection('agreements') as Agreement[]);
@@ -278,6 +302,38 @@ export function useAppData() {
     setNotes(prev => prev.filter(item => item.clientId !== id));
     setBrandAudits(prev => { const copy = { ...prev }; delete copy[id]; return copy; });
     setClientAdsStrategies(prev => { const copy = { ...prev }; delete copy[id]; return copy; });
+  };
+
+  const addEmployee = async (employee: Omit<Employee, 'id'> & { password: string }) => {
+    if (currentUser?.role !== 'admin') throw new Error('إضافة الموظفين متاحة للأدمن فقط.');
+    const result = await supabase.functions.invoke('manage-user', {
+      body: { action: 'create_employee', employee }
+    });
+    if (result.error || !result.data?.employee) {
+      throw new Error('تعذر إنشاء حساب الموظف. تأكدي من الإيميل وكلمة السر والبراندات.');
+    }
+    const created = employeeFromResponse(result.data.employee);
+    setEmployees(prev => [created, ...prev]);
+    return created;
+  };
+
+  const updateEmployee = async (id: string, employee: Omit<Employee, 'id'>) => {
+    if (currentUser?.role !== 'admin') throw new Error('تعديل الموظفين متاح للأدمن فقط.');
+    const result = await supabase.functions.invoke('manage-user', {
+      body: { action: 'update_employee', employeeId: id, employee }
+    });
+    if (result.error || !result.data?.employee) throw new Error('تعذر تحديث بيانات الموظف.');
+    const updated = employeeFromResponse(result.data.employee);
+    setEmployees(prev => prev.map(item => item.id === id ? updated : item));
+  };
+
+  const deleteEmployee = async (id: string) => {
+    if (currentUser?.role !== 'admin') throw new Error('حذف الموظفين متاح للأدمن فقط.');
+    const result = await supabase.functions.invoke('manage-user', {
+      body: { action: 'delete_employee', employeeId: id }
+    });
+    if (result.error) throw new Error('تعذر حذف حساب الموظف.');
+    setEmployees(prev => prev.filter(item => item.id !== id));
   };
 
   // Todo Methods
@@ -643,6 +699,7 @@ export function useAppData() {
     retrySync: () => setRetrySyncCount(value => value + 1),
     currentUser,
     users,
+    employees,
     clients,
     todos,
     budgetAlarms,
@@ -665,6 +722,9 @@ export function useAppData() {
     addClient,
     updateClient,
     deleteClient,
+    addEmployee,
+    updateEmployee,
+    deleteEmployee,
     addTodo,
     toggleTodo,
     editTodo,

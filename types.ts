@@ -8,6 +8,19 @@ export interface UserProfile {
   clientId?: string; // Linked client ID if role is 'client'
 }
 
+export interface EmployeeAssignment {
+  clientId: string;
+  compensation: number;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  assignments: EmployeeAssignment[];
+}
+
 export type ClientStatus = 'active' | 'paused' | 'finished';
 export type ClientRole = 'admin' | 'client' | 'employee';
 

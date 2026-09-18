@@ -16,6 +16,7 @@ export default function App() {
   const {
     currentUser,
     clients,
+    employees,
     todos,
     budgetAlarms,
     agreements,
@@ -37,6 +38,9 @@ export default function App() {
     addClient,
     updateClient,
     deleteClient,
+    addEmployee,
+    updateEmployee,
+    deleteEmployee,
     addTodo,
     toggleTodo,
     editTodo,
@@ -360,6 +364,10 @@ export default function App() {
           {currentActivePage === 'clients' && (
             <ClientsPage
               clients={clients}
+              employees={employees}
+              onAddEmployee={addEmployee}
+              onUpdateEmployee={updateEmployee}
+              onDeleteEmployee={deleteEmployee}
               onAddClient={addClient}
               onUpdateClient={updateClient}
               onDeleteClient={deleteClient}

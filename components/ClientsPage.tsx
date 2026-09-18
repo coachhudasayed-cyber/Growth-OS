@@ -24,10 +24,15 @@ import {
   Calendar,
   FolderOpen
 } from 'lucide-react';
-import { Client, ClientStatus, ClientRole, UserRole } from '../types';
+import { Client, ClientStatus, Employee, UserRole } from '../types';
+import { EmployeeManager } from './EmployeeManager';
 
 interface ClientsPageProps {
   clients: Client[];
+  employees: Employee[];
+  onAddEmployee: (employee: Omit<Employee, 'id'> & { password: string }) => Promise<Employee>;
+  onUpdateEmployee: (id: string, employee: Omit<Employee, 'id'>) => Promise<void>;
+  onDeleteEmployee: (id: string) => Promise<void>;
   onAddClient: (
     data: Omit<Client, 'id' | 'createdAt'> & { password?: string }
   ) => Promise<Client | undefined>;
@@ -39,6 +44,10 @@ interface ClientsPageProps {
 
 export const ClientsPage: React.FC<ClientsPageProps> = ({
   clients,
+  employees,
+  onAddEmployee,
+  onUpdateEmployee,
+  onDeleteEmployee,
   onAddClient,
   onUpdateClient,
   onDeleteClient,
@@ -48,6 +57,8 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ClientStatus>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -68,7 +79,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [status, setStatus] = useState<ClientStatus>('active');
-  const [clientRole, setClientRole] = useState<ClientRole>('client');
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -83,7 +93,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     setWebsiteUrl('');
     setFormUrl('');
     setStatus('active');
-    setClientRole('client');
     setShowAddModal(true);
   };
 
@@ -98,7 +107,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     setWebsiteUrl(c.websiteUrl || '');
     setFormUrl(c.formAnswersUrl || c.formUrl || '');
     setStatus(c.status || 'active');
-    setClientRole(c.clientRole || 'client');
     setShowAddModal(true);
   };
 
@@ -121,7 +129,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
             formUrl,
             formAnswersUrl: formUrl,
             status,
-            clientRole
+            clientRole: 'client'
           });
         }
       } else {
@@ -136,7 +144,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
           formUrl,
           formAnswersUrl: formUrl,
           status,
-          clientRole
+          clientRole: 'client'
         });
       }
 
@@ -152,7 +160,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       setWebsiteUrl('');
       setFormUrl('');
       setStatus('active');
-      setClientRole('client');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'تعذر حفظ الحساب.');
     } finally {
@@ -189,14 +196,17 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
           </div>
         </div>
 
-        {userRole !== 'employee' && (
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 sm:px-5 py-2.5 sm:py-3 bg-[#E07A48] hover:bg-[#C8662B] text-white font-extrabold rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>إضافة عميل جديد (Add Client)</span>
-          </button>
+        {userRole === 'admin' && (
+          <div className="flex flex-wrap gap-2">
+            <button onClick={handleOpenAdd}
+              className="px-4 py-2.5 bg-[#E07A48] hover:bg-[#C8662B] text-white font-extrabold rounded-2xl text-xs transition flex items-center gap-2 shadow-md">
+              <Plus className="w-4 h-4" />إضافة عميل
+            </button>
+            <button onClick={() => { setEditingEmployee(null); setShowEmployeeModal(true); }}
+              className="px-4 py-2.5 bg-[#5A5A40] hover:bg-[#464632] text-white font-extrabold rounded-2xl text-xs transition flex items-center gap-2 shadow-md">
+              <Plus className="w-4 h-4" />إضافة موظف
+            </button>
+          </div>
         )}
       </div>
 
@@ -489,6 +499,20 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       )}
       </div>
 
+      {userRole === 'admin' && (
+        <EmployeeManager
+          employees={employees}
+          clients={clients}
+          isOpen={showEmployeeModal}
+          onClose={() => { setShowEmployeeModal(false); setEditingEmployee(null); }}
+          editingEmployee={editingEmployee}
+          onOpenEdit={(employee) => { setEditingEmployee(employee); setShowEmployeeModal(true); }}
+          onAdd={onAddEmployee}
+          onUpdate={onUpdateEmployee}
+          onDelete={onDeleteEmployee}
+        />
+      )}
+
       {/* ADD / EDIT CLIENT FORM MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -568,18 +592,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                     placeholder="+201012345678"
                     className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-[#2D2D2A] outline-none"
                   />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#2D2D2A] mb-1">المسمى / الصفة *</label>
-                  <select
-                    value={clientRole}
-                    onChange={(e) => setClientRole(e.target.value as ClientRole)}
-                    className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-[#2D2D2A] outline-none cursor-pointer font-bold"
-                  >
-                    <option value="client">عميل (Client)</option>
-                    <option value="employee">موظف (Employee)</option>
-                  </select>
                 </div>
 
                 <div>
