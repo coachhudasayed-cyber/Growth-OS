@@ -34,6 +34,28 @@ const employeeFromResponse = (row: any): Employee => ({
   }))
 });
 
+const employeeAccountError = async (error: { context?: unknown; message?: string } | null | undefined) => {
+  let reason = '';
+  try {
+    const response = error?.context as Response | undefined;
+    const payload = await response?.json() as { error?: string } | undefined;
+    reason = payload?.error || '';
+  } catch {
+    // A network failure may not contain a JSON response.
+  }
+  const messages: Record<string, string> = {
+    'Invalid employee details': 'راجعي بيانات الموظف وكلمة السر والأجر لكل براند.',
+    'Unknown brand assignment': 'البراند المحدد لم يعد موجودًا. حدّثي الصفحة وحاولي مجددًا.',
+    'Email already used or invalid': 'الإيميل مستخدم بالفعل أو غير صالح.',
+    'Could not save employee account': 'تعذر حفظ حساب الموظف في Supabase.',
+    'Could not save brand assignments': 'تعذر حفظ إسناد البراندات في Supabase. صلاحيات جدول الموظفين غير مكتملة.',
+    'Server secret not configured': 'إعداد خادم Supabase غير مكتمل.',
+    'Invalid session': 'انتهت جلسة الدخول. سجّلي الدخول مرة أخرى.',
+    'Admin access required': 'إضافة الموظفين متاحة للأدمن فقط.'
+  };
+  return new Error(messages[reason] || (reason ? `تعذر حفظ الموظف: ${reason}` : error?.message || 'تعذر حفظ الموظف.'));
+};
+
 export function useAppData() {
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -309,9 +331,8 @@ export function useAppData() {
     const result = await supabase.functions.invoke('manage-user', {
       body: { action: 'create_employee', employee }
     });
-    if (result.error || !result.data?.employee) {
-      throw new Error('تعذر إنشاء حساب الموظف. تأكدي من الإيميل وكلمة السر والبراندات.');
-    }
+    if (result.error) throw await employeeAccountError(result.error);
+    if (!result.data?.employee) throw new Error('تعذر تأكيد حفظ حساب الموظف. حدّثي الصفحة قبل المحاولة مجددًا.');
     const created = employeeFromResponse(result.data.employee);
     setEmployees(prev => [created, ...prev]);
     return created;
@@ -322,7 +343,8 @@ export function useAppData() {
     const result = await supabase.functions.invoke('manage-user', {
       body: { action: 'update_employee', employeeId: id, employee }
     });
-    if (result.error || !result.data?.employee) throw new Error('تعذر تحديث بيانات الموظف.');
+    if (result.error) throw await employeeAccountError(result.error);
+    if (!result.data?.employee) throw new Error('تعذر تأكيد تعديل الموظف.');
     const updated = employeeFromResponse(result.data.employee);
     setEmployees(prev => prev.map(item => item.id === id ? updated : item));
   };
@@ -332,7 +354,7 @@ export function useAppData() {
     const result = await supabase.functions.invoke('manage-user', {
       body: { action: 'delete_employee', employeeId: id }
     });
-    if (result.error) throw new Error('تعذر حذف حساب الموظف.');
+    if (result.error) throw await employeeAccountError(result.error);
     setEmployees(prev => prev.filter(item => item.id !== id));
   };
 
