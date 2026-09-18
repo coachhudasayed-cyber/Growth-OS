@@ -1,464 +1,257 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  UserProfile,
-  UserRole,
-  Client,
-  TodoTask,
-  BudgetAlarm,
-  BudgetRechargeRecord,
-  Agreement,
-  PaymentRecord,
-  DailyWorkLog,
-  BrandAudit,
-  ContentPlanItem,
-  AdsPlanItem,
-  ClientAdsStageStrategy,
-  ClientDailyReport,
-  WeeklyReport,
-  MonthlyReport,
-  QuarterlyReport,
-  AdminDailyReport,
-  NoteItem
+  UserProfile, Client, TodoTask, BudgetAlarm, BudgetRechargeRecord,
+  Agreement, PaymentRecord, DailyWorkLog, BrandAudit, ContentPlanItem,
+  AdsPlanItem, ClientAdsStageStrategy, ClientDailyReport, WeeklyReport,
+  MonthlyReport, QuarterlyReport, AdminDailyReport, NoteItem
 } from '../types';
-import {
-  DEMO_USERS,
-  INITIAL_CLIENTS,
-  INITIAL_TODOS,
-  INITIAL_BUDGET_ALARMS,
-  INITIAL_AGREEMENTS,
-  INITIAL_PAYMENTS,
-  INITIAL_DAILY_WORK_LOGS,
-  INITIAL_BRAND_AUDITS,
-  INITIAL_CONTENT_PLANS,
-  INITIAL_ADS_PLANS,
-  INITIAL_ADS_STRATEGIES,
-  INITIAL_CLIENT_DAILY_REPORTS,
-  INITIAL_WEEKLY_REPORTS,
-  INITIAL_MONTHLY_REPORTS,
-  INITIAL_QUARTERLY_REPORTS,
-  INITIAL_ADMIN_DAILY_REPORTS,
-  INITIAL_NOTES,
-  calculateEndDate
-} from './initialData';
-import { getSupabaseClient } from './supabase';
+import { calculateEndDate } from './initialData';
+import { supabase } from './supabase';
 
-const STORAGE_KEYS = {
-  CURRENT_USER: 'brand_control_current_user',
-  USERS: 'brand_control_users',
-  CLIENTS: 'brand_control_clients',
-  TODOS: 'brand_control_todos',
-  BUDGET_ALARMS: 'brand_control_budget_alarms',
-  AGREEMENTS: 'brand_control_agreements',
-  PAYMENTS: 'brand_control_payments',
-  DAILY_WORK_LOGS: 'brand_control_daily_work_logs',
-  BRAND_AUDITS: 'brand_control_brand_audits',
-  CONTENT_PLANS: 'brand_control_content_plans',
-  ADS_PLANS: 'brand_control_ads_plans',
-  ADS_STRATEGIES: 'brand_control_ads_strategies',
-  CLIENT_DAILY_REPORTS: 'brand_control_client_daily_reports',
-  WEEKLY_REPORTS: 'brand_control_weekly_reports',
-  MONTHLY_REPORTS: 'brand_control_monthly_reports',
-  QUARTERLY_REPORTS: 'brand_control_quarterly_reports',
-  ADMIN_DAILY_REPORTS: 'brand_control_admin_daily_reports',
-  NOTES: 'brand_control_notes'
+type StoredRecord = {
+  collection: string;
+  record_id: string;
+  client_id: string | null;
+  data: unknown;
 };
 
-function loadInitial<T>(key: string, fallback: T): T {
-  try {
-    const item = localStorage.getItem(key);
-    if (!item) return fallback;
-    const parsed = JSON.parse(item);
-    // Migration: update old default admin name if present
-    if (key === STORAGE_KEYS.CURRENT_USER && parsed && typeof parsed === 'object' && parsed.id === 'user-admin-1') {
-      if (parsed.name?.includes('أحمد محمود') || parsed.name?.includes('احمد محمود')) {
-        parsed.name = 'هدي سيد (الأدمن)';
-      }
-    }
-    if (key === STORAGE_KEYS.USERS && Array.isArray(parsed)) {
-      parsed.forEach((u: any) => {
-        if (u && u.id === 'user-admin-1' && (u.name?.includes('أحمد محمود') || u.name?.includes('احمد محمود'))) {
-          u.name = 'هدي سيد (الأدمن)';
-        }
-      });
-    }
-    return parsed;
-  } catch (e) {
-    console.error(`Error loading ${key} from localStorage`, e);
-    return fallback;
-  }
-}
+const profileFromRow = (row: any): UserProfile => ({
+  id: row.id,
+  email: row.email,
+  name: row.name,
+  role: row.role,
+  clientId: row.client_id || undefined
+});
 
-function save<T>(key: string, data: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (e) {
-    console.error(`Error saving ${key} to localStorage`, e);
-  }
-}
-
-// React Custom Hook for global reactive state
 export function useAppData() {
-  // Current logged in user
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() =>
-    loadInitial<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, DEMO_USERS[0])
-  );
+  const [ready, setReady] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [syncError, setSyncError] = useState('');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [todos, setTodos] = useState<TodoTask[]>([]);
+  const [budgetAlarms, setBudgetAlarms] = useState<BudgetAlarm[]>([]);
+  const [agreements, setAgreements] = useState<Agreement[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>([]);
+  const [brandAudits, setBrandAudits] = useState<Record<string, BrandAudit>>({});
+  const [contentPlans, setContentPlans] = useState<ContentPlanItem[]>([]);
+  const [adsPlans, setAdsPlans] = useState<AdsPlanItem[]>([]);
+  const [clientAdsStrategies, setClientAdsStrategies] = useState<Record<string, ClientAdsStageStrategy>>({});
+  const [clientDailyReports, setClientDailyReports] = useState<ClientDailyReport[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([]);
+  const [quarterlyReports, setQuarterlyReports] = useState<QuarterlyReport[]>([]);
+  const [adminDailyReports, setAdminDailyReports] = useState<AdminDailyReport[]>([]);
+  const [notes, setNotes] = useState<NoteItem[]>([]);
+  const savedRecords = useRef<Map<string, string>>(new Map());
+  const writeQueue = useRef<Promise<void>>(Promise.resolve());
 
-  // All registered users (Admins & Clients)
-  const [users, setUsers] = useState<UserProfile[]>(() =>
-    loadInitial<UserProfile[]>(STORAGE_KEYS.USERS, DEMO_USERS)
-  );
-
-  // Clients
-  const [clients, setClients] = useState<Client[]>(() =>
-    loadInitial<Client[]>(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS)
-  );
-
-  // Todos
-  const [todos, setTodos] = useState<TodoTask[]>(() =>
-    loadInitial<TodoTask[]>(STORAGE_KEYS.TODOS, INITIAL_TODOS)
-  );
-
-  // Budget Alarms
-  const [budgetAlarms, setBudgetAlarms] = useState<BudgetAlarm[]>(() =>
-    loadInitial<BudgetAlarm[]>(STORAGE_KEYS.BUDGET_ALARMS, INITIAL_BUDGET_ALARMS)
-  );
-
-  // Agreements
-  const [agreements, setAgreements] = useState<Agreement[]>(() =>
-    loadInitial<Agreement[]>(STORAGE_KEYS.AGREEMENTS, INITIAL_AGREEMENTS)
-  );
-
-  // Payments
-  const [payments, setPayments] = useState<PaymentRecord[]>(() =>
-    loadInitial<PaymentRecord[]>(STORAGE_KEYS.PAYMENTS, INITIAL_PAYMENTS)
-  );
-
-  // Daily Work Tracking Logs
-  const [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>(() =>
-    loadInitial<DailyWorkLog[]>(STORAGE_KEYS.DAILY_WORK_LOGS, INITIAL_DAILY_WORK_LOGS)
-  );
-
-  // Brand Audits
-  const [brandAudits, setBrandAudits] = useState<Record<string, BrandAudit>>(() =>
-    loadInitial<Record<string, BrandAudit>>(STORAGE_KEYS.BRAND_AUDITS, INITIAL_BRAND_AUDITS)
-  );
-
-  // Content Plans
-  const [contentPlans, setContentPlans] = useState<ContentPlanItem[]>(() =>
-    loadInitial<ContentPlanItem[]>(STORAGE_KEYS.CONTENT_PLANS, INITIAL_CONTENT_PLANS)
-  );
-
-  // Ads Plans
-  const [adsPlans, setAdsPlans] = useState<AdsPlanItem[]>(() =>
-    loadInitial<AdsPlanItem[]>(STORAGE_KEYS.ADS_PLANS, INITIAL_ADS_PLANS)
-  );
-
-  // Client Ads Stage Strategies
-  const [clientAdsStrategies, setClientAdsStrategies] = useState<Record<string, ClientAdsStageStrategy>>(() =>
-    loadInitial<Record<string, ClientAdsStageStrategy>>(STORAGE_KEYS.ADS_STRATEGIES, INITIAL_ADS_STRATEGIES)
-  );
-
-  // Client Daily Reports
-  const [clientDailyReports, setClientDailyReports] = useState<ClientDailyReport[]>(() =>
-    loadInitial<ClientDailyReport[]>(STORAGE_KEYS.CLIENT_DAILY_REPORTS, INITIAL_CLIENT_DAILY_REPORTS)
-  );
-
-  // Weekly Reports
-  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>(() =>
-    loadInitial<WeeklyReport[]>(STORAGE_KEYS.WEEKLY_REPORTS, INITIAL_WEEKLY_REPORTS)
-  );
-
-  // Monthly Reports
-  const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>(() =>
-    loadInitial<MonthlyReport[]>(STORAGE_KEYS.MONTHLY_REPORTS, INITIAL_MONTHLY_REPORTS)
-  );
-
-  // Quarterly Reports
-  const [quarterlyReports, setQuarterlyReports] = useState<QuarterlyReport[]>(() =>
-    loadInitial<QuarterlyReport[]>(STORAGE_KEYS.QUARTERLY_REPORTS, INITIAL_QUARTERLY_REPORTS)
-  );
-
-  // Admin Daily Reports
-  const [adminDailyReports, setAdminDailyReports] = useState<AdminDailyReport[]>(() =>
-    loadInitial<AdminDailyReport[]>(STORAGE_KEYS.ADMIN_DAILY_REPORTS, INITIAL_ADMIN_DAILY_REPORTS)
-  );
-
-  // Notes
-  const [notes, setNotes] = useState<NoteItem[]>(() =>
-    loadInitial<NoteItem[]>(STORAGE_KEYS.NOTES, INITIAL_NOTES)
-  );
-
-  // Save changes to localStorage whenever state updates
-  useEffect(() => {
-    save(STORAGE_KEYS.CURRENT_USER, currentUser);
-  }, [currentUser]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.USERS, users);
-  }, [users]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.CLIENTS, clients);
-  }, [clients]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.ADS_PLANS, adsPlans);
-  }, [adsPlans]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.ADS_STRATEGIES, clientAdsStrategies);
-  }, [clientAdsStrategies]);
-
-  // Automatic sync: Remove any orphaned budget alarms or client data if client was deleted
-  useEffect(() => {
-    const validClientIds = new Set(clients.map(c => c.id));
-
-    setBudgetAlarms(prev => {
-      const filtered = prev.filter(b => validClientIds.has(b.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setUsers(prev => {
-      const filtered = prev.filter(u => u.role === 'admin' || !u.clientId || validClientIds.has(u.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setAgreements(prev => {
-      const filtered = prev.filter(a => validClientIds.has(a.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setPayments(prev => {
-      const filtered = prev.filter(p => validClientIds.has(p.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setDailyWorkLogs(prev => {
-      const filtered = prev.filter(l => validClientIds.has(l.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setContentPlans(prev => {
-      const filtered = prev.filter(cp => validClientIds.has(cp.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setAdsPlans(prev => {
-      const filtered = prev.filter(ap => validClientIds.has(ap.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setClientAdsStrategies(prev => {
-      const updated: Record<string, ClientAdsStageStrategy> = {};
-      Object.keys(prev).forEach(cid => {
-        if (validClientIds.has(cid)) {
-          updated[cid] = prev[cid];
-        }
-      });
-      return updated;
-    });
-
-    setClientDailyReports(prev => {
-      const filtered = prev.filter(r => validClientIds.has(r.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setWeeklyReports(prev => {
-      const filtered = prev.filter(r => validClientIds.has(r.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setMonthlyReports(prev => {
-      const filtered = prev.filter(r => validClientIds.has(r.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setQuarterlyReports(prev => {
-      const filtered = prev.filter(r => validClientIds.has(r.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-
-    setNotes(prev => {
-      const filtered = prev.filter(n => validClientIds.has(n.clientId));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
-  }, [clients]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.TODOS, todos);
-  }, [todos]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.BUDGET_ALARMS, budgetAlarms);
-  }, [budgetAlarms]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.AGREEMENTS, agreements);
-  }, [agreements]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.PAYMENTS, payments);
-  }, [payments]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.DAILY_WORK_LOGS, dailyWorkLogs);
-  }, [dailyWorkLogs]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.BRAND_AUDITS, brandAudits);
-  }, [brandAudits]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.CONTENT_PLANS, contentPlans);
-  }, [contentPlans]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.ADS_PLANS, adsPlans);
-  }, [adsPlans]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.CLIENT_DAILY_REPORTS, clientDailyReports);
-  }, [clientDailyReports]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.WEEKLY_REPORTS, weeklyReports);
-  }, [weeklyReports]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.MONTHLY_REPORTS, monthlyReports);
-  }, [monthlyReports]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.QUARTERLY_REPORTS, quarterlyReports);
-  }, [quarterlyReports]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.ADMIN_DAILY_REPORTS, adminDailyReports);
-  }, [adminDailyReports]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.NOTES, notes);
-  }, [notes]);
-
-  // Auth Methods
-  const login = (email: string, role?: UserRole): boolean => {
-    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (found) {
-      setCurrentUser(found);
-      return true;
+  const loadAccount = async (userId: string) => {
+    setReady(false);
+    const profileResult = await supabase.from('profiles').select('id,email,name,role,client_id').eq('id', userId).single();
+    if (profileResult.error || !profileResult.data) {
+      await supabase.auth.signOut();
+      throw new Error('الحساب غير مُفعّل داخل النظام. تواصلي مع الأدمن.');
     }
-    // If not found, create guest account for requested role
-    const newUser: UserProfile = {
-      id: `user-${Date.now()}`,
-      email,
-      name: email.split('@')[0],
-      role: role || 'client'
-    };
-    setUsers(prev => [...prev, newUser]);
-    setCurrentUser(newUser);
-    return true;
+    const [clientResult, userResult] = await Promise.all([
+      supabase.from('clients').select('data'),
+      supabase.from('profiles').select('id,email,name,role,client_id')
+    ]);
+    if (clientResult.error) throw clientResult.error;
+    if (userResult.error) throw userResult.error;
+    const rows: StoredRecord[] = [];
+    for (let start = 0; ; start += 1000) {
+      const result = await supabase.from('app_records')
+        .select('collection,record_id,client_id,data').range(start, start + 999);
+      if (result.error) throw result.error;
+      rows.push(...((result.data || []) as StoredRecord[]));
+      if (!result.data || result.data.length < 1000) break;
+    }
+    const byCollection = (name: string) => rows.filter(row => row.collection === name).map(row => row.data);
+    const asMap = <T,>(name: string): Record<string, T> =>
+      Object.fromEntries(rows.filter(row => row.collection === name).map(row => [row.record_id, row.data as T]));
+    savedRecords.current = new Map(rows.map(row => [
+      `${row.collection}:${row.record_id}`, JSON.stringify(row)
+    ]));
+    setUsers((userResult.data || []).map(profileFromRow));
+    setClients((clientResult.data || []).map(row => row.data as Client));
+    setTodos(byCollection('todos') as TodoTask[]);
+    setBudgetAlarms(byCollection('budgetAlarms') as BudgetAlarm[]);
+    setAgreements(byCollection('agreements') as Agreement[]);
+    setPayments(byCollection('payments') as PaymentRecord[]);
+    setDailyWorkLogs(byCollection('dailyWorkLogs') as DailyWorkLog[]);
+    setBrandAudits(asMap<BrandAudit>('brandAudits'));
+    setContentPlans(byCollection('contentPlans') as ContentPlanItem[]);
+    setAdsPlans(byCollection('adsPlans') as AdsPlanItem[]);
+    setClientAdsStrategies(asMap<ClientAdsStageStrategy>('clientAdsStrategies'));
+    setClientDailyReports(byCollection('clientDailyReports') as ClientDailyReport[]);
+    setWeeklyReports(byCollection('weeklyReports') as WeeklyReport[]);
+    setMonthlyReports(byCollection('monthlyReports') as MonthlyReport[]);
+    setQuarterlyReports(byCollection('quarterlyReports') as QuarterlyReport[]);
+    setAdminDailyReports(byCollection('adminDailyReports') as AdminDailyReport[]);
+    setNotes(byCollection('notes') as NoteItem[]);
+    setCurrentUser(profileFromRow(profileResult.data));
+    setAuthError('');
+    setSyncError('');
+    setReady(true);
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-  };
-
-  // Client CRUD
-  const addClient = async (newClientData: Omit<Client, 'id' | 'createdAt'> & { password?: string }) => {
-    const id = `client-${Date.now()}`;
-    const newClient: Client = {
-      ...newClientData,
-      id,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-
-    const userRole: UserRole = newClientData.clientRole === 'employee'
-      ? 'employee'
-      : (newClientData.clientRole === 'admin' ? 'admin' : 'client');
-
-    // Also register user for login
-    const newClientUser: UserProfile = {
-      id: `user-${id}`,
-      email: newClientData.email,
-      name: newClientData.clientRole === 'employee'
-        ? `${newClientData.name} (موظف: ${newClientData.brandName})`
-        : `${newClientData.name} (${newClientData.brandName})`,
-      role: userRole,
-      clientId: id
-    };
-
-    // Try Supabase Auth if client exists
-    const supabase = getSupabaseClient();
-    if (supabase && newClientData.password) {
-      try {
-        await supabase.auth.signUp({
-          email: newClientData.email,
-          password: newClientData.password,
-          options: {
-            data: {
-              role: userRole,
-              client_id: id,
-              brand_name: newClientData.brandName
-            }
-          }
-        });
-      } catch (err) {
-        console.warn('Supabase auth signup attempt completed with local fallback:', err);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      if (!active) return;
+      if (error) throw error;
+      if (data.session?.user) await loadAccount(data.session.user.id);
+      else setReady(true);
+    }).catch(err => {
+      if (active) {
+        setAuthError(err instanceof Error ? err.message : 'تعذر تحميل الحساب.');
+        setReady(true);
       }
-    }
-
-    setClients(prev => [newClient, ...prev]);
-    setUsers(prev => {
-      const filtered = prev.filter(u => u.email.toLowerCase() !== newClientData.email.toLowerCase());
-      return [...filtered, newClientUser];
     });
-    return newClient;
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        savedRecords.current.clear();
+        setCurrentUser(null);
+        setReady(true);
+      }
+    });
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !currentUser || currentUser.role === 'client') return;
+    const next = new Map<string, string>();
+    const add = (collection: string, recordId: string, clientId: string | null, data: unknown) => {
+      const row: StoredRecord = { collection, record_id: recordId, client_id: clientId, data };
+      next.set(`${collection}:${recordId}`, JSON.stringify(row));
+    };
+    const addItems = (name: string, items: Array<{ id: string; clientId?: string }>) =>
+      items.forEach(item => add(name, item.id, item.clientId || null, item));
+    addItems('todos', todos);
+    addItems('budgetAlarms', budgetAlarms);
+    addItems('agreements', agreements);
+    addItems('payments', payments);
+    addItems('dailyWorkLogs', dailyWorkLogs);
+    Object.entries(brandAudits).forEach(([id, value]) => add('brandAudits', id, id, value));
+    addItems('contentPlans', contentPlans);
+    addItems('adsPlans', adsPlans);
+    Object.entries(clientAdsStrategies).forEach(([id, value]) => add('clientAdsStrategies', id, id, value));
+    addItems('clientDailyReports', clientDailyReports);
+    addItems('weeklyReports', weeklyReports);
+    addItems('monthlyReports', monthlyReports);
+    addItems('quarterlyReports', quarterlyReports);
+    addItems('adminDailyReports', adminDailyReports);
+    addItems('notes', notes);
+    const before = savedRecords.current;
+    const upserts = [...next.entries()]
+      .filter(([key, value]) => before.get(key) !== value)
+      .map(([, value]) => JSON.parse(value) as StoredRecord);
+    const deletes = [...before.keys()].filter(key => !next.has(key));
+    savedRecords.current = next;
+    if (!upserts.length && !deletes.length) return;
+    writeQueue.current = writeQueue.current.catch(() => undefined).then(async () => {
+      for (let i = 0; i < upserts.length; i += 200) {
+        const result = await supabase.from('app_records')
+          .upsert(upserts.slice(i, i + 200), { onConflict: 'collection,record_id' });
+        if (result.error) throw result.error;
+      }
+      for (const key of deletes) {
+        const divider = key.indexOf(':');
+        const result = await supabase.from('app_records').delete()
+          .eq('collection', key.slice(0, divider)).eq('record_id', key.slice(divider + 1));
+        if (result.error) throw result.error;
+      }
+      setSyncError('');
+    }).catch(err => {
+      setSyncError(err instanceof Error ? err.message : 'تعذر حفظ آخر التغييرات.');
+    });
+  }, [ready, currentUser, todos, budgetAlarms, agreements, payments, dailyWorkLogs,
+      brandAudits, contentPlans, adsPlans, clientAdsStrategies, clientDailyReports,
+      weeklyReports, monthlyReports, quarterlyReports, adminDailyReports, notes]);
+
+  const login = async (email: string, password: string) => {
+    setAuthError('');
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    if (result.error || !result.data.user) throw new Error('البريد الإلكتروني أو كلمة السر غير صحيحة.');
+    await loadAccount(result.data.user.id);
   };
 
-  const updateClient = (id: string, updatedFields: Partial<Client>) => {
-    setClients(prev => prev.map(c => (c.id === id ? { ...c, ...updatedFields } : c)));
-    if (updatedFields.brandName) {
-      setBudgetAlarms(prev =>
-        prev.map(b => (b.clientId === id ? { ...b, brandName: updatedFields.brandName! } : b))
-      );
+  const registerAdmin = async (email: string, password: string, token: string) => {
+    const result = await supabase.functions.invoke('bootstrap-admin', {
+      body: { email, password, token }
+    });
+    if (result.error) throw new Error('تعذر تفعيل حساب الأدمن. تحققي من الإيميل ورمز التفعيل.');
+    await login(email, password);
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setReady(true);
+  };
+
+  const addClient = async (newClientData: Omit<Client, 'id' | 'createdAt'> & { password?: string }) => {
+    if (currentUser?.role !== 'admin') throw new Error('إضافة الحسابات متاحة للأدمن فقط.');
+    if (!newClientData.password || newClientData.password.length < 8) {
+      throw new Error('كلمة السر لازم تكون 8 حروف على الأقل.');
     }
-    if (updatedFields.clientRole || updatedFields.email || updatedFields.name || updatedFields.brandName) {
-      setUsers(prev => prev.map(u => {
-        if (u.clientId === id) {
-          const newRole: UserRole = updatedFields.clientRole === 'employee'
-            ? 'employee'
-            : (updatedFields.clientRole === 'admin' ? 'admin' : (updatedFields.clientRole === 'client' ? 'client' : u.role));
-          const clientName = updatedFields.name || u.name.split(' (')[0];
-          const brandName = updatedFields.brandName || '';
-          return {
-            ...u,
-            email: updatedFields.email || u.email,
-            name: brandName ? `${clientName} (${newRole === 'employee' ? 'موظف: ' : ''}${brandName})` : u.name,
-            role: newRole
-          };
-        }
-        return u;
-      }));
+    const result = await supabase.functions.invoke('manage-user', {
+      body: { action: 'create', client: newClientData }
+    });
+    if (result.error || !result.data?.client || !result.data?.profile) {
+      throw new Error('تعذر إنشاء الحساب. تأكدي من الإيميل وكلمة السر، أو جربي إيميلًا آخر.');
+    }
+    const created = result.data.client as Client;
+    setClients(prev => [created, ...prev]);
+    setUsers(prev => [...prev, profileFromRow(result.data.profile)]);
+    return created;
+  };
+
+  const updateClient = async (id: string, fields: Partial<Client>) => {
+    if (currentUser?.role !== 'admin') throw new Error('تعديل الحسابات متاح للأدمن فقط.');
+    const result = await supabase.functions.invoke('manage-user', {
+      body: { action: 'update', clientId: id, fields }
+    });
+    if (result.error || !result.data?.client) throw new Error('تعذر تحديث الحساب.');
+    setClients(prev => prev.map(client => client.id === id ? result.data.client as Client : client));
+    if (result.data.profile) {
+      setUsers(prev => prev.map(user => user.clientId === id ? profileFromRow(result.data.profile) : user));
+    }
+    if (fields.brandName) {
+      setBudgetAlarms(prev => prev.map(item =>
+        item.clientId === id ? { ...item, brandName: fields.brandName! } : item
+      ));
     }
   };
 
-  const deleteClient = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id));
-    setUsers(prev => prev.filter(u => u.clientId !== id));
-    setBudgetAlarms(prev => prev.filter(b => b.clientId !== id));
-    setAgreements(prev => prev.filter(a => a.clientId !== id));
-    setPayments(prev => prev.filter(p => p.clientId !== id));
-    setDailyWorkLogs(prev => prev.filter(l => l.clientId !== id));
-    setContentPlans(prev => prev.filter(cp => cp.clientId !== id));
-    setAdsPlans(prev => prev.filter(ap => ap.clientId !== id));
-    setClientDailyReports(prev => prev.filter(r => r.clientId !== id));
-    setWeeklyReports(prev => prev.filter(r => r.clientId !== id));
-    setNotes(prev => prev.filter(n => n.clientId !== id));
-    setBrandAudits(prev => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
+  const deleteClient = async (id: string) => {
+    if (currentUser?.role !== 'admin') throw new Error('حذف الحسابات متاح للأدمن فقط.');
+    const result = await supabase.functions.invoke('manage-user', {
+      body: { action: 'delete', clientId: id }
     });
+    if (result.error) throw new Error('تعذر حذف الحساب.');
+    setClients(prev => prev.filter(client => client.id !== id));
+    setUsers(prev => prev.filter(user => user.clientId !== id));
+    setBudgetAlarms(prev => prev.filter(item => item.clientId !== id));
+    setAgreements(prev => prev.filter(item => item.clientId !== id));
+    setPayments(prev => prev.filter(item => item.clientId !== id));
+    setDailyWorkLogs(prev => prev.filter(item => item.clientId !== id));
+    setContentPlans(prev => prev.filter(item => item.clientId !== id));
+    setAdsPlans(prev => prev.filter(item => item.clientId !== id));
+    setClientDailyReports(prev => prev.filter(item => item.clientId !== id));
+    setWeeklyReports(prev => prev.filter(item => item.clientId !== id));
+    setMonthlyReports(prev => prev.filter(item => item.clientId !== id));
+    setQuarterlyReports(prev => prev.filter(item => item.clientId !== id));
+    setAdminDailyReports(prev => prev.filter(item => item.clientId !== id));
+    setNotes(prev => prev.filter(item => item.clientId !== id));
+    setBrandAudits(prev => { const copy = { ...prev }; delete copy[id]; return copy; });
+    setClientAdsStrategies(prev => { const copy = { ...prev }; delete copy[id]; return copy; });
   };
 
   // Todo Methods
@@ -817,29 +610,10 @@ export function useAppData() {
     setNotes(prev => prev.filter(n => n.id !== id));
   };
 
-  // Reset to initial demo data helper
-  const resetToDemoData = () => {
-    setCurrentUser(DEMO_USERS[0]);
-    setUsers(DEMO_USERS);
-    setClients(INITIAL_CLIENTS);
-    setTodos(INITIAL_TODOS);
-    setBudgetAlarms(INITIAL_BUDGET_ALARMS);
-    setAgreements(INITIAL_AGREEMENTS);
-    setPayments(INITIAL_PAYMENTS);
-    setDailyWorkLogs(INITIAL_DAILY_WORK_LOGS);
-    setBrandAudits(INITIAL_BRAND_AUDITS);
-    setContentPlans(INITIAL_CONTENT_PLANS);
-    setAdsPlans(INITIAL_ADS_PLANS);
-    setClientAdsStrategies(INITIAL_ADS_STRATEGIES);
-    setClientDailyReports(INITIAL_CLIENT_DAILY_REPORTS);
-    setWeeklyReports(INITIAL_WEEKLY_REPORTS);
-    setMonthlyReports(INITIAL_MONTHLY_REPORTS);
-    setQuarterlyReports(INITIAL_QUARTERLY_REPORTS);
-    setAdminDailyReports(INITIAL_ADMIN_DAILY_REPORTS);
-    setNotes(INITIAL_NOTES);
-  };
-
   return {
+    ready,
+    authError,
+    syncError,
     currentUser,
     users,
     clients,
@@ -858,8 +632,8 @@ export function useAppData() {
     quarterlyReports,
     adminDailyReports,
     notes,
-    // Methods
     login,
+    registerAdmin,
     logout,
     addClient,
     updateClient,
@@ -908,6 +682,5 @@ export function useAppData() {
     updateNote,
     toggleNotePin,
     deleteNote,
-    resetToDemoData
   };
 }
