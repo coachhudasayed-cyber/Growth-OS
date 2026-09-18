@@ -137,6 +137,7 @@ export default function App() {
 
     return (
       <>
+        {syncBanner}
         <BrandPageView
           client={targetClient}
           userRole="client"
