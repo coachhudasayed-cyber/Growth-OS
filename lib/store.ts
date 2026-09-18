@@ -103,7 +103,8 @@ export function useAppData() {
     const rows: StoredRecord[] = [];
     for (let start = 0; ; start += 1000) {
       const result = await supabase.from('app_records')
-        .select('collection,record_id,client_id,data').range(start, start + 999);
+        .select('collection,record_id,client_id,data')
+        .order('collection').order('record_id').range(start, start + 999);
       if (result.error) throw result.error;
       rows.push(...((result.data || []) as StoredRecord[]));
       if (!result.data || result.data.length < 1000) break;
