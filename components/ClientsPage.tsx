@@ -461,6 +461,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                   >
                     <Eye className="w-4 h-4" />
                   </button>
+                  {userRole === 'admin' && <>
                   <button
                     onClick={() => handleOpenEdit(client)}
                     className="p-2 text-[#8E8E85] hover:text-[#E07A48] rounded-xl hover:bg-[#E07A48]/10 transition cursor-pointer"
@@ -479,6 +480,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                  </>}
                 </div>
               </div>
             </div>
