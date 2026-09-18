@@ -14,3 +14,10 @@ jobs:
       - run: npm install
       - run: npm run lint
       - run: npm run build
+      - name: Check Supabase activation endpoint
+        run: |
+          status=$(curl -sS -o response.json -w '%{http_code}' -X POST 'https://eqffgqkwlejztgmrtbgd.supabase.co/functions/v1/bootstrap-admin' \
+            -H 'Content-Type: application/json' \
+            -H 'apikey: sb_publishable__QQP6AMI19sYYI_VSOZ_6Q_-abAsggy' \
+            --data '{"email":"coach.hudasayed@gmail.com","password":"invalidpassword","token":"0000000000000000000000000000000000000000000000000000000000000000"}')
+          test "$status" = "403"
