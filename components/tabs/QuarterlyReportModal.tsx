@@ -1,3 +1,4 @@
+import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -676,46 +677,11 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
   clientId
 }) => {
   // Questions template state
-  const [questions, setQuestions] = useState<QuarterlyReportQuestion[]>(() => {
-    try {
-      const stored = localStorage.getItem(`quarterly_report_questions_${clientId}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {
-      // ignore
-    }
-    return DEFAULT_QUARTERLY_REPORT_QUESTIONS;
-  });
+  const [questions, setQuestions] = useSupabaseSetting<QuarterlyReportQuestion[]>(
+    `quarterly_report_questions_${clientId}`, clientId, DEFAULT_QUARTERLY_REPORT_QUESTIONS, true
+  );
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(`quarterly_report_questions_${clientId}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setQuestions(parsed);
-          return;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    setQuestions(DEFAULT_QUARTERLY_REPORT_QUESTIONS);
-  }, [clientId]);
-
-  const saveQuestionsTemplate = (updatedQuestions: QuarterlyReportQuestion[]) => {
-    setQuestions(updatedQuestions);
-    try {
-      localStorage.setItem(
-        `quarterly_report_questions_${clientId}`,
-        JSON.stringify(updatedQuestions)
-      );
-    } catch {
-      // ignore
-    }
-  };
+  const saveQuestionsTemplate = (updatedQuestions: QuarterlyReportQuestion[]) => setQuestions(updatedQuestions);
 
   const handleResetSectionQuestions = (sectionId: QuarterlyReportSectionId) => {
     const defaultForSec = DEFAULT_QUARTERLY_REPORT_QUESTIONS.filter(

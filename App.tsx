@@ -8,6 +8,7 @@ import { AccountsPage } from './components/AccountsPage';
 import { ClientsPage } from './components/ClientsPage';
 import { BrandPageView } from './components/BrandPageView';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
+import { AccountSettings } from './components/AccountSettings';
 
 export default function App() {
   const store = useAppData();
@@ -31,6 +32,7 @@ export default function App() {
     adminDailyReports,
     notes,
     login,
+    registerAdmin,
     logout,
     addClient,
     updateClient,
@@ -78,9 +80,15 @@ export default function App() {
     addNote,
     updateNote,
     toggleNotePin,
-    deleteNote,
-    resetToDemoData
+    deleteNote
   } = store;
+
+  const syncBanner = store.syncError ? (
+    <div role="alert" className="bg-red-50 text-red-800 p-3 text-sm flex items-center justify-between gap-3">
+      <span>تعذر حفظ آخر التغييرات: {store.syncError}</span>
+      <button onClick={store.retrySync} className="underline font-bold">إعادة المحاولة</button>
+    </div>
+  ) : null;
 
   // Active Navigation State for Admin
   const [adminPage, setAdminPage] = useState<AdminPage>('dashboard');
@@ -91,23 +99,12 @@ export default function App() {
   const currentActivePage: AdminPage =
     currentUser?.role === 'employee' && adminPage === 'accounts' ? 'dashboard' : adminPage;
 
-  // 1. IF NOT LOGGED IN -> LOGIN PAGE
+  if (!store.ready) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F5F5F0]">جارٍ تحميل النظام...</div>;
+  }
+
   if (!currentUser) {
-    return (
-      <>
-        <LoginPage
-          onLogin={login}
-          availableUsers={store.users}
-          onOpenSupabaseConfig={() => setShowSupabaseModal(true)}
-        />
-        {showSupabaseModal && (
-          <SupabaseConfigModal
-            onClose={() => setShowSupabaseModal(false)}
-            onResetDemoData={resetToDemoData}
-          />
-        )}
-      </>
-    );
+    return <LoginPage onLogin={login} onRegisterAdmin={registerAdmin} authError={store.authError} />;
   }
 
   // 2. CLIENT ROLE -> DIRECT BRAND PAGE VIEW ONLY (Bypasses Admin Layout completely)
@@ -115,14 +112,14 @@ export default function App() {
     // Determine target client
     const targetClient =
       clients.find((c) => c.id === currentUser.clientId) ||
-      clients.find((c) => c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
-      clients[0];
+      clients.find((c) => c.email.toLowerCase() === currentUser.email.toLowerCase());
 
     if (!targetClient) {
       return (
         <div className="min-h-screen bg-[#F5F5F0] text-[#2D2D2A] flex items-center justify-center p-4">
           <div className="text-center space-y-3">
             <h2 className="text-xl font-bold">لا يوجد براند مرتبط بهذا الحساب حالياً</h2>
+            <AccountSettings user={currentUser} />
             <button
               onClick={logout}
               className="px-4 py-2 bg-indigo-600 rounded-xl text-xs font-bold"
@@ -140,6 +137,7 @@ export default function App() {
           client={targetClient}
           userRole="client"
           currentUserName={currentUser.name}
+          currentUser={currentUser}
           onLogout={logout}
           dailyWorkLogs={dailyWorkLogs}
           brandAudit={brandAudits[targetClient.id]}
@@ -197,7 +195,6 @@ export default function App() {
         {showSupabaseModal && (
           <SupabaseConfigModal
             onClose={() => setShowSupabaseModal(false)}
-            onResetDemoData={resetToDemoData}
           />
         )}
       </>
@@ -211,10 +208,12 @@ export default function App() {
     if (activeClient) {
       return (
         <>
+          {syncBanner}
           <BrandPageView
             client={activeClient}
             userRole={currentUser.role}
             currentUserName={currentUser.name}
+          currentUser={currentUser}
             onBackToAdminDashboard={() => setSelectedClientId(null)}
             onLogout={logout}
             dailyWorkLogs={dailyWorkLogs}
@@ -273,14 +272,10 @@ export default function App() {
           {showSupabaseModal && (
             <SupabaseConfigModal
               onClose={() => setShowSupabaseModal(false)}
-              onResetDemoData={resetToDemoData}
-            />
+              />
           )}
         </>
       );
-    } else {
-      // If client ID was not found (e.g. client was deleted), reset selectedClientId so admin stays on Dashboard
-      setSelectedClientId(null);
     }
   }
 
@@ -319,6 +314,7 @@ export default function App() {
 
       {/* Main Admin / Employee Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {syncBanner}
         <AdminHeader
           title={headerTitles[currentActivePage].title}
           subtitle={
@@ -377,7 +373,6 @@ export default function App() {
       {showSupabaseModal && (
         <SupabaseConfigModal
           onClose={() => setShowSupabaseModal(false)}
-          onResetDemoData={resetToDemoData}
         />
       )}
     </div>

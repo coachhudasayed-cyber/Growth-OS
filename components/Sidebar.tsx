@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Wallet, Users, LogOut, Building2, ShieldCheck, Menu, X } from 'lucide-react';
 import { UserProfile } from '../types';
+import { AccountSettings } from './AccountSettings';
 
 export type AdminPage = 'dashboard' | 'accounts' | 'clients';
 
@@ -154,6 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+        <AccountSettings user={currentUser} />
       </div>
     </div>
   );

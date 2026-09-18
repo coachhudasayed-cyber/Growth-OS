@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import {
   Client,
+  UserProfile,
   UserRole,
   AdminTab,
   ClientTab,
@@ -52,11 +53,13 @@ import { WeeklyReportsTab } from './tabs/WeeklyReportsTab';
 import { MonthlyReportsTab } from './tabs/MonthlyReportsTab';
 import { AdminDailyReportsTab } from './tabs/AdminDailyReportsTab';
 import { NotesTab } from './tabs/NotesTab';
+import { AccountSettings } from './AccountSettings';
 
 interface BrandPageViewProps {
   client: Client;
   userRole: UserRole;
   currentUserName: string;
+  currentUser: UserProfile;
   onBackToAdminDashboard?: () => void;
   onLogout: () => void;
   // App Data
@@ -134,6 +137,7 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
   client,
   userRole,
   currentUserName,
+  currentUser,
   onBackToAdminDashboard,
   onLogout,
   dailyWorkLogs,
@@ -296,41 +300,43 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
 
           {/* Quick External Links & User Logout */}
           <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 sm:gap-3">
-            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl border border-[#E5E5E0] text-xs text-[#2D2D2A]">
-              {client.brandPageUrl && (
-                <a
-                  href={client.brandPageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-1.5 hover:text-[#5A5A40] hover:bg-[#F5F5F0] rounded-lg transition"
-                  title="صفحة البراند"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
-              {client.websiteUrl && (
-                <a
-                  href={client.websiteUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-1.5 hover:text-amber-800 hover:bg-[#F5F5F0] rounded-lg transition"
-                  title="الموقع الإلكتروني"
-                >
-                  <Globe className="w-4 h-4" />
-                </a>
-              )}
-              {(client.formAnswersUrl || client.formUrl) && (
-                <a
-                  href={client.formAnswersUrl || client.formUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-1.5 hover:text-amber-700 hover:bg-[#F5F5F0] rounded-lg transition"
-                  title="رابط إجابات الفورم"
-                >
-                  <FileText className="w-4 h-4" />
-                </a>
-              )}
-            </div>
+            {userRole !== 'client' && (client.brandPageUrl || client.websiteUrl || client.formAnswersUrl || client.formUrl) && (
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl border border-[#E5E5E0] text-xs text-[#2D2D2A]">
+                {client.brandPageUrl && (
+                  <a
+                    href={client.brandPageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 hover:text-[#5A5A40] hover:bg-[#F5F5F0] rounded-lg transition"
+                    title="صفحة البراند"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+                {client.websiteUrl && (
+                  <a
+                    href={client.websiteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 hover:text-amber-800 hover:bg-[#F5F5F0] rounded-lg transition"
+                    title="الموقع الإلكتروني"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </a>
+                )}
+                {(client.formAnswersUrl || client.formUrl) && (
+                  <a
+                    href={client.formAnswersUrl || client.formUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 hover:text-amber-700 hover:bg-[#F5F5F0] rounded-lg transition"
+                    title="رابط إجابات الفورم"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Current User Role Info */}
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 sm:py-2 rounded-2xl border border-[#E5E5E0] text-xs">
@@ -356,6 +362,8 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
                 </div>
               </div>
             </div>
+
+            <AccountSettings user={currentUser} compact />
 
             <button
               onClick={onLogout}

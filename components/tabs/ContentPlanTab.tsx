@@ -1,3 +1,4 @@
+import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
 import React, { useState, useMemo } from 'react';
 import {
   Calendar as CalendarIcon,
@@ -123,21 +124,10 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
   const [title, setTitle] = useState<string>('');
   const [details, setDetails] = useState<string>('');
 
-  // Library State & Category Management with LocalStorage persistence
-  const [libraryCategories, setLibraryCategories] = useState<ContentLibraryCategory[]>(() => {
-    try {
-      const saved = localStorage.getItem('content_library_categories_v2');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load library categories from localStorage', e);
-    }
-    return CONTENT_LIBRARY;
-  });
+  // Library State & Category Management with Supabase persistence
+  const [libraryCategories, setLibraryCategories] = useSupabaseSetting<ContentLibraryCategory[]>(
+    'content_library_categories_v2', null, CONTENT_LIBRARY, userRole !== 'client'
+  );
 
   const [librarySearch, setLibrarySearch] = useState<string>('');
   const [selectedLibraryCatId, setSelectedLibraryCatId] = useState<number | 'all'>('all');
@@ -154,15 +144,6 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
 
   // Delete Confirmation State
   const [deletingCategory, setDeletingCategory] = useState<{ id: number; title: string } | null>(null);
-
-  // Sync to LocalStorage on change
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('content_library_categories_v2', JSON.stringify(libraryCategories));
-    } catch (e) {
-      console.error('Failed to save library categories to localStorage', e);
-    }
-  }, [libraryCategories]);
 
   // Open Add Modal
   const handleOpenAddCategoryModal = () => {

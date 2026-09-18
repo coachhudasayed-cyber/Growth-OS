@@ -1,3 +1,4 @@
+import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
 import React, { useState } from 'react';
 import {
   BarChart2,
@@ -408,29 +409,11 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   // --- Questions Template Management (Persistent per client) ---
   const storageKey = `weekly_report_questions_${clientId}`;
 
-  const [questions, setQuestions] = useState<WeeklyReportQuestion[]>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch {
-      // ignore JSON error
-    }
-    return DEFAULT_WEEKLY_REPORT_QUESTIONS;
-  });
+  const [questions, setQuestions] = useSupabaseSetting<WeeklyReportQuestion[]>(
+    storageKey, clientId, DEFAULT_WEEKLY_REPORT_QUESTIONS, userRole !== 'client'
+  );
 
-  const saveQuestionsTemplate = (newQuestions: WeeklyReportQuestion[]) => {
-    setQuestions(newQuestions);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(newQuestions));
-    } catch {
-      // ignore
-    }
-  };
+  const saveQuestionsTemplate = (newQuestions: WeeklyReportQuestion[]) => setQuestions(newQuestions);
 
   // Reset questions to default for all sections or specific section
   const handleResetSectionQuestions = (sectionId: WeeklyReportSectionId) => {
