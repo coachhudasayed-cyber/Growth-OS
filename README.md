@@ -1,20 +1,30 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Growth OS
 
-# Run and deploy your AI Studio app
+تطبيق لإدارة العملاء، الحملات، التقارير والحسابات المالية للوكالات التسويقية.
 
-This contains everything you need to run your app locally.
+## التشغيل
 
-View your app in AI Studio: https://ai.studio/apps/a0f12576-5c49-46f6-8932-371438b7bd59
+```bash
+npm install
+npm run dev
+```
 
-## Run Locally
+فحص المشروع:
 
-**Prerequisites:**  Node.js
+```bash
+npm run lint
+npm run build
+```
 
+المشروع يستخدم React وTypeScript وVite. الاتصال الافتراضي في `lib/supabase.ts` يشير إلى مشروع Growth OS في Supabase. رابط المشروع والمفتاح القابل للنشر معلومات عامة لا تمنح صلاحيات الإدارة. لا تضع مفتاح `service_role` في الواجهة أو في GitHub.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## الحسابات والبيانات
+
+- حساب الأدمن الأساسي يُفعّل مرة واحدة بإيميل `coach.hudasayed@gmail.com`، وكلمة سر تختارينها، ورمز التفعيل الذي يُسلّم بشكل منفصل. رمز التفعيل غير محفوظ في المستودع.
+- بعد الدخول، تضيف الأدمن حساب العميل أو الموظف من صفحة إدارة العملاء. يجب إدخال إيميل فريد وكلمة سر لا تقل عن 8 أحرف.
+- إنشاء الحساب يتم في Supabase Auth من خلال دالة `manage-user`. بيانات العميل تحفظ في جدول `clients`، والدور في `profiles`، وباقي بيانات التطبيق في `app_records`.
+- العميل يرى بياناته فقط. الأدمن والموظف يستطيعان قراءة بيانات العمل، وإنشاء الحسابات وتعديلها وحذفها متاح للأدمن فقط.
+- يتم تسجيل الدخول بإيميل وكلمة سر من أي جهاز يصل إلى التطبيق. لا توجد حسابات تجريبية أو دخول بلا كلمة سر.
+- سياسات Row Level Security مفعلة على كل الجداول العامة. ملفات الـ SQL والدوال موجودة تحت `supabase/`.
+
+عند فشل حفظ تغيير، تظهر رسالة في الواجهة مع زر لإعادة المحاولة. البيانات التجريبية السابقة في Local Storage لا تُرحّل تلقائيًا لأنها لم تكن مرتبطة بحسابات آمنة.
