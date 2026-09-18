@@ -1,7 +1,7 @@
 name: Verify
 on:
   push:
-    branches: [codex/fix-auth-storage]
+    branches: [main, codex/fix-auth-storage]
   pull_request:
 jobs:
   build:
