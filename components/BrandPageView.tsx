@@ -4,6 +4,7 @@ import {
   ExternalLink,
   Globe,
   FileText,
+  FolderOpen,
   ShieldCheck,
   User,
   LogOut,
@@ -317,6 +318,11 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
                   title="الموقع الإلكتروني"
                 >
                   <Globe className="w-4 h-4" />
+                </a>
+              )}
+              {userRole !== 'client' && client.driveFolderUrl && (
+                <a href={client.driveFolderUrl} target="_blank" rel="noreferrer" className="p-1.5 hover:text-blue-700 hover:bg-[#F5F5F0] rounded-lg transition" title="ملفات البراند على Google Drive" aria-label="فتح ملفات البراند">
+                  <FolderOpen className="w-4 h-4" />
                 </a>
               )}
               {(client.formAnswersUrl || client.formUrl) && (
