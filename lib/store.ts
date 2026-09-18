@@ -27,6 +27,7 @@ export function useAppData() {
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState('');
   const [syncError, setSyncError] = useState('');
+  const [retrySyncCount, setRetrySyncCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -169,11 +170,12 @@ export function useAppData() {
       }
       setSyncError('');
     }).catch(err => {
+      savedRecords.current = before;
       setSyncError(err instanceof Error ? err.message : 'تعذر حفظ آخر التغييرات.');
     });
   }, [ready, currentUser, todos, budgetAlarms, agreements, payments, dailyWorkLogs,
       brandAudits, contentPlans, adsPlans, clientAdsStrategies, clientDailyReports,
-      weeklyReports, monthlyReports, quarterlyReports, adminDailyReports, notes]);
+      weeklyReports, monthlyReports, quarterlyReports, adminDailyReports, notes, retrySyncCount]);
 
   const login = async (email: string, password: string) => {
     setAuthError('');
@@ -614,6 +616,7 @@ export function useAppData() {
     ready,
     authError,
     syncError,
+    retrySync: () => setRetrySyncCount(value => value + 1),
     currentUser,
     users,
     clients,
