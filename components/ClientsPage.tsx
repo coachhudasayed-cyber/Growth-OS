@@ -66,7 +66,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
   const [password, setPassword] = useState('');
   const [brandPageUrl, setBrandPageUrl] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
-  const [driveFolderUrl, setDriveFolderUrl] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [status, setStatus] = useState<ClientStatus>('active');
   const [clientRole, setClientRole] = useState<ClientRole>('client');
@@ -82,7 +81,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     setPassword('');
     setBrandPageUrl('');
     setWebsiteUrl('');
-    setDriveFolderUrl('');
     setFormUrl('');
     setStatus('active');
     setClientRole('client');
@@ -98,7 +96,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     setPassword('');
     setBrandPageUrl(c.brandPageUrl || '');
     setWebsiteUrl(c.websiteUrl || '');
-    setDriveFolderUrl(c.driveFolderUrl || '');
     setFormUrl(c.formAnswersUrl || c.formUrl || '');
     setStatus(c.status || 'active');
     setClientRole(c.clientRole || 'client');
@@ -121,7 +118,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
             email,
             brandPageUrl,
             websiteUrl,
-            driveFolderUrl,
             formUrl,
             formAnswersUrl: formUrl,
             status,
@@ -137,7 +133,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
           password,
           brandPageUrl,
           websiteUrl,
-          driveFolderUrl,
           formUrl,
           formAnswersUrl: formUrl,
           status,
@@ -155,7 +150,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       setPassword('');
       setBrandPageUrl('');
       setWebsiteUrl('');
-    setDriveFolderUrl('');
       setFormUrl('');
       setStatus('active');
       setClientRole('client');
@@ -293,8 +287,8 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                     </button>
                   </div>
 
-                  {/* روابط البراند وملفاته */}
-                  <div className="pt-3 border-t border-[#E5E5E0] grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Links: صفحة البراند - الموقع - رابط إجابات الفورم */}
+                  <div className="pt-3 border-t border-[#E5E5E0] grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {client.brandPageUrl ? (
                       <a
                         href={client.brandPageUrl}
@@ -325,13 +319,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                       <div className="px-2.5 py-2.5 bg-[#F0EFEB] text-[#A0A096] rounded-xl text-[11px] text-center font-medium border border-[#E5E5E0] truncate">
                         الموقع (غير متوفر)
                       </div>
-                    )}
-
-                    {client.driveFolderUrl && (
-                      <a href={client.driveFolderUrl} target="_blank" rel="noreferrer" className="px-2.5 py-2.5 bg-blue-50 hover:bg-blue-600 text-blue-800 hover:text-white border border-blue-200 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-2xs">
-                        <FolderOpen className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">ملفات البراند</span>
-                      </a>
                     )}
 
                     {(client.formAnswersUrl || client.formUrl) ? (
@@ -414,7 +401,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                     </div>
                   )}
 
-                  {(client.brandPageUrl || client.websiteUrl || client.formUrl || client.driveFolderUrl) && (
+                  {(client.brandPageUrl || client.websiteUrl || client.formUrl) && (
                     <div className="pt-2 border-t border-[#E5E5E0] grid grid-cols-2 gap-2 text-[11px]">
                       {client.brandPageUrl && (
                         <a
@@ -437,13 +424,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                         >
                           <Globe className="w-3 h-3 shrink-0" />
                           <span className="truncate">الموقع</span>
-                        </a>
-                      )}
-
-                      {client.driveFolderUrl && (
-                        <a href={client.driveFolderUrl} target="_blank" rel="noreferrer" className="text-blue-800 hover:underline truncate flex items-center gap-1 font-medium">
-                          <FolderOpen className="w-3 h-3 shrink-0" />
-                          <span className="truncate">ملفات البراند</span>
                         </a>
                       )}
 
@@ -639,12 +619,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-[#2D2D2A] mb-1">رابط مجلد ملفات البراند على Google Drive</label>
-                <input type="url" value={driveFolderUrl} onChange={(e) => setDriveFolderUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-[#2D2D2A] outline-none" />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#2D2D2A] mb-1">رابط Zoho أو إجابات الفورم (اختياري)</label>
+                <label className="block font-semibold text-[#2D2D2A] mb-1">رابط إجابات الفورم</label>
                 <input
                   type="url"
                   value={formUrl}
@@ -896,18 +871,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                       </a>
                     </div>
                   )}
-                </div>
-
-                {/* Drive folder URL */}
-                <div className="p-3 bg-[#F9F8F6] rounded-xl border border-[#E5E5E0] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className="text-[10px] text-[#8E8E85] font-bold block">مجلد ملفات البراند</span>
-                    {viewingClient.driveFolderUrl ? <a href={viewingClient.driveFolderUrl} target="_blank" rel="noreferrer" className="font-medium text-xs text-blue-800 hover:underline truncate block">{viewingClient.driveFolderUrl}</a> : <span className="text-xs text-[#8E8E85] italic">غير مسجل</span>}
-                  </div>
-                  {viewingClient.driveFolderUrl && <div className="flex items-center gap-1 shrink-0">
-                    <button type="button" onClick={() => handleCopyLink(viewingClient.driveFolderUrl!, 'driveFolderUrl')} className="px-2.5 py-1 bg-white border border-[#E5E5E0] rounded-lg text-[10px] font-bold hover:bg-gray-50 flex items-center gap-1 cursor-pointer">{copiedField === 'driveFolderUrl' ? <Check className="w-3 h-3 text-blue-800" /> : <Copy className="w-3 h-3" />}<span>نسخ</span></button>
-                    <a href={viewingClient.driveFolderUrl} target="_blank" rel="noreferrer" className="px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-lg text-[10px] font-bold hover:bg-blue-100 flex items-center gap-1"><FolderOpen className="w-3 h-3" /><span>فتح</span></a>
-                  </div>}
                 </div>
 
                 {/* Form Answers URL */}

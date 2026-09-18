@@ -19,7 +19,6 @@ export interface Client {
   email: string;            // البريد الإلكتروني
   brandPageUrl: string;     // رابط صفحة البراند
   websiteUrl: string;       // رابط الموقع
-  driveFolderUrl?: string;  // رابط مجلد ملفات البراند على Google Drive
   formUrl: string;          // رابط الفورم
   formAnswersUrl?: string;  // رابط إجابات الفورم (اختياري)
   status: ClientStatus;     // Active, Paused, Finished

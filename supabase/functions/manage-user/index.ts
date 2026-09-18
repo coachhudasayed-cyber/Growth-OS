@@ -47,7 +47,6 @@ Deno.serve(async (req: Request) => {
         phone: String(input.phone || ''),
         brandPageUrl: String(input.brandPageUrl || ''),
         websiteUrl: String(input.websiteUrl || ''),
-        driveFolderUrl: String(input.driveFolderUrl || ''),
         formUrl: String(input.formUrl || ''),
         formAnswersUrl: String(input.formAnswersUrl || ''),
         status: ['active', 'paused', 'finished'].includes(input.status) ? input.status : 'active',
