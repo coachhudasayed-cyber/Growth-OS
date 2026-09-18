@@ -28,34 +28,39 @@ Deno.serve(async (req: Request) => {
     });
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
     const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
-    const { data: invite, error: inviteError } = await admin.from('bootstrap_tokens')
-      .select('email,expires_at,used_at').eq('email', normalizedEmail).eq('token_hash', hash).maybeSingle();
-    if (inviteError) return reply(500, { error: 'Could not check setup token' });
-    if (!invite || invite.used_at || new Date(invite.expires_at).getTime() < Date.now()) {
-      return reply(403, { error: 'Invalid or expired setup token' });
-    }
-    const { data: existingAdmin } = await admin.from('profiles').select('id').eq('role', 'admin').limit(1);
+    const { data: existingAdmin, error: adminCheckError } = await admin.from('profiles')
+      .select('id').eq('role', 'admin').limit(1);
+    if (adminCheckError) return reply(500, { error: 'Could not check admin setup' });
     if (existingAdmin?.length) return reply(409, { error: 'Admin account already exists' });
+
+    // Claim the one-time setup link before creating the user. Only one request can win.
+    const now = new Date().toISOString();
+    const claim = await admin.from('bootstrap_tokens')
+      .update({ used_at: now })
+      .eq('token_hash', hash).is('used_at', null).gt('expires_at', now)
+      .select('email').maybeSingle();
+    if (claim.error) return reply(500, { error: 'Could not check setup link' });
+    if (!claim.data) return reply(403, { error: 'Invalid or expired setup token' });
+
     const created = await admin.auth.admin.createUser({
       email: normalizedEmail,
       password,
       email_confirm: true,
       user_metadata: { name: 'هدي سيد' }
     });
-    if (created.error || !created.data.user) return reply(409, {
-      error: 'Could not create admin account', detail: created.error?.message
-    });
+    if (created.error || !created.data.user) {
+      await admin.from('bootstrap_tokens').update({ used_at: null }).eq('token_hash', hash);
+      return reply(409, { error: 'Could not create admin account', detail: created.error?.message });
+    }
     const userId = created.data.user.id;
     const profile = await admin.from('profiles').insert({
       id: userId, email: normalizedEmail, name: 'هدي سيد', role: 'admin'
     });
     if (profile.error) {
       await admin.auth.admin.deleteUser(userId);
+      await admin.from('bootstrap_tokens').update({ used_at: null }).eq('token_hash', hash);
       return reply(500, { error: 'Could not create admin profile', detail: profile.error.message });
     }
-    const used = await admin.from('bootstrap_tokens').update({ used_at: new Date().toISOString() })
-      .eq('email', normalizedEmail).eq('token_hash', hash).is('used_at', null);
-    if (used.error) return reply(500, { error: 'Could not complete activation' });
     return reply(200, { success: true });
   } catch (error) {
     console.error('Admin activation failed', error);

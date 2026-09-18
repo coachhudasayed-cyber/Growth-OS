@@ -10,8 +10,8 @@ interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegisterAdmin, authError }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [token, setToken] = useState('');
-  const [registering, setRegistering] = useState(false);
+  const [setupToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('setup') || '');
+  const [registering, setRegistering] = useState(Boolean(setupToken));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -22,14 +22,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegisterAdmin, 
       setError('اكتبي البريد الإلكتروني وكلمة السر.');
       return;
     }
-    if (registering && !token.trim()) {
-      setError('اكتبي رمز تفعيل الأدمن.');
-      return;
-    }
     setBusy(true);
     try {
       if (registering) {
-        await onRegisterAdmin(email.trim(), password, token.trim());
+        await onRegisterAdmin(email.trim(), password, setupToken);
       } else {
         await onLogin(email.trim(), password);
       }
@@ -53,7 +49,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegisterAdmin, 
         <div className="bg-white border border-[#E5E5E0] rounded-3xl p-6 sm:p-8 shadow-xl">
           <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
             {registering ? <LockKeyhole className="w-5 h-5 text-[#E07A48]" /> : <LogIn className="w-5 h-5 text-[#E07A48]" />}
-            {registering ? 'تفعيل حساب الأدمن' : 'تسجيل الدخول'}
+            {registering ? 'إنشاء حساب الأدمن' : 'تسجيل الدخول'}
           </h2>
           {(error || authError) && (
             <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-sm flex gap-2">
@@ -73,21 +69,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegisterAdmin, 
                 value={password} onChange={e => setPassword(e.target.value)}
                 className="mt-2 w-full border border-[#E5E5E0] rounded-xl px-4 py-3 outline-none focus:border-[#E07A48]" />
             </label>
-            {registering && (
-              <label className="block text-sm font-semibold">
-                رمز التفعيل لمرة واحدة
-                <input type="text" autoComplete="off" required value={token} onChange={e => setToken(e.target.value)}
-                  className="mt-2 w-full border border-[#E5E5E0] rounded-xl px-4 py-3 outline-none focus:border-[#E07A48]" />
-              </label>
-            )}
             <button type="submit" disabled={busy} className="w-full bg-[#E07A48] hover:bg-[#C8662B] text-white font-bold rounded-xl py-3 disabled:opacity-60">
-              {busy ? 'جارٍ التحقق...' : registering ? 'تفعيل الحساب' : 'دخول'}
+              {busy ? 'جارٍ التحقق...' : registering ? 'إنشاء الحساب' : 'دخول'}
             </button>
           </form>
-          <button type="button" onClick={() => { setRegistering(!registering); setError(''); }}
+          {setupToken && <button type="button" onClick={() => { setRegistering(!registering); setError(''); }}
             className="mt-5 text-sm text-[#5A5A40] underline">
-            {registering ? 'لديك حساب؟ تسجيل الدخول' : 'تفعيل حساب الأدمن لأول مرة'}
-          </button>
+            {registering ? 'لديك حساب؟ تسجيل الدخول' : 'إنشاء حساب الأدمن لأول مرة'}
+          </button>}
         </div>
       </div>
     </div>

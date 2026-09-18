@@ -200,16 +200,19 @@ export function useAppData() {
         // Network errors do not have a JSON response.
       }
       const messages: Record<string, string> = {
-        'Invalid setup details': 'بيانات التفعيل غير مكتملة. تأكدي من الإيميل وكلمة السر والرمز كاملًا.',
-        'Invalid or expired setup token': 'رمز التفعيل غير صحيح أو منتهي الصلاحية. انسخيه كاملًا بدون مسافات.',
+        'Invalid setup details': 'بيانات إنشاء الحساب غير مكتملة. اكتبي إيميلًا صحيحًا وكلمة سر من 8 أحرف على الأقل.',
+        'Invalid or expired setup token': 'رابط إنشاء حساب الأدمن غير صالح أو انتهت صلاحيته.',
         'Admin account already exists': 'حساب الأدمن موجود بالفعل. جرّبي تسجيل الدخول.',
-        'Could not create admin account': 'تعذر إنشاء الحساب في Supabase Auth. جرّبي كلمة سر مختلفة.',
+        'Could not create admin account': 'تعذر إنشاء الحساب في Supabase Auth. تحققي من الإيميل وكلمة السر.',
         'Could not create admin profile': 'تعذر حفظ صلاحية الأدمن في قاعدة البيانات.',
         'Could not complete activation': 'تم إنشاء الحساب، لكن تعذر إكمال التفعيل. جرّبي تسجيل الدخول.'
       };
       const message = messages[serverError] || `تعذر تفعيل حساب الأدمن: ${serverError || result.error.message}`;
       throw new Error(serverDetail ? `${message} (${serverDetail})` : message);
     }
+    const setupUrl = new URL(window.location.href);
+    setupUrl.hash = '';
+    window.history.replaceState({}, '', setupUrl.pathname + setupUrl.search);
     await login(email, password);
   };
 
