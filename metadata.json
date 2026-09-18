@@ -1,0 +1,6 @@
+{
+  "name": "نظام إدارة العملاء والحملات الإعلانية - Growth OS",
+  "description": "منصة إدارة وتتبع أداء العملاء، الميزانيات، خطط المحتوى والحسابات المالية للوكالات التسويقية مع دعم كامل للغة العربية والدورين الأدمن والعميل.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
