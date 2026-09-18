@@ -82,6 +82,13 @@ export default function App() {
     deleteNote
   } = store;
 
+  const syncBanner = store.syncError ? (
+    <div role="alert" className="bg-red-50 text-red-800 p-3 text-sm flex items-center justify-between gap-3">
+      <span>تعذر حفظ آخر التغييرات: {store.syncError}</span>
+      <button onClick={store.retrySync} className="underline font-bold">إعادة المحاولة</button>
+    </div>
+  ) : null;
+
   // Active Navigation State for Admin
   const [adminPage, setAdminPage] = useState<AdminPage>('dashboard');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -198,6 +205,7 @@ export default function App() {
     if (activeClient) {
       return (
         <>
+          {syncBanner}
           <BrandPageView
             client={activeClient}
             userRole={currentUser.role}
@@ -302,6 +310,7 @@ export default function App() {
 
       {/* Main Admin / Employee Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {syncBanner}
         <AdminHeader
           title={headerTitles[currentActivePage].title}
           subtitle={
