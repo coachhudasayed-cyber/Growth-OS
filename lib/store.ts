@@ -259,7 +259,7 @@ export function useAppData() {
   // Todo Methods
   const addTodo = (title: string, priority: 'high' | 'medium' | 'low', dueDate?: string) => {
     const newTask: TodoTask = {
-      id: `todo-${Date.now()}`,
+      id: `todo-${crypto.randomUUID()}`,
       title,
       completed: false,
       priority,
@@ -297,7 +297,7 @@ export function useAppData() {
     const endDate = calculateEndDate(startDate, expectedDays);
 
     const initialHistoryRecord: BudgetRechargeRecord = {
-      id: `rec-${Date.now()}`,
+      id: `rec-${crypto.randomUUID()}`,
       date: startDate,
       amount,
       expectedDays,
@@ -308,7 +308,7 @@ export function useAppData() {
     };
 
     const newAlarm: BudgetAlarm = {
-      id: `budget-${Date.now()}`,
+      id: `budget-${crypto.randomUUID()}`,
       clientId,
       brandName,
       campaignName: campaignName || 'حملة إعلانية جديدة',
@@ -371,7 +371,7 @@ export function useAppData() {
           ];
 
       const newRechargeRecord: BudgetRechargeRecord = {
-        id: `rec-${Date.now()}`,
+        id: `rec-${crypto.randomUUID()}`,
         date: todayStr,
         amount: newAmount,
         expectedDays: newExpectedDays,
@@ -412,7 +412,7 @@ export function useAppData() {
 
     const newAgreement: Agreement = {
       ...data,
-      id: `agr-${Date.now()}`,
+      id: `agr-${crypto.randomUUID()}`,
       brandName,
       createdAt: new Date().toISOString().split('T')[0]
     };
@@ -429,7 +429,7 @@ export function useAppData() {
   const addPayment = (paymentData: Omit<PaymentRecord, 'id'>) => {
     const newPay: PaymentRecord = {
       ...paymentData,
-      id: `pay-${Date.now()}`
+      id: `pay-${crypto.randomUUID()}`
     };
     setPayments(prev => [newPay, ...prev]);
   };
@@ -459,7 +459,7 @@ export function useAppData() {
   const addDailyWorkLog = (logData: Omit<DailyWorkLog, 'id' | 'createdAt'>) => {
     const newLog: DailyWorkLog = {
       ...logData,
-      id: `dwl-${Date.now()}`,
+      id: `dwl-${crypto.randomUUID()}`,
       createdAt: new Date().toISOString().split('T')[0]
     };
     setDailyWorkLogs(prev => [newLog, ...prev]);
@@ -480,7 +480,7 @@ export function useAppData() {
 
   // Content Plan CRUD
   const addContentItem = (item: Omit<ContentPlanItem, 'id'>) => {
-    const newItem = { ...item, id: `cnt-${Date.now()}` };
+    const newItem = { ...item, id: `cnt-${crypto.randomUUID()}` };
     setContentPlans(prev => [newItem, ...prev]);
   };
 
@@ -494,7 +494,7 @@ export function useAppData() {
 
   // Ads Plan CRUD
   const addAdsPlanItem = (item: Omit<AdsPlanItem, 'id'>) => {
-    const newItem = { ...item, id: `ads-${Date.now()}` };
+    const newItem = { ...item, id: `ads-${crypto.randomUUID()}` };
     setAdsPlans(prev => [newItem, ...prev]);
   };
 
@@ -526,7 +526,7 @@ export function useAppData() {
 
   // Client Daily Report CRUD
   const addClientDailyReport = (rep: Omit<ClientDailyReport, 'id'>) => {
-    const newRep = { ...rep, id: `cdr-${Date.now()}` };
+    const newRep = { ...rep, id: `cdr-${crypto.randomUUID()}` };
     setClientDailyReports(prev => [newRep, ...prev]);
   };
 
@@ -540,7 +540,7 @@ export function useAppData() {
 
   // Weekly Report CRUD
   const addWeeklyReport = (rep: Omit<WeeklyReport, 'id'>) => {
-    const newRep = { ...rep, id: `wr-${Date.now()}` };
+    const newRep = { ...rep, id: `wr-${crypto.randomUUID()}` };
     setWeeklyReports(prev => [newRep, ...prev]);
   };
 
@@ -554,7 +554,7 @@ export function useAppData() {
 
   // Monthly Report CRUD
   const addMonthlyReport = (rep: Omit<MonthlyReport, 'id'>) => {
-    const newRep = { ...rep, id: `mr-${Date.now()}` };
+    const newRep = { ...rep, id: `mr-${crypto.randomUUID()}` };
     setMonthlyReports(prev => [newRep, ...prev]);
   };
 
@@ -568,7 +568,7 @@ export function useAppData() {
 
   // Quarterly Report CRUD
   const addQuarterlyReport = (rep: Omit<QuarterlyReport, 'id'>) => {
-    const newRep = { ...rep, id: `qr-${Date.now()}` };
+    const newRep = { ...rep, id: `qr-${crypto.randomUUID()}` };
     setQuarterlyReports(prev => [newRep, ...prev]);
   };
 
@@ -582,7 +582,7 @@ export function useAppData() {
 
   // Admin Daily Report CRUD
   const addAdminDailyReport = (rep: Omit<AdminDailyReport, 'id'>) => {
-    const newRep = { ...rep, id: `adr-${Date.now()}` };
+    const newRep = { ...rep, id: `adr-${crypto.randomUUID()}` };
     setAdminDailyReports(prev => [newRep, ...prev]);
   };
 
@@ -596,7 +596,7 @@ export function useAppData() {
 
   // Notes CRUD
   const addNote = (note: Omit<NoteItem, 'id'>) => {
-    const newNote = { ...note, id: `note-${Date.now()}` };
+    const newNote = { ...note, id: `note-${crypto.randomUUID()}` };
     setNotes(prev => [newNote, ...prev]);
   };
 
