@@ -15,7 +15,9 @@ Deno.serve(async (req: Request) => {
   const bearer = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
   if (!bearer) return reply(401, { error: 'Authentication required' });
   const url = Deno.env.get('SUPABASE_URL')!;
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+    JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}').default;
+  if (!serviceKey) return reply(500, { error: 'Server secret not configured' });
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });

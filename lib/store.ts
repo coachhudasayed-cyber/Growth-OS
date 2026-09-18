@@ -188,7 +188,28 @@ export function useAppData() {
     const result = await supabase.functions.invoke('bootstrap-admin', {
       body: { email, password, token }
     });
-    if (result.error) throw new Error('تعذر تفعيل حساب الأدمن. تحققي من الإيميل ورمز التفعيل.');
+    if (result.error) {
+      let serverError = '';
+      let serverDetail = '';
+      try {
+        const response = result.error.context as Response | undefined;
+        const payload = await response?.json() as { error?: string; detail?: string } | undefined;
+        serverError = payload?.error || '';
+        serverDetail = payload?.detail || '';
+      } catch {
+        // Network errors do not have a JSON response.
+      }
+      const messages: Record<string, string> = {
+        'Invalid setup details': 'بيانات التفعيل غير مكتملة. تأكدي من الإيميل وكلمة السر والرمز كاملًا.',
+        'Invalid or expired setup token': 'رمز التفعيل غير صحيح أو منتهي الصلاحية. انسخيه كاملًا بدون مسافات.',
+        'Admin account already exists': 'حساب الأدمن موجود بالفعل. جرّبي تسجيل الدخول.',
+        'Could not create admin account': 'تعذر إنشاء الحساب في Supabase Auth. جرّبي كلمة سر مختلفة.',
+        'Could not create admin profile': 'تعذر حفظ صلاحية الأدمن في قاعدة البيانات.',
+        'Could not complete activation': 'تم إنشاء الحساب، لكن تعذر إكمال التفعيل. جرّبي تسجيل الدخول.'
+      };
+      const message = messages[serverError] || `تعذر تفعيل حساب الأدمن: ${serverError || result.error.message}`;
+      throw new Error(serverDetail ? `${message} (${serverDetail})` : message);
+    }
     await login(email, password);
   };
 
