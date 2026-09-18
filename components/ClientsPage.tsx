@@ -31,8 +31,8 @@ interface ClientsPageProps {
   onAddClient: (
     data: Omit<Client, 'id' | 'createdAt'> & { password?: string }
   ) => Promise<Client | undefined>;
-  onUpdateClient?: (id: string, updatedFields: Partial<Client>) => void;
-  onDeleteClient: (id: string) => void;
+  onUpdateClient?: (id: string, updatedFields: Partial<Client>) => Promise<void>;
+  onDeleteClient: (id: string) => Promise<void>;
   onSelectClient: (clientId: string) => void;
   userRole?: UserRole;
 }
@@ -70,6 +70,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
   const [status, setStatus] = useState<ClientStatus>('active');
   const [clientRole, setClientRole] = useState<ClientRole>('client');
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const handleOpenAdd = () => {
     setEditingClient(null);
@@ -105,11 +106,12 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     e.preventDefault();
     if (!name || !brandName || !email) return;
 
+    setFormError('');
     setLoading(true);
     try {
       if (editingClient) {
         if (onUpdateClient) {
-          onUpdateClient(editingClient.id, {
+          await onUpdateClient(editingClient.id, {
             name,
             brandName,
             phone,
@@ -152,7 +154,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       setStatus('active');
       setClientRole('client');
     } catch (err) {
-      console.error(err);
+      setFormError(err instanceof Error ? err.message : 'تعذر حفظ الحساب.');
     } finally {
       setLoading(false);
     }
@@ -469,7 +471,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                   <button
                     onClick={() => {
                       if (window.confirm(`هل أنت تأكد من حذف العميل "${client.brandName || client.name}"؟ سيتم حذف جميع الميزانيات والبيانات المرتبطة به.`)) {
-                        onDeleteClient(client.id);
+                        onDeleteClient(client.id).catch(err => alert(err instanceof Error ? err.message : 'تعذر حذف الحساب.'));
                       }
                     }}
                     className="p-2 text-[#8E8E85] hover:text-rose-600 rounded-xl hover:bg-rose-50 transition cursor-pointer"
@@ -506,6 +508,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
             </div>
 
             <form onSubmit={handleFormSubmit} className="space-y-4 text-xs">
+              {formError && <div role="alert" className="text-red-700 bg-red-50 border border-red-200 p-3 rounded-xl">{formError}</div>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-[#2D2D2A] mb-1">اسم العميل *</label>
@@ -545,18 +548,12 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block font-semibold text-[#2D2D2A] mb-1">
-                    كلمة المرور
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-[#2D2D2A] outline-none"
-                  />
-                </div>
+                {!editingClient && <div>
+                  <label className="block font-semibold text-[#2D2D2A] mb-1">كلمة السر للحساب *</label>
+                  <input type="password" autoComplete="new-password" required minLength={8}
+                    value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-[#2D2D2A] outline-none" />
+                </div>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -579,7 +576,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                     className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-[#2D2D2A] outline-none cursor-pointer font-bold"
                   >
                     <option value="client">عميل (Client)</option>
-                    <option value="admin">أدمن (Admin)</option>
                     <option value="employee">موظف (Employee)</option>
                   </select>
                 </div>
