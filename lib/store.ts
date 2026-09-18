@@ -111,9 +111,9 @@ export function useAppData() {
     const byCollection = (name: string) => rows.filter(row => row.collection === name).map(row => row.data);
     const asMap = <T,>(name: string): Record<string, T> =>
       Object.fromEntries(rows.filter(row => row.collection === name).map(row => [row.record_id, row.data as T]));
-    savedRecords.current = new Map(rows.map(row => [
-      `${row.collection}:${row.record_id}`, JSON.stringify(row)
-    ]));
+    savedRecords.current = new Map(rows
+      .filter(row => profileResult.data.role !== 'client' || row.collection === 'clientDailyReports' || row.collection === 'notes')
+      .map(row => [`${row.collection}:${row.record_id}`, JSON.stringify(row)]));
     setUsers((userResult.data || []).map(profileFromRow));
     setEmployees((userResult.data || []).filter(row => row.role === 'employee').map(row => ({
       id: row.id,
@@ -172,9 +172,10 @@ export function useAppData() {
   }, []);
 
   useEffect(() => {
-    if (!ready || !currentUser || currentUser.role === 'client') return;
+    if (!ready || !currentUser) return;
     const next = new Map<string, string>();
     const add = (collection: string, recordId: string, clientId: string | null, data: unknown) => {
+      if (currentUser.role === 'client' && collection !== 'clientDailyReports' && collection !== 'notes') return;
       const row: StoredRecord = { collection, record_id: recordId, client_id: clientId, data };
       next.set(`${collection}:${recordId}`, JSON.stringify(row));
     };
