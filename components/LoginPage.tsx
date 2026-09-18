@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Building2, LockKeyhole, LogIn, ShieldAlert } from 'lucide-react';
+import { Building2, Eye, EyeOff, LockKeyhole, LogIn, ShieldAlert } from 'lucide-react';
+import { getRememberMe, setRememberMe } from '../lib/supabase';
 
 interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -10,6 +11,8 @@ interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegisterAdmin, authError }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMeChecked] = useState(getRememberMe);
   const [setupToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('setup') || '');
   const [registering, setRegistering] = useState(Boolean(setupToken));
   const [error, setError] = useState('');
@@ -24,6 +27,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegisterAdmin, 
     }
     setBusy(true);
     try {
+      setRememberMe(rememberMe);
       if (registering) {
         await onRegisterAdmin(email.trim(), password, setupToken);
       } else {
@@ -65,9 +69,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegisterAdmin, 
             </label>
             <label className="block text-sm font-semibold">
               كلمة السر
-              <input type="password" autoComplete={registering ? 'new-password' : 'current-password'} required minLength={registering ? 8 : undefined}
-                value={password} onChange={e => setPassword(e.target.value)}
-                className="mt-2 w-full border border-[#E5E5E0] rounded-xl px-4 py-3 outline-none focus:border-[#E07A48]" />
+              <span className="relative block mt-2">
+                <input type={showPassword ? 'text' : 'password'} autoComplete={registering ? 'new-password' : 'current-password'} required minLength={registering ? 8 : undefined}
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  className="w-full border border-[#E5E5E0] rounded-xl px-4 py-3 pl-12 outline-none focus:border-[#E07A48]" />
+                <button type="button" onClick={() => setShowPassword(value => !value)}
+                  aria-label={showPassword ? 'إخفاء كلمة السر' : 'إظهار كلمة السر'} aria-pressed={showPassword}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-[#78786E] hover:text-[#E07A48]">
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </span>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-[#5A5A40] cursor-pointer" dir="ltr">
+              <input type="checkbox" checked={rememberMe} onChange={e => setRememberMeChecked(e.target.checked)}
+                className="w-4 h-4 accent-[#E07A48]" />
+              <span>Remember me</span>
             </label>
             <button type="submit" disabled={busy} className="w-full bg-[#E07A48] hover:bg-[#C8662B] text-white font-bold rounded-xl py-3 disabled:opacity-60">
               {busy ? 'جارٍ التحقق...' : registering ? 'إنشاء الحساب' : 'دخول'}

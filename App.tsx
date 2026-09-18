@@ -8,6 +8,7 @@ import { AccountsPage } from './components/AccountsPage';
 import { ClientsPage } from './components/ClientsPage';
 import { BrandPageView } from './components/BrandPageView';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
+import { AccountSettings } from './components/AccountSettings';
 
 export default function App() {
   const store = useAppData();
@@ -118,6 +119,7 @@ export default function App() {
         <div className="min-h-screen bg-[#F5F5F0] text-[#2D2D2A] flex items-center justify-center p-4">
           <div className="text-center space-y-3">
             <h2 className="text-xl font-bold">لا يوجد براند مرتبط بهذا الحساب حالياً</h2>
+            <AccountSettings user={currentUser} />
             <button
               onClick={logout}
               className="px-4 py-2 bg-indigo-600 rounded-xl text-xs font-bold"
@@ -135,6 +137,7 @@ export default function App() {
           client={targetClient}
           userRole="client"
           currentUserName={currentUser.name}
+          currentUser={currentUser}
           onLogout={logout}
           dailyWorkLogs={dailyWorkLogs}
           brandAudit={brandAudits[targetClient.id]}
@@ -210,6 +213,7 @@ export default function App() {
             client={activeClient}
             userRole={currentUser.role}
             currentUserName={currentUser.name}
+          currentUser={currentUser}
             onBackToAdminDashboard={() => setSelectedClientId(null)}
             onLogout={logout}
             dailyWorkLogs={dailyWorkLogs}

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import {
   Client,
+  UserProfile,
   UserRole,
   AdminTab,
   ClientTab,
@@ -52,11 +53,13 @@ import { WeeklyReportsTab } from './tabs/WeeklyReportsTab';
 import { MonthlyReportsTab } from './tabs/MonthlyReportsTab';
 import { AdminDailyReportsTab } from './tabs/AdminDailyReportsTab';
 import { NotesTab } from './tabs/NotesTab';
+import { AccountSettings } from './AccountSettings';
 
 interface BrandPageViewProps {
   client: Client;
   userRole: UserRole;
   currentUserName: string;
+  currentUser: UserProfile;
   onBackToAdminDashboard?: () => void;
   onLogout: () => void;
   // App Data
@@ -134,6 +137,7 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
   client,
   userRole,
   currentUserName,
+  currentUser,
   onBackToAdminDashboard,
   onLogout,
   dailyWorkLogs,
@@ -356,6 +360,8 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
                 </div>
               </div>
             </div>
+
+            <AccountSettings user={currentUser} compact />
 
             <button
               onClick={onLogout}
