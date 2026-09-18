@@ -1,3 +1,4 @@
+import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
 import React, { useState } from 'react';
 import {
   FileSpreadsheet,
@@ -150,46 +151,20 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   // --- Questions Template Management ---
   const storageKey = `client_daily_report_questions_${clientId}`;
 
-  const [questions, setQuestions] = useState<DailyReportQuestion[]>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasNotes = parsed.some(
-            (q: DailyReportQuestion) =>
-              q.id === 'q-notes' || q.standardKey === 'notes' || q.label?.includes('ملاحظات اليوم')
-          );
-          if (!hasNotes) {
-            const notesQ = DEFAULT_DAILY_REPORT_QUESTIONS.find((q) => q.id === 'q-notes');
-            if (notesQ) {
-              const updated = [...parsed, notesQ];
-              try {
-                localStorage.setItem(storageKey, JSON.stringify(updated));
-              } catch {
-                // ignore
-              }
-              return updated;
-            }
-          }
-          return parsed;
-        }
-      }
-    } catch {
-      // ignore JSON parse error
-    }
-    return DEFAULT_DAILY_REPORT_QUESTIONS;
-  });
+  const [questions, setQuestions] = useSupabaseSetting<DailyReportQuestion[]>(
+    storageKey, clientId, DEFAULT_DAILY_REPORT_QUESTIONS, userRole !== 'client'
+  );
 
-  // Save questions template on change
-  const saveQuestions = (newQuestions: DailyReportQuestion[]) => {
-    setQuestions(newQuestions);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(newQuestions));
-    } catch {
-      // ignore
+  const saveQuestions = (newQuestions: DailyReportQuestion[]) => setQuestions(newQuestions);
+
+  React.useEffect(() => {
+    const notes = DEFAULT_DAILY_REPORT_QUESTIONS.find(question => question.id === 'q-notes');
+    if (notes && !questions.some(question =>
+      question.id === 'q-notes' || question.standardKey === 'notes' || question.label?.includes('ملاحظات اليوم')
+    )) {
+      setQuestions(current => [...current, notes]);
     }
-  };
+  }, [questions]);
 
   // Reset questions to default
   const handleResetQuestionsToDefault = () => {

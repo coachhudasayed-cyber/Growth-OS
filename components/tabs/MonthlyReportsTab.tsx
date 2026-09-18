@@ -1,3 +1,4 @@
+import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
 import React, { useState, useEffect } from 'react';
 import {
   CalendarRange,
@@ -528,51 +529,12 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const currentMonthStr = new Date().toISOString().slice(0, 7); // e.g. 2026-08
 
-  // Template Questions State (Per-client customizable with localStorage persistence)
-  const [questions, setQuestions] = useState<MonthlyReportQuestion[]>(() => {
-    try {
-      const stored = localStorage.getItem(`monthly_report_questions_${clientId}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return DEFAULT_MONTHLY_REPORT_QUESTIONS;
-  });
+  // Template Questions State (Per-client customizable with Supabase persistence)
+  const [questions, setQuestions] = useSupabaseSetting<MonthlyReportQuestion[]>(
+    `monthly_report_questions_${clientId}`, clientId, DEFAULT_MONTHLY_REPORT_QUESTIONS, userRole !== 'client'
+  );
 
-  // Re-sync when clientId changes
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(`monthly_report_questions_${clientId}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setQuestions(parsed);
-          return;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    setQuestions(DEFAULT_MONTHLY_REPORT_QUESTIONS);
-  }, [clientId]);
-
-  // Save template questions to localStorage
-  const saveQuestionsTemplate = (updatedQuestions: MonthlyReportQuestion[]) => {
-    setQuestions(updatedQuestions);
-    try {
-      localStorage.setItem(
-        `monthly_report_questions_${clientId}`,
-        JSON.stringify(updatedQuestions)
-      );
-    } catch {
-      // ignore
-    }
-  };
+  const saveQuestionsTemplate = (updatedQuestions: MonthlyReportQuestion[]) => setQuestions(updatedQuestions);
 
   // Reset section questions to default
   const handleResetSectionQuestions = (sectionId: MonthlyReportSectionId) => {
