@@ -31,6 +31,7 @@ export default function App() {
     adminDailyReports,
     notes,
     login,
+    registerAdmin,
     logout,
     addClient,
     updateClient,
@@ -78,8 +79,7 @@ export default function App() {
     addNote,
     updateNote,
     toggleNotePin,
-    deleteNote,
-    resetToDemoData
+    deleteNote
   } = store;
 
   // Active Navigation State for Admin
@@ -91,23 +91,12 @@ export default function App() {
   const currentActivePage: AdminPage =
     currentUser?.role === 'employee' && adminPage === 'accounts' ? 'dashboard' : adminPage;
 
-  // 1. IF NOT LOGGED IN -> LOGIN PAGE
+  if (!store.ready) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F5F5F0]">جارٍ تحميل النظام...</div>;
+  }
+
   if (!currentUser) {
-    return (
-      <>
-        <LoginPage
-          onLogin={login}
-          availableUsers={store.users}
-          onOpenSupabaseConfig={() => setShowSupabaseModal(true)}
-        />
-        {showSupabaseModal && (
-          <SupabaseConfigModal
-            onClose={() => setShowSupabaseModal(false)}
-            onResetDemoData={resetToDemoData}
-          />
-        )}
-      </>
-    );
+    return <LoginPage onLogin={login} onRegisterAdmin={registerAdmin} authError={store.authError} />;
   }
 
   // 2. CLIENT ROLE -> DIRECT BRAND PAGE VIEW ONLY (Bypasses Admin Layout completely)
@@ -115,8 +104,7 @@ export default function App() {
     // Determine target client
     const targetClient =
       clients.find((c) => c.id === currentUser.clientId) ||
-      clients.find((c) => c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
-      clients[0];
+      clients.find((c) => c.email.toLowerCase() === currentUser.email.toLowerCase());
 
     if (!targetClient) {
       return (
@@ -197,7 +185,6 @@ export default function App() {
         {showSupabaseModal && (
           <SupabaseConfigModal
             onClose={() => setShowSupabaseModal(false)}
-            onResetDemoData={resetToDemoData}
           />
         )}
       </>
@@ -273,14 +260,10 @@ export default function App() {
           {showSupabaseModal && (
             <SupabaseConfigModal
               onClose={() => setShowSupabaseModal(false)}
-              onResetDemoData={resetToDemoData}
-            />
+              />
           )}
         </>
       );
-    } else {
-      // If client ID was not found (e.g. client was deleted), reset selectedClientId so admin stays on Dashboard
-      setSelectedClientId(null);
     }
   }
 
@@ -377,7 +360,6 @@ export default function App() {
       {showSupabaseModal && (
         <SupabaseConfigModal
           onClose={() => setShowSupabaseModal(false)}
-          onResetDemoData={resetToDemoData}
         />
       )}
     </div>
