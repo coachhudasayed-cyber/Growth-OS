@@ -180,8 +180,12 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
     while (sourceY < canvas.height) {
       const remaining = canvas.height - sourceY;
       let sliceHeight = Math.min(maxSliceHeight, remaining);
+      const naturalTail = remaining - maxSliceHeight;
+      const shouldMergeSmallTail = naturalTail > 0 && naturalTail < maxSliceHeight * 0.18;
 
-      if (remaining > maxSliceHeight) {
+      if (shouldMergeSmallTail) {
+        sliceHeight = remaining;
+      } else if (remaining > maxSliceHeight) {
         const targetEnd = sourceY + maxSliceHeight;
         const smartEnd = smartBreaks
           .filter(point => point <= targetEnd && point >= sourceY + minimumUsefulSlice)
@@ -210,13 +214,17 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
       );
 
       if (pageIndex > 0) pdf.addPage();
-      const imageHeightMm = sliceHeight * mmPerCanvasPixel;
+      const naturalImageHeightMm = sliceHeight * mmPerCanvasPixel;
+      const fitScale = Math.min(1, contentHeightMm / naturalImageHeightMm);
+      const imageWidthMm = contentWidthMm * fitScale;
+      const imageHeightMm = naturalImageHeightMm * fitScale;
+      const imageX = marginMm + (contentWidthMm - imageWidthMm) / 2;
       pdf.addImage(
         pageCanvas.toDataURL('image/png'),
         'PNG',
+        imageX,
         marginMm,
-        marginMm,
-        contentWidthMm,
+        imageWidthMm,
         imageHeightMm,
         undefined,
         'FAST'
