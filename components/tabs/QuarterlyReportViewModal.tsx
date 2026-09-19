@@ -22,7 +22,6 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { QuarterlyReport } from '../../types';
-import { exportQuarterlyReportToPDF } from '../../utils/pdfExporter';
 
 interface QuarterlyReportViewModalProps {
   isOpen: boolean;
@@ -44,6 +43,7 @@ export const QuarterlyReportViewModal: React.FC<QuarterlyReportViewModalProps> =
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
+      const { exportQuarterlyReportToPDF } = await import('../../utils/pdfExporter');
       await exportQuarterlyReportToPDF(report, brandName);
     } catch (err) {
       console.error('PDF export error:', err);

@@ -45,7 +45,6 @@ import {
   MonthlyReportQuestionAnswer,
   MonthlyReportSectionId
 } from '../../types';
-import { exportMonthlyReportToPDF } from '../../utils/pdfExporter';
 import { QuarterlyReportsSubTab } from './QuarterlyReportsSubTab';
 import { ReportFilterBar, DateFilterPreset, getDateRangeFromPreset } from '../ReportFilterBar';
 
@@ -954,6 +953,7 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
   const handleExportPDF = async (rep: MonthlyReport) => {
     try {
       setExportingId(rep.id);
+      const { exportMonthlyReportToPDF } = await import('../../utils/pdfExporter');
       await exportMonthlyReportToPDF(rep, brandName || 'البراند');
     } catch (err) {
       console.error('Failed to export Monthly Report PDF:', err);

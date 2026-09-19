@@ -15,6 +15,12 @@ type StoredRecord = {
   data: unknown;
 };
 
+const CLIENT_WRITABLE_COLLECTIONS = new Set([
+  'payments',
+  'clientDailyReports',
+  'notes'
+]);
+
 const profileFromRow = (row: any): UserProfile => ({
   id: row.id,
   email: row.email,
@@ -174,9 +180,12 @@ export function useAppData() {
 
   useEffect(() => {
     if (!ready || !currentUser) return;
+    const writableCollections = currentUser.role === 'client'
+      ? CLIENT_WRITABLE_COLLECTIONS
+      : null;
     const next = new Map<string, string>();
     const add = (collection: string, recordId: string, clientId: string | null, data: unknown) => {
-      if (currentUser.role === 'client' && collection !== 'clientDailyReports' && collection !== 'notes') return;
+      if (writableCollections && !writableCollections.has(collection)) return;
       const row: StoredRecord = { collection, record_id: recordId, client_id: clientId, data };
       next.set(`${collection}:${recordId}`, JSON.stringify(row));
     };
@@ -197,12 +206,18 @@ export function useAppData() {
     addItems('quarterlyReports', quarterlyReports);
     addItems('adminDailyReports', adminDailyReports);
     addItems('notes', notes);
-    const before = savedRecords.current;
+    const allBefore = savedRecords.current;
+    const before = writableCollections
+      ? new Map([...allBefore].filter(([key]) => writableCollections.has(key.slice(0, key.indexOf(':')))))
+      : allBefore;
     const upserts = [...next.entries()]
       .filter(([key, value]) => before.get(key) !== value)
       .map(([, value]) => JSON.parse(value) as StoredRecord);
     const deletes = [...before.keys()].filter(key => !next.has(key));
-    savedRecords.current = next;
+    const optimisticRecords = writableCollections ? new Map(allBefore) : new Map<string, string>();
+    before.forEach((_, key) => optimisticRecords.delete(key));
+    next.forEach((value, key) => optimisticRecords.set(key, value));
+    savedRecords.current = optimisticRecords;
     if (!upserts.length && !deletes.length) return;
     writeQueue.current = writeQueue.current.catch(() => undefined).then(async () => {
       for (let i = 0; i < upserts.length; i += 200) {
@@ -218,7 +233,7 @@ export function useAppData() {
       }
       setSyncError('');
     }).catch(err => {
-      savedRecords.current = before;
+      savedRecords.current = allBefore;
       setSyncError(err instanceof Error ? err.message : 'تعذر حفظ آخر التغييرات.');
     });
   }, [ready, currentUser, todos, budgetAlarms, agreements, payments, dailyWorkLogs,

@@ -55,7 +55,6 @@ import {
 } from '../../types';
 import { INITIAL_BRAND_AUDITS } from '../../lib/initialData';
 import { ChecklistEditorSection } from './ChecklistEditorSection';
-import { exportElementToPDF } from '../../utils/pdfExporter';
 
 interface BrandAuditTabProps {
   audit?: BrandAudit;
@@ -309,6 +308,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       if (!printElement) throw new Error('Brand Audit PDF content was not found.');
       const brandTitle = currentAudit.overview?.brandName || clientId || 'Brand Audit';
       setIsExportingPdf(true);
+      const { exportElementToPDF } = await import('../../utils/pdfExporter');
       await exportElementToPDF(printElement, {
         filename: `Brand_Audit_${brandTitle}.pdf`,
         backgroundColor: '#ffffff'
