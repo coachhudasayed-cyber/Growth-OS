@@ -81,10 +81,14 @@ const waitForImages = async (root: HTMLElement) => {
   );
 };
 
-const getSmartPageBreaks = (root: HTMLElement, canvasScale: number) => {
+const getSmartPageBreaks = (
+  root: HTMLElement,
+  canvasScale: number,
+  pageHeightInCanvasPixels: number
+) => {
   const rootTop = root.getBoundingClientRect().top;
   const candidates = new Set<number>();
-  const selector = [
+  const candidateSelector = [
     '[data-pdf-block]',
     'section',
     'article',
@@ -97,17 +101,41 @@ const getSmartPageBreaks = (root: HTMLElement, canvasScale: number) => {
     '.rounded-2xl',
     '.rounded-3xl'
   ].join(',');
+  const roundedSelector = '.rounded-xl, .rounded-2xl, .rounded-3xl';
+  const pageHeightInCssPixels = pageHeightInCanvasPixels / canvasScale;
+  const protectedRanges: Array<{ start: number; end: number }> = [];
 
-  root.querySelectorAll<HTMLElement>(selector).forEach(element => {
+  root.querySelectorAll<HTMLElement>(candidateSelector).forEach(element => {
     const rect = element.getBoundingClientRect();
     if (rect.height > 0) {
       const isHeading = /^H[1-4]$/.test(element.tagName);
       const breakPosition = isHeading ? rect.top : rect.bottom;
       candidates.add(Math.round((breakPosition - rootTop) * canvasScale));
+
+      const isExplicitBlock = element.hasAttribute('data-pdf-block');
+      const isRounded = element.matches(roundedSelector);
+      const nestedRoundedCount = element.querySelectorAll(roundedSelector).length;
+      const isWholeSection = element.classList.contains('rounded-3xl');
+      const isSmallCard = nestedRoundedCount <= 1 && rect.height <= pageHeightInCssPixels * 0.48;
+      const isSectionThatFits = isWholeSection && rect.height <= pageHeightInCssPixels * 0.9;
+
+      if (isExplicitBlock || (isRounded && (isSmallCard || isSectionThatFits))) {
+        protectedRanges.push({
+          start: Math.round((rect.top - rootTop) * canvasScale),
+          end: Math.round((rect.bottom - rootTop) * canvasScale)
+        });
+        candidates.add(Math.round((rect.top - rootTop) * canvasScale));
+        candidates.add(Math.round((rect.bottom - rootTop) * canvasScale));
+      }
     }
   });
 
-  return Array.from(candidates).sort((a, b) => a - b);
+  const edgeTolerance = Math.round(6 * canvasScale);
+  return Array.from(candidates)
+    .filter(point => !protectedRanges.some(range => (
+      point > range.start + edgeTolerance && point < range.end - edgeTolerance
+    )))
+    .sort((a, b) => a - b);
 };
 
 /**
@@ -153,7 +181,6 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
     const renderScale = 2;
-    const smartBreaks = getSmartPageBreaks(clone, renderScale);
     const canvas = await html2canvas(clone, {
       scale: renderScale,
       useCORS: true,
@@ -173,7 +200,9 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
     const contentHeightMm = pageHeightMm - marginMm * 2;
     const mmPerCanvasPixel = contentWidthMm / canvas.width;
     const maxSliceHeight = Math.floor(contentHeightMm / mmPerCanvasPixel);
-    const minimumUsefulSlice = Math.floor(maxSliceHeight * 0.55);
+    const actualCanvasScale = canvas.width / clone.scrollWidth;
+    const smartBreaks = getSmartPageBreaks(clone, actualCanvasScale, maxSliceHeight);
+    const minimumUsefulSlice = Math.floor(maxSliceHeight * 0.25);
     let sourceY = 0;
     let pageIndex = 0;
 
@@ -187,9 +216,13 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
         sliceHeight = remaining;
       } else if (remaining > maxSliceHeight) {
         const targetEnd = sourceY + maxSliceHeight;
-        const smartEnd = smartBreaks
+        const smartEndBefore = smartBreaks
           .filter(point => point <= targetEnd && point >= sourceY + minimumUsefulSlice)
           .pop();
+        const smartEndAfter = smartBreaks.find(point => (
+          point > targetEnd && point <= sourceY + maxSliceHeight * 1.16
+        ));
+        const smartEnd = smartEndBefore || smartEndAfter;
         const wouldLeaveTinyLastPage = smartEnd && canvas.height - smartEnd < maxSliceHeight * 0.25;
         if (smartEnd && !wouldLeaveTinyLastPage) sliceHeight = smartEnd - sourceY;
       }
