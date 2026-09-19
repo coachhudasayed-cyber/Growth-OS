@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   X,
   Target,
@@ -8,7 +8,8 @@ import {
   TrendingUp,
   Award,
   DollarSign,
-  Printer,
+  Download,
+  Loader2,
   Edit2,
   CheckCircle2,
   AlertCircle,
@@ -20,6 +21,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { AdsPlanItem, CampaignPlanEntry } from '../../../types';
+import { exportElementToPDF } from '../../../utils/pdfExporter';
 
 interface StrategyAndAdsPlanViewModalProps {
   isOpen: boolean;
@@ -39,6 +41,8 @@ export const StrategyAndAdsPlanViewModal: React.FC<StrategyAndAdsPlanViewModalPr
   onDelete
 }) => {
   const [selectedCampaignFilter, setSelectedCampaignFilter] = useState<string>('all');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen || !plan) return null;
 
@@ -77,13 +81,25 @@ export const StrategyAndAdsPlanViewModal: React.FC<StrategyAndAdsPlanViewModalPr
         ]
       : [];
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    if (!reportRef.current || isExportingPdf) return;
+    try {
+      setIsExportingPdf(true);
+      await exportElementToPDF(reportRef.current, {
+        filename: `Ads_Strategy_${brandName || plan.title || 'Plan'}.pdf`,
+        backgroundColor: '#F9F8F6'
+      });
+    } catch (error) {
+      console.error('Ads strategy PDF export failed', error);
+      window.alert('تعذر تحميل ملف PDF. حاولي مرة أخرى.');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-black/60 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:static">
-      <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl sm:rounded-3xl w-full max-w-5xl my-auto shadow-2xl overflow-hidden flex flex-col max-h-[94vh] sm:max-h-[92vh] print:max-h-none print:shadow-none print:border-none print:rounded-none">
+      <div ref={reportRef} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl sm:rounded-3xl w-full max-w-5xl my-auto shadow-2xl overflow-hidden flex flex-col max-h-[94vh] sm:max-h-[92vh] print:max-h-none print:shadow-none print:border-none print:rounded-none">
         {/* VIEW MODAL HEADER */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-white border-b border-[#E5E5E0] flex items-center justify-between shrink-0 print:border-b-2 gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -105,7 +121,7 @@ export const StrategyAndAdsPlanViewModal: React.FC<StrategyAndAdsPlanViewModalPr
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 print:hidden shrink-0">
+          <div data-pdf-hide className="flex items-center gap-1.5 sm:gap-2 print:hidden shrink-0">
             {onEdit && (
               <button
                 onClick={() => onEdit(plan)}
@@ -128,11 +144,12 @@ export const StrategyAndAdsPlanViewModal: React.FC<StrategyAndAdsPlanViewModalPr
             )}
 
             <button
-              onClick={handlePrint}
-              className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center text-[#5A5A40] bg-[#F5F5F0] hover:bg-[#E5E5E0] rounded-xl transition cursor-pointer"
-              title="طباعة"
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center text-[#5A5A40] bg-[#F5F5F0] hover:bg-[#E5E5E0] disabled:opacity-60 disabled:cursor-wait rounded-xl transition cursor-pointer"
+              title="تحميل PDF"
             >
-              <Printer className="w-4 h-4" />
+              {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             </button>
 
             <button
@@ -667,18 +684,19 @@ export const StrategyAndAdsPlanViewModal: React.FC<StrategyAndAdsPlanViewModalPr
         </div>
 
         {/* VIEW MODAL FOOTER */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-white border-t border-[#E5E5E0] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 print:hidden">
+        <div data-pdf-hide className="px-4 sm:px-6 py-3 sm:py-4 bg-white border-t border-[#E5E5E0] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 print:hidden">
           <div className="text-[11px] sm:text-xs text-[#8E8E85]">
             تاريخ التسجيل: {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString('ar-EG') : startDate}
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
             <button
-              onClick={handlePrint}
-              className="flex-1 sm:flex-none min-h-[44px] px-4 py-2 bg-white hover:bg-[#F5F5F0] border border-[#E5E5E0] text-[#2D2D2A] rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5"
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="flex-1 sm:flex-none min-h-[44px] px-4 py-2 bg-white hover:bg-[#F5F5F0] disabled:opacity-60 disabled:cursor-wait border border-[#E5E5E0] text-[#2D2D2A] rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <Printer className="w-4 h-4 text-[#5A5A40]" />
-              <span>طباعة</span>
+              {isExportingPdf ? <Loader2 className="w-4 h-4 text-[#5A5A40] animate-spin" /> : <Download className="w-4 h-4 text-[#5A5A40]" />}
+              <span>{isExportingPdf ? 'جاري التحميل...' : 'تحميل PDF'}</span>
             </button>
 
             <button
@@ -693,3 +711,4 @@ export const StrategyAndAdsPlanViewModal: React.FC<StrategyAndAdsPlanViewModalPr
     </div>
   );
 };
+
