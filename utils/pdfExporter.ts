@@ -57,6 +57,184 @@ function createPdfStagingHost(): HTMLElement {
   return host;
 }
 
+export interface ElementPdfOptions {
+  filename: string;
+  backgroundColor?: string;
+  marginMm?: number;
+}
+
+const waitForImages = async (root: HTMLElement) => {
+  const pendingImages = Array.from(root.querySelectorAll('img')).filter(image => !image.complete);
+  await Promise.all(
+    pendingImages.map(
+      image =>
+        new Promise<void>(resolve => {
+          const timeout = window.setTimeout(resolve, 5000);
+          const finish = () => {
+            window.clearTimeout(timeout);
+            resolve();
+          };
+          image.addEventListener('load', finish, { once: true });
+          image.addEventListener('error', finish, { once: true });
+        })
+    )
+  );
+};
+
+const getSmartPageBreaks = (root: HTMLElement, canvasScale: number) => {
+  const rootTop = root.getBoundingClientRect().top;
+  const candidates = new Set<number>();
+  const selector = [
+    '[data-pdf-block]',
+    'section',
+    'article',
+    'blockquote',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    '.rounded-xl',
+    '.rounded-2xl',
+    '.rounded-3xl'
+  ].join(',');
+
+  root.querySelectorAll<HTMLElement>(selector).forEach(element => {
+    const rect = element.getBoundingClientRect();
+    if (rect.height > 0) {
+      const isHeading = /^H[1-4]$/.test(element.tagName);
+      const breakPosition = isHeading ? rect.top : rect.bottom;
+      candidates.add(Math.round((breakPosition - rootTop) * canvasScale));
+    }
+  });
+
+  return Array.from(candidates).sort((a, b) => a - b);
+};
+
+/**
+ * Downloads an existing screen report as a real PDF without opening the print dialog.
+ * The content is rendered off-screen at a stable desktop width, then split close to
+ * card and heading boundaries so report blocks are less likely to be cut in half.
+ */
+export async function exportElementToPDF(element: HTMLElement, options: ElementPdfOptions) {
+  const host = createPdfStagingHost();
+  const backgroundColor = options.backgroundColor || '#ffffff';
+  const marginMm = options.marginMm ?? 10;
+
+  try {
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.removeAttribute('id');
+    clone.classList.remove('hidden', 'print:block');
+    clone.querySelectorAll('[data-pdf-hide], .no-print').forEach(node => node.remove());
+    clone.querySelectorAll<HTMLElement>('*').forEach(node => {
+      node.style.maxHeight = 'none';
+      node.style.overflow = 'visible';
+      node.style.overflowY = 'visible';
+    });
+
+    Object.assign(clone.style, {
+      display: 'block',
+      width: '730px',
+      maxWidth: '730px',
+      maxHeight: 'none',
+      overflow: 'visible',
+      boxSizing: 'border-box',
+      backgroundColor,
+      padding: '24px',
+      margin: '0',
+      direction: 'rtl'
+    });
+
+    host.style.width = '730px';
+    host.style.backgroundColor = backgroundColor;
+    host.appendChild(clone);
+
+    if (document.fonts) await document.fonts.ready;
+    await waitForImages(clone);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const renderScale = 2;
+    const smartBreaks = getSmartPageBreaks(clone, renderScale);
+    const canvas = await html2canvas(clone, {
+      scale: renderScale,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor,
+      imageTimeout: 15000,
+      windowWidth: 1200,
+      scrollX: 0,
+      scrollY: 0
+    });
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidthMm = 210;
+    const pageHeightMm = 297;
+    const contentWidthMm = pageWidthMm - marginMm * 2;
+    const contentHeightMm = pageHeightMm - marginMm * 2;
+    const mmPerCanvasPixel = contentWidthMm / canvas.width;
+    const maxSliceHeight = Math.floor(contentHeightMm / mmPerCanvasPixel);
+    const minimumUsefulSlice = Math.floor(maxSliceHeight * 0.55);
+    let sourceY = 0;
+    let pageIndex = 0;
+
+    while (sourceY < canvas.height) {
+      const remaining = canvas.height - sourceY;
+      let sliceHeight = Math.min(maxSliceHeight, remaining);
+
+      if (remaining > maxSliceHeight) {
+        const targetEnd = sourceY + maxSliceHeight;
+        const smartEnd = smartBreaks
+          .filter(point => point <= targetEnd && point >= sourceY + minimumUsefulSlice)
+          .pop();
+        const wouldLeaveTinyLastPage = smartEnd && canvas.height - smartEnd < maxSliceHeight * 0.25;
+        if (smartEnd && !wouldLeaveTinyLastPage) sliceHeight = smartEnd - sourceY;
+      }
+
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = sliceHeight;
+      const context = pageCanvas.getContext('2d');
+      if (!context) throw new Error('تعذر تجهيز صفحة ملف PDF.');
+      context.fillStyle = backgroundColor;
+      context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      context.drawImage(
+        canvas,
+        0,
+        sourceY,
+        canvas.width,
+        sliceHeight,
+        0,
+        0,
+        canvas.width,
+        sliceHeight
+      );
+
+      if (pageIndex > 0) pdf.addPage();
+      const imageHeightMm = sliceHeight * mmPerCanvasPixel;
+      pdf.addImage(
+        pageCanvas.toDataURL('image/png'),
+        'PNG',
+        marginMm,
+        marginMm,
+        contentWidthMm,
+        imageHeightMm,
+        undefined,
+        'FAST'
+      );
+
+      sourceY += sliceHeight;
+      pageIndex += 1;
+    }
+
+    const filename = options.filename.toLowerCase().endsWith('.pdf')
+      ? options.filename
+      : `${options.filename}.pdf`;
+    pdf.save(filename.replace(/[\\/:*?\"<>|]+/g, '_'));
+  } finally {
+    host.remove();
+  }
+}
+
 /**
  * Core helper: Renders array of A4 HTML Page elements sequentially into jsPDF
  */
@@ -1961,4 +2139,5 @@ export async function exportQuarterlyReportToPDF(rep: QuarterlyReport, displayBr
   const quarterStr = (rep.quarter || 'Quarterly').replace(/[^a-zA-Z0-9أ-ي]/g, '_');
   await renderPagesToPDF(host, pages, `Quarterly_Report_${safeBrand}_${quarterStr}.pdf`);
 }
+
 
