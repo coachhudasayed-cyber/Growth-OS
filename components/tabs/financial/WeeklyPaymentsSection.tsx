@@ -265,20 +265,13 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
 
       {/* Client Access Notice */}
       {userRole === 'client' && (
-        <div className="p-3 sm:p-3.5 bg-[#5A5A40]/10 border border-[#5A5A40]/25 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+        <div className="p-3 sm:p-3.5 bg-[#5A5A40]/10 border border-[#5A5A40]/25 rounded-2xl text-xs">
           <div className="flex items-center gap-2 text-[#5A5A40]">
             <Banknote className="w-4 h-4 shrink-0" />
             <span className="font-bold">
               قسم أتعاب الميديا بايينج: مخصص لك كعميل لإضافة وتعديل وحذف ومتابعة حالة الدفعات بحرية.
             </span>
           </div>
-          <button
-            onClick={handleOpenAdd}
-            className="w-full sm:w-auto px-3 py-1.5 bg-[#5A5A40] hover:bg-[#4a4a34] text-white rounded-xl text-xs font-extrabold shrink-0 transition cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>تسجيل دفعة</span>
-          </button>
         </div>
       )}
 
@@ -336,15 +329,6 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
       {filteredPayments.length === 0 ? (
         <div className="text-center py-10 bg-white border border-[#E5E5E0] rounded-2xl text-[#8E8E85] text-xs space-y-3">
           <p>لا توجد دفعات مسجلة في Media Buying Fees حالياً 📋</p>
-          {userRole !== 'employee' && (
-            <button
-              onClick={handleOpenAdd}
-              className="px-4 py-2 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>تسجيل دفعة</span>
-            </button>
-          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -749,3 +733,4 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
     </div>
   );
 };
+
