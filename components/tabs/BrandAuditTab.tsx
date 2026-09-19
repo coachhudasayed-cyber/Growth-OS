@@ -63,6 +63,96 @@ interface BrandAuditTabProps {
   onUpdateAudit: (clientId: string, audit: BrandAudit) => void;
 }
 
+const UNIT_ECONOMICS_SECTIONS = [
+  {
+    id: 'product',
+    title: 'Product Costs',
+    subtitle: 'تكلفة المنتج',
+    icon: '📦',
+    items: [
+      { id: 'ue-product-unit-cost', label: '1. ما تكلفة شراء أو تصنيع القطعة الواحدة؟', status: '' },
+      { id: 'ue-product-packaging', label: '2. ما تكلفة التغليف للقطعة أو الأوردر؟ (Box / Bag / Sticker / Card)', status: '' }
+    ]
+  },
+  {
+    id: 'selling',
+    title: 'Selling Economics',
+    subtitle: 'اقتصاديات البيع',
+    icon: '💰',
+    items: [
+      { id: 'ue-selling-actual-price', label: '3. ما متوسط سعر البيع الفعلي بعد الخصومات والكوبونات والعروض؟', status: '' },
+      { id: 'ue-selling-aov', label: '4. ما متوسط قيمة الأوردر (AOV)؟', status: '' },
+      { id: 'ue-selling-items-per-order', label: '5. ما متوسط عدد القطع داخل الأوردر (Average Items Per Order)؟', status: '' },
+      { id: 'ue-selling-gross-margin', label: '6. ما هامش الربح الإجمالي (Gross Margin)؟', status: '' },
+      { id: 'ue-selling-contribution-margin', label: '7. ما هامش المساهمة (Contribution Margin)؟', status: '' },
+      { id: 'ue-selling-net-margin', label: '8. ما صافي هامش الربح (Net Profit Margin) إن كان معروفًا؟', status: '' },
+      { id: 'ue-selling-contribution-per-order', label: '9. كم يتبقى من الأوردر بعد تكلفة المنتج والتكاليف المتغيرة وقبل الإعلانات (Contribution Margin Per Order)؟', status: '' },
+      { id: 'ue-selling-most-profitable', label: '10. ما أكثر المنتجات أو الـ Categories تحقيقًا لهامش ربح؟', status: '' },
+      { id: 'ue-selling-least-profitable', label: '11. ما أقل المنتجات أو الـ Categories تحقيقًا لهامش ربح؟', status: '' },
+      { id: 'ue-selling-sku-variation', label: '12. هل تختلف التكلفة والهامش بشكل كبير من SKU لآخر؟', status: '' }
+    ]
+  },
+  {
+    id: 'order',
+    title: 'Order Costs',
+    subtitle: 'تكلفة الأوردر',
+    icon: '🚚',
+    items: [
+      { id: 'ue-order-shipping-cost', label: '13. ما متوسط تكلفة الشحن التي يتحملها البراند؟', status: '' },
+      { id: 'ue-order-shipping-payer', label: '14. هل العميل يدفع الشحن بالكامل أم البراند يتحمل جزءًا منه؟', status: '' },
+      { id: 'ue-order-shipping-offers', label: '15. هل يوجد شحن مجاني أو عروض شحن (Free Shipping / Shipping Offers)؟', status: '' },
+      { id: 'ue-order-payment-gateway', label: '16. ما رسوم بوابة الدفع (Payment Gateway Fees)؟', status: '' },
+      { id: 'ue-order-cod-fees', label: '17. ما رسوم الدفع عند الاستلام (COD Fees)؟', status: '' },
+      { id: 'ue-order-marketplace', label: '18. ما عمولة الـ Marketplace إن وجدت؟', status: '' },
+      { id: 'ue-order-other-commissions', label: '19. هل توجد أي عمولات أخرى مرتبطة بالأوردر؟', status: '' },
+      { id: 'ue-order-return-rate', label: '20. ما متوسط نسبة المرتجعات (Return Rate)؟', status: '' },
+      { id: 'ue-order-exchange-rate', label: '21. ما متوسط نسبة الاستبدال (Exchange Rate)؟', status: '' },
+      { id: 'ue-order-return-loss', label: '22. ما متوسط خسارة الأوردر المرتجع أو غير المستلم؟', status: '' },
+      { id: 'ue-order-variable-costs', label: '23. ما تكاليف التشغيل المتغيرة لكل أوردر؟ (Fulfillment / Packing / Sales Commission / Gifts / Samples)', status: '' }
+    ]
+  },
+  {
+    id: 'ads',
+    title: 'Advertising Profitability',
+    subtitle: 'ربحية الإعلانات',
+    icon: '📈',
+    items: [
+      { id: 'ue-ads-break-even-cpa', label: '24. ما أقصى تكلفة اكتساب قبل التعادل (Break-even CPA / CAC)؟', status: '' },
+      { id: 'ue-ads-target-cpa', label: '25. ما تكلفة الاكتساب المناسبة للحفاظ على الربح (Target CPA)؟', status: '' },
+      { id: 'ue-ads-break-even-roas', label: '26. ما أقل عائد يغطي التكلفة بدون خسارة (Break-even ROAS)؟', status: '' },
+      { id: 'ue-ads-target-roas', label: '27. ما العائد المستهدف لتحقيق ربح مناسب (Target ROAS)؟', status: '' }
+    ]
+  }
+] as const;
+
+const UNIT_ECONOMICS_DEFAULT_ITEMS: AuditCheckItem[] = UNIT_ECONOMICS_SECTIONS.flatMap(
+  section => section.items.map(item => ({ ...item }))
+);
+
+const getUnitEconomicsChecklist = (unitEconomics?: BrandAudit['unitEconomics']): AuditCheckItem[] => {
+  const existing = unitEconomics?.checklist || [];
+  const byId = new Map(existing.map(item => [item.id, item]));
+  const legacyAnswers: Record<string, string | undefined> = {
+    'ue-selling-actual-price': byId.get('ue-1')?.status || unitEconomics?.avgPriceRange,
+    'ue-selling-gross-margin': byId.get('ue-4')?.status || unitEconomics?.profitMargin
+  };
+  const knownIds = new Set(UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => item.id));
+  const legacyIds = new Set(['ue-1', 'ue-2', 'ue-3', 'ue-4']);
+  const defaults = UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => ({
+    ...item,
+    status: byId.get(item.id)?.status || legacyAnswers[item.id] || ''
+  }));
+  const customItems = existing
+    .filter(item => !knownIds.has(item.id) && !legacyIds.has(item.id))
+    .map(item => ({ ...item, id: item.id.startsWith('ue-selling-') ? item.id : `ue-selling-legacy-${item.id}` }));
+  return [...defaults, ...customItems];
+};
+
+const getUnitEconomicsSectionItems = (
+  unitEconomics: BrandAudit['unitEconomics'],
+  sectionId: string
+) => getUnitEconomicsChecklist(unitEconomics).filter(item => item.id.startsWith(`ue-${sectionId}-`));
+
 export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   audit,
   clientId,
@@ -1586,26 +1676,29 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] space-y-1">
-              <span className="font-extrabold text-emerald-800 block">متوسط أسعار البراند:</span>
-              <p className="text-[#2D2D2A]">{currentAudit.unitEconomics?.avgPriceRange || 'رينج متوسط يناسب الفئة.'}</p>
-            </div>
-
-            <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] space-y-1">
-              <span className="font-extrabold text-emerald-800 block">مقارنة بالمنافسين والفرق:</span>
-              <p className="text-[#2D2D2A]">{currentAudit.unitEconomics?.competitorComparison || 'نفس رينج المنافسين مع تميز بالضمان.'}</p>
-            </div>
-
-            <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] space-y-1">
-              <span className="font-extrabold text-emerald-800 block">هل السعر مبرر والقيمة مقابل السعر؟ وهل يوجد عروض تساعد الإعلان؟</span>
-              <p className="text-[#2D2D2A]">{currentAudit.unitEconomics?.priceJustification || 'مبرر والقيمة ممتازة وتوجد عروض داعمة للإعلانات.'}</p>
-            </div>
-
-            <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] space-y-1">
-              <span className="font-extrabold text-emerald-800 block">هامش الربح والسماح للإعلانات:</span>
-              <p className="text-[#2D2D2A]">{currentAudit.unitEconomics?.profitMargin || 'هامش ربح يسمح بتشغيل إعلانات ممولة.'}</p>
-            </div>
+          <div className="space-y-4 text-xs">
+            {UNIT_ECONOMICS_SECTIONS.map(section => {
+              const items = getUnitEconomicsSectionItems(currentAudit.unitEconomics, section.id);
+              return (
+                <div key={section.id} className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="text-base" aria-hidden="true">{section.icon}</span>
+                    <div>
+                      <h4 className="font-extrabold text-[#5A5A40]">{section.title}</h4>
+                      <p className="text-[10px] font-bold text-[#8E8E85]">{section.subtitle}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {items.map(item => (
+                      <div key={item.id} className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] space-y-1">
+                        <span className="font-extrabold text-emerald-800 block leading-relaxed">{item.label}</span>
+                        <p className="text-[#2D2D2A] leading-relaxed">{item.status || 'لم تُسجل إجابة بعد.'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -3680,46 +3773,52 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
               {/* STEP 8: UNIT ECONOMICS & PRICING */}
               {modalActiveTab === 8 && (
-                <div className="space-y-4">
-                  <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Unit Economics & Pricing (ربحية المنتج وتسعيرته)
-                  </h4>
-                  <ChecklistEditorSection
-                    title="💰 بنود واقتصاديات تسعير المنتج"
-                    items={
-                      formData.unitEconomics?.checklist && formData.unitEconomics.checklist.length > 0
-                        ? formData.unitEconomics.checklist
-                        : [
-                            { id: 'ue-1', label: '1. متوسط أسعار البراند', status: formData.unitEconomics?.avgPriceRange || 'رينج متوسط يناسب الفئة.' },
-                            { id: 'ue-2', label: '2. مقارنة بالمنافسين وفرق التسعير', status: formData.unitEconomics?.competitorComparison || 'نفس رينج المنافسين مع تميز بالضمان.' },
-                            { id: 'ue-3', label: '3. هل السعر مبرر والقيمة مقابل السعر؟ وهل يوجد عروض تساعد الإعلان؟', status: formData.unitEconomics?.priceJustification || 'مبرر والقيمة ممتازة وتوجد عروض داعمة للإعلانات.' },
-                            { id: 'ue-4', label: '4. هامش الربح وهل يسمح بالإعلانات الممولة؟', status: formData.unitEconomics?.profitMargin || 'هامش ربح يسمح بتشغيل إعلانات ممولة.' }
-                          ]
-                    }
-                    defaultItems={[
-                      { id: 'ue-1', label: '1. متوسط أسعار البراند', status: 'رينج متوسط يناسب الفئة.' },
-                      { id: 'ue-2', label: '2. مقارنة بالمنافسين وفرق التسعير', status: 'نفس رينج المنافسين مع تميز بالضمان.' },
-                      { id: 'ue-3', label: '3. هل السعر مبرر والقيمة مقابل السعر؟ وهل يوجد عروض تساعد الإعلان؟', status: 'مبرر والقيمة ممتازة وتوجد عروض داعمة للإعلانات.' },
-                      { id: 'ue-4', label: '4. هامش الربح وهل يسمح بالإعلانات الممولة؟', status: 'هامش ربح يسمح بتشغيل إعلانات ممولة.' }
-                    ]}
-                    onUpdate={(items) => {
-                      const u1 = items.find((i) => i.id === 'ue-1');
-                      const u2 = items.find((i) => i.id === 'ue-2');
-                      const u3 = items.find((i) => i.id === 'ue-3');
-                      const u4 = items.find((i) => i.id === 'ue-4');
-                      setFormData({
-                        ...formData,
-                        unitEconomics: {
-                          ...formData.unitEconomics,
-                          avgPriceRange: u1?.status || formData.unitEconomics?.avgPriceRange || '',
-                          competitorComparison: u2?.status || formData.unitEconomics?.competitorComparison || '',
-                          priceJustification: u3?.status || formData.unitEconomics?.priceJustification || '',
-                          profitMargin: u4?.status || formData.unitEconomics?.profitMargin || '',
-                          checklist: items
-                        }
-                      });
-                    }}
-                  />
+                <div className="space-y-5">
+                  <div className="border-b border-[#E5E5E0] pb-3">
+                    <h4 className="font-extrabold text-sm text-[#5A5A40]">
+                      # Unit Economics & Pricing (ربحية المنتج وتسعيرته)
+                    </h4>
+                    <p className="text-[11px] text-[#8E8E85] mt-1">
+                      اجمع الأرقام الفعلية قدر الإمكان لتحديد CPA وROAS المناسبين للبراند.
+                    </p>
+                  </div>
+
+                  {UNIT_ECONOMICS_SECTIONS.map(section => {
+                    const allItems = getUnitEconomicsChecklist(formData.unitEconomics);
+                    const sectionItems = allItems.filter(item => item.id.startsWith(`ue-${section.id}-`));
+                    return (
+                      <div key={section.id} className="space-y-2">
+                        <ChecklistEditorSection
+                          title={`${section.icon} ${section.title} (${section.subtitle})`}
+                          items={sectionItems}
+                          defaultItems={section.items.map(item => ({ ...item }))}
+                          placeholderAnswer="اكتب الرقم أو النسبة أو الإجابة المتاحة..."
+                          columns={2}
+                          onUpdate={(items) => {
+                            const sectionItemIds = new Set(sectionItems.map(item => item.id));
+                            const normalizedItems = items.map(item => item.id.startsWith(`ue-${section.id}-`)
+                              ? item
+                              : { ...item, id: `ue-${section.id}-custom-${item.id}` });
+                            const nextChecklist = [
+                              ...allItems.filter(item => !sectionItemIds.has(item.id)),
+                              ...normalizedItems
+                            ];
+                            const actualSellingPrice = nextChecklist.find(item => item.id === 'ue-selling-actual-price');
+                            const grossMargin = nextChecklist.find(item => item.id === 'ue-selling-gross-margin');
+                            setFormData({
+                              ...formData,
+                              unitEconomics: {
+                                ...formData.unitEconomics,
+                                avgPriceRange: actualSellingPrice?.status || '',
+                                profitMargin: grossMargin?.status || '',
+                                checklist: nextChecklist
+                              }
+                            });
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -5651,3 +5750,4 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     </div>
   );
 };
+
