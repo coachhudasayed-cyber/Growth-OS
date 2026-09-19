@@ -114,9 +114,8 @@ const getSmartPageBreaks = (
 
       const isExplicitBlock = element.hasAttribute('data-pdf-block');
       const isRounded = element.matches(roundedSelector);
-      const nestedRoundedCount = element.querySelectorAll(roundedSelector).length;
       const isWholeSection = element.classList.contains('rounded-3xl');
-      const isSmallCard = nestedRoundedCount <= 1 && rect.height <= pageHeightInCssPixels * 0.48;
+      const isSmallCard = !isWholeSection && rect.height <= pageHeightInCssPixels * 0.58;
       const isSectionThatFits = isWholeSection && rect.height <= pageHeightInCssPixels * 0.9;
 
       if (isExplicitBlock || (isRounded && (isSmallCard || isSectionThatFits))) {
@@ -136,6 +135,37 @@ const getSmartPageBreaks = (
       point > range.start + edgeTolerance && point < range.end - edgeTolerance
     )))
     .sort((a, b) => a - b);
+};
+
+interface PdfSectionGuide {
+  start: number;
+  end: number;
+  headerEnd: number;
+}
+
+const getPdfSectionGuides = (root: HTMLElement, canvasScale: number): PdfSectionGuide[] => {
+  const rootRect = root.getBoundingClientRect();
+  const sectionsWrapper = Array.from(root.children).find(child => (
+    child instanceof HTMLElement && child.classList.contains('space-y-6')
+  ));
+
+  if (!(sectionsWrapper instanceof HTMLElement)) return [];
+
+  return Array.from(sectionsWrapper.children)
+    .filter((section): section is HTMLElement => section instanceof HTMLElement)
+    .map(section => {
+      const sectionRect = section.getBoundingClientRect();
+      const header = section.firstElementChild instanceof HTMLElement
+        ? section.firstElementChild
+        : section;
+      const headerRect = header.getBoundingClientRect();
+      return {
+        start: Math.round((sectionRect.top - rootRect.top) * canvasScale),
+        end: Math.round((sectionRect.bottom - rootRect.top) * canvasScale),
+        headerEnd: Math.round((headerRect.bottom - rootRect.top) * canvasScale)
+      };
+    })
+    .filter(section => section.end > section.start);
 };
 
 /**
@@ -202,38 +232,81 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
     const maxSliceHeight = Math.floor(contentHeightMm / mmPerCanvasPixel);
     const actualCanvasScale = canvas.width / clone.scrollWidth;
     const smartBreaks = getSmartPageBreaks(clone, actualCanvasScale, maxSliceHeight);
-    const minimumUsefulSlice = Math.floor(maxSliceHeight * 0.25);
+    const sectionGuides = getPdfSectionGuides(clone, actualCanvasScale);
     let sourceY = 0;
     let pageIndex = 0;
 
     while (sourceY < canvas.height) {
+      const continuationSection = sectionGuides.find(section => (
+        sourceY > section.headerEnd + 6 * actualCanvasScale &&
+        sourceY < section.end - 6 * actualCanvasScale
+      ));
+      const continuationHeaderHeight = continuationSection
+        ? Math.min(
+          continuationSection.headerEnd - continuationSection.start + Math.round(8 * actualCanvasScale),
+          Math.floor(maxSliceHeight * 0.14)
+        )
+        : 0;
+      const continuationGap = continuationHeaderHeight > 0
+        ? Math.round(8 * actualCanvasScale)
+        : 0;
+      const pageBottomGap = Math.round(12 * actualCanvasScale);
+      const pageSliceLimit = maxSliceHeight - continuationHeaderHeight - continuationGap - pageBottomGap;
+      const minimumUsefulSlice = Math.floor(pageSliceLimit * 0.25);
       const remaining = canvas.height - sourceY;
-      let sliceHeight = Math.min(maxSliceHeight, remaining);
-      const naturalTail = remaining - maxSliceHeight;
-      const shouldMergeSmallTail = naturalTail > 0 && naturalTail < maxSliceHeight * 0.18;
+      let sliceHeight = Math.min(pageSliceLimit, remaining);
+      const naturalTail = remaining - pageSliceLimit;
+      const shouldMergeSmallTail = naturalTail > 0 && naturalTail < pageSliceLimit * 0.18;
 
       if (shouldMergeSmallTail) {
         sliceHeight = remaining;
-      } else if (remaining > maxSliceHeight) {
-        const targetEnd = sourceY + maxSliceHeight;
+      } else if (remaining > pageSliceLimit) {
+        const targetEnd = sourceY + pageSliceLimit;
         const smartEndBefore = smartBreaks
           .filter(point => point <= targetEnd && point >= sourceY + minimumUsefulSlice)
           .pop();
         const smartEndAfter = smartBreaks.find(point => (
-          point > targetEnd && point <= sourceY + maxSliceHeight * 1.16
+          point > targetEnd && point <= sourceY + pageSliceLimit * 1.16
         ));
-        const smartEnd = smartEndBefore || smartEndAfter;
-        const wouldLeaveTinyLastPage = smartEnd && canvas.height - smartEnd < maxSliceHeight * 0.25;
+        let smartEnd = smartEndBefore || smartEndAfter;
+
+        if (smartEnd) {
+          const sectionStartingNearBreak = sectionGuides
+            .filter(section => (
+              section.start >= sourceY + minimumUsefulSlice &&
+              section.start < smartEnd! &&
+              smartEnd! - section.start < 150 * actualCanvasScale
+            ))
+            .pop();
+          if (sectionStartingNearBreak) smartEnd = sectionStartingNearBreak.start;
+        }
+
+        const wouldLeaveTinyLastPage = smartEnd && canvas.height - smartEnd < pageSliceLimit * 0.25;
         if (smartEnd && !wouldLeaveTinyLastPage) sliceHeight = smartEnd - sourceY;
       }
 
       const pageCanvas = document.createElement('canvas');
       pageCanvas.width = canvas.width;
-      pageCanvas.height = sliceHeight;
+      pageCanvas.height = continuationHeaderHeight + continuationGap + sliceHeight + pageBottomGap;
       const context = pageCanvas.getContext('2d');
       if (!context) throw new Error('تعذر تجهيز صفحة ملف PDF.');
       context.fillStyle = backgroundColor;
       context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+
+      if (continuationSection && continuationHeaderHeight > 0) {
+        context.drawImage(
+          canvas,
+          0,
+          continuationSection.start,
+          canvas.width,
+          continuationHeaderHeight,
+          0,
+          0,
+          canvas.width,
+          continuationHeaderHeight
+        );
+      }
+
       context.drawImage(
         canvas,
         0,
@@ -241,13 +314,13 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
         canvas.width,
         sliceHeight,
         0,
-        0,
+        continuationHeaderHeight + continuationGap,
         canvas.width,
         sliceHeight
       );
 
       if (pageIndex > 0) pdf.addPage();
-      const naturalImageHeightMm = sliceHeight * mmPerCanvasPixel;
+      const naturalImageHeightMm = pageCanvas.height * mmPerCanvasPixel;
       const fitScale = Math.min(1, contentHeightMm / naturalImageHeightMm);
       const imageWidthMm = contentWidthMm * fitScale;
       const imageHeightMm = naturalImageHeightMm * fitScale;
