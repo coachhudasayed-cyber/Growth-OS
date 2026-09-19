@@ -21,8 +21,8 @@ import {
   PlusCircle,
   FileText,
   Calendar,
-  Printer,
   Download,
+  Loader2,
   RotateCcw,
   CheckCircle2,
   ChevronDown,
@@ -55,6 +55,7 @@ import {
 } from '../../types';
 import { INITIAL_BRAND_AUDITS } from '../../lib/initialData';
 import { ChecklistEditorSection } from './ChecklistEditorSection';
+import { exportElementToPDF } from '../../utils/pdfExporter';
 
 interface BrandAuditTabProps {
   audit?: BrandAudit;
@@ -161,6 +162,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 }) => {
   const [resetToast, setResetToast] = useState<string | null>(null);
   const [showConfirmResetAuditModal, setShowConfirmResetAuditModal] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const currentAudit: BrandAudit = audit || {
     clientId,
@@ -299,102 +301,24 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setShowFullAuditModal(false);
   };
 
-  // Handle PDF Export / Print
-  const handlePrintPDF = () => {
+  // Download the full audit directly as a paginated PDF.
+  const handleDownloadPDF = async () => {
+    if (isExportingPdf) return;
     try {
       const printElement = document.getElementById('print-area');
-      const contentHtml = printElement ? printElement.innerHTML : '';
+      if (!printElement) throw new Error('Brand Audit PDF content was not found.');
       const brandTitle = currentAudit.overview?.brandName || clientId || 'Brand Audit';
-
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html dir="rtl" lang="ar">
-          <head>
-            <meta charset="utf-8">
-            <title>تقرير فحص وتقييم البراند - ${brandTitle}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-              @page {
-                size: A4 portrait;
-                margin: 15mm 12mm 15mm 12mm;
-              }
-              body {
-                font-family: 'Cairo', sans-serif;
-                background-color: #ffffff;
-                color: #2D2D2A;
-                padding: 16px;
-                margin: 0;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .no-print {
-                display: none !important;
-              }
-
-              /* Page break controls for clean PDF output */
-              h1, h2, h3, h4, h5, h6 {
-                break-after: avoid !important;
-                page-break-after: avoid !important;
-              }
-
-              p, blockquote, li {
-                orphans: 3;
-                widows: 3;
-              }
-
-              /* Prevent splitting cards, boxes, blockquotes, and item containers mid-page */
-              .bg-white,
-              .p-3,
-              .p-3\\.5,
-              .p-4,
-              .p-5,
-              .p-6,
-              blockquote,
-              .rounded-2xl,
-              .rounded-3xl,
-              .grid > div {
-                break-inside: avoid !important;
-                page-break-inside: avoid !important;
-              }
-
-              .grid {
-                break-inside: auto !important;
-                page-break-inside: auto !important;
-              }
-
-              @media print {
-                body {
-                  padding: 0 !important;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="max-w-5xl mx-auto space-y-6">
-              ${contentHtml}
-            </div>
-            <script>
-              setTimeout(() => {
-                window.focus();
-                window.print();
-              }, 500);
-            </script>
-          </body>
-          </html>
-        `);
-        printWindow.document.close();
-        return;
-      }
+      setIsExportingPdf(true);
+      await exportElementToPDF(printElement, {
+        filename: `Brand_Audit_${brandTitle}.pdf`,
+        backgroundColor: '#ffffff'
+      });
     } catch (err) {
-      console.warn('Popup print blocked or failed, falling back to window.print()', err);
+      console.error('Brand Audit PDF export failed', err);
+      window.alert('تعذر تحميل ملف PDF. حاولي مرة أخرى.');
+    } finally {
+      setIsExportingPdf(false);
     }
-
-    // Fallback if window.open is blocked by popup blocker
-    window.focus();
-    window.print();
   };
 
   // Quick delete of any top-level string property in audit
@@ -2988,12 +2912,13 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
                 <button
                   type="button"
-                  onClick={handlePrintPDF}
-                  className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-2xl text-xs transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                  title="تحميل / طباعة التقرير PDF"
+                  onClick={handleDownloadPDF}
+                  disabled={isExportingPdf}
+                  className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 disabled:cursor-wait text-white font-extrabold rounded-2xl text-xs transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                  title="تحميل التقرير PDF"
                 >
-                  <Printer className="w-4 h-4" />
-                  <span>طباعة التقرير PDF</span>
+                  {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  <span>{isExportingPdf ? 'جاري التحميل...' : 'تحميل التقرير PDF'}</span>
                 </button>
               </>
             ) : (
@@ -3018,11 +2943,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
                 <button
                   type="button"
-                  onClick={handlePrintPDF}
-                  className="p-2.5 bg-white hover:bg-[#F9F8F6] text-[#2D2D2A] border border-[#E5E5E0] font-extrabold rounded-2xl text-xs transition flex items-center justify-center shadow-2xs cursor-pointer"
-                  title="تحميل / طباعة التقرير PDF"
+                  onClick={handleDownloadPDF}
+                  disabled={isExportingPdf}
+                  className="p-2.5 bg-white hover:bg-[#F9F8F6] disabled:opacity-60 disabled:cursor-wait text-[#2D2D2A] border border-[#E5E5E0] font-extrabold rounded-2xl text-xs transition flex items-center justify-center shadow-2xs cursor-pointer"
+                  title="تحميل التقرير PDF"
                 >
-                  <Printer className="w-4 h-4 text-[#5A5A40]" />
+                  {isExportingPdf ? <Loader2 className="w-4 h-4 text-[#5A5A40] animate-spin" /> : <Download className="w-4 h-4 text-[#5A5A40]" />}
                 </button>
 
                 <button
@@ -3093,11 +3019,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handlePrintPDF}
+                  onClick={handleDownloadPDF}
+                  disabled={isExportingPdf}
                   title="تحميل PDF"
-                  className="p-2 bg-white border border-[#E5E5E0] hover:bg-[#E5E5E0] text-[#2D2D2A] font-extrabold rounded-xl text-xs transition flex items-center justify-center cursor-pointer"
+                  className="p-2 bg-white border border-[#E5E5E0] hover:bg-[#E5E5E0] disabled:opacity-60 disabled:cursor-wait text-[#2D2D2A] font-extrabold rounded-xl text-xs transition flex items-center justify-center cursor-pointer"
                 >
-                  <Printer className="w-4 h-4 text-[#5A5A40]" />
+                  {isExportingPdf ? <Loader2 className="w-4 h-4 text-[#5A5A40] animate-spin" /> : <Download className="w-4 h-4 text-[#5A5A40]" />}
                 </button>
                 <button
                   type="button"
@@ -3149,12 +3076,13 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               ) : (
                 <button
                   type="button"
-                  onClick={handlePrintPDF}
-                  title="طباعة التقرير PDF"
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  onClick={handleDownloadPDF}
+                  disabled={isExportingPdf}
+                  title="تحميل التقرير PDF"
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 disabled:cursor-wait text-white font-extrabold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <Printer className="w-4 h-4" />
-                  <span>طباعة التقرير PDF</span>
+                  {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  <span>{isExportingPdf ? 'جاري التحميل...' : 'تحميل التقرير PDF'}</span>
                 </button>
               )}
               <button
