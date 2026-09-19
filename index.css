@@ -59,7 +59,7 @@
   #print-area [class*="rounded-"],
   #print-area blockquote,
   #print-area .p-3,
-  #print-area .p-3.5,
+  #print-area .p-3\.5,
   #print-area .p-4,
   #print-area .p-5,
   #print-area .grid > div {
@@ -67,4 +67,6 @@
     page-break-inside: avoid !important;
   }
 }
+
+
 
