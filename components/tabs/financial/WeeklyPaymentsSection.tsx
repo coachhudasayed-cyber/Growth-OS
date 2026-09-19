@@ -263,18 +263,6 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
         )}
       </div>
 
-      {/* Client Access Notice */}
-      {userRole === 'client' && (
-        <div className="p-3 sm:p-3.5 bg-[#5A5A40]/10 border border-[#5A5A40]/25 rounded-2xl text-xs">
-          <div className="flex items-center gap-2 text-[#5A5A40]">
-            <Banknote className="w-4 h-4 shrink-0" />
-            <span className="font-bold">
-              قسم أتعاب الميديا بايينج: مخصص لك كعميل لإضافة وتعديل وحذف ومتابعة حالة الدفعات بحرية.
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Sub-Filters: Status only (تم الدفع / لم يتم الدفع بعد / دفع جزئي) */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap pb-1 pt-1">
         <button
