@@ -6,7 +6,6 @@ import {
   Edit2,
   Eye,
   Download,
-  Printer,
   ShieldAlert,
   Search,
   Calendar,
@@ -617,3 +616,4 @@ export const AdsPlanTab: React.FC<AdsPlanTabProps> = ({
     </div>
   );
 };
+
