@@ -39,7 +39,6 @@ import {
   WeeklyReportSectionId,
   WeeklyReportQuestionAnswer
 } from '../../types';
-import { exportWeeklyReportToPDF } from '../../utils/pdfExporter';
 import { ReportFilterBar, DateFilterPreset, getDateRangeFromPreset } from '../ReportFilterBar';
 
 interface WeeklyReportsTabProps {
@@ -795,6 +794,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const handleExportPDF = async (rep: WeeklyReport) => {
     try {
       setExportingId(rep.id);
+      const { exportWeeklyReportToPDF } = await import('../../utils/pdfExporter');
       await exportWeeklyReportToPDF(rep, brandName || '');
     } catch (err) {
       console.error('Error generating PDF download:', err);

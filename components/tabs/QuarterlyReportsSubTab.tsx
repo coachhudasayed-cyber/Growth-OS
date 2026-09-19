@@ -23,7 +23,6 @@ import {
   Compass
 } from 'lucide-react';
 import { QuarterlyReport, UserRole } from '../../types';
-import { exportQuarterlyReportToPDF } from '../../utils/pdfExporter';
 import { QuarterlyReportModal } from './QuarterlyReportModal';
 import { QuarterlyReportViewModal } from './QuarterlyReportViewModal';
 import { ReportFilterBar, DatePreset, getDateRangeFromPreset } from '../ReportFilterBar';
@@ -104,6 +103,7 @@ export const QuarterlyReportsSubTab: React.FC<QuarterlyReportsSubTabProps> = ({
   const handleExportPDF = async (rep: QuarterlyReport) => {
     setExportingQuarterlyId(rep.id);
     try {
+      const { exportQuarterlyReportToPDF } = await import('../../utils/pdfExporter');
       await exportQuarterlyReportToPDF(rep, brandName);
     } catch (err) {
       console.error('PDF Export error:', err);

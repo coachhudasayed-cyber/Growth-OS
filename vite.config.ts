@@ -11,6 +11,20 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            const moduleId = id.replace(/\\/g, '/');
+            if (moduleId.includes('/node_modules/@supabase/')) return 'supabase';
+            if (moduleId.includes('/node_modules/recharts/') || moduleId.includes('/node_modules/d3-')) return 'charts';
+            if (moduleId.includes('/node_modules/react/') || moduleId.includes('/node_modules/react-dom/')) return 'react';
+            if (moduleId.includes('/node_modules/jspdf/')) return 'pdf';
+            return undefined;
+          },
+        },
+      },
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.

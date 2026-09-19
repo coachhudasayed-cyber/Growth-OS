@@ -21,7 +21,6 @@ import {
   Trash2
 } from 'lucide-react';
 import { AdsPlanItem, CampaignPlanEntry } from '../../../types';
-import { exportElementToPDF } from '../../../utils/pdfExporter';
 
 interface StrategyAndAdsPlanViewModalProps {
   isOpen: boolean;
@@ -85,6 +84,7 @@ export const StrategyAndAdsPlanViewModal: React.FC<StrategyAndAdsPlanViewModalPr
     if (!reportRef.current || isExportingPdf) return;
     try {
       setIsExportingPdf(true);
+      const { exportElementToPDF } = await import('../../../utils/pdfExporter');
       await exportElementToPDF(reportRef.current, {
         filename: `Ads_Strategy_${brandName || plan.title || 'Plan'}.pdf`,
         backgroundColor: '#F9F8F6'

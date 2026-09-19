@@ -33,7 +33,6 @@ import {
 } from 'lucide-react';
 import { ContentPlanItem, ContentFormat, ContentStatus, UserRole } from '../../types';
 import { CONTENT_LIBRARY, ContentLibraryCategory, ContentLibraryIdea } from '../../data/contentLibraryData';
-import { exportSelectedCalendarDaysToPDF, exportContentLibraryToPDF } from '../../utils/pdfExporter';
 
 interface ContentPlanTabProps {
   contentPlans: ContentPlanItem[];
@@ -561,6 +560,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
 
     try {
       setIsExportingCalendarPdf(true);
+      const { exportSelectedCalendarDaysToPDF } = await import('../../utils/pdfExporter');
       await exportSelectedCalendarDaysToPDF(
         selectedGroups,
         brandName || 'العميل',
@@ -578,6 +578,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
   const handleExportLibraryPdf = async () => {
     try {
       setIsExportingLibraryPdf(true);
+      const { exportContentLibraryToPDF } = await import('../../utils/pdfExporter');
       await exportContentLibraryToPDF(filteredLibrary, brandName || 'العميل');
     } catch (error) {
       console.error('Failed to export library PDF:', error);
