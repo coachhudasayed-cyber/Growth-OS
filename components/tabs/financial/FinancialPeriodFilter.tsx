@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar, RotateCcw, CalendarDays, Filter } from 'lucide-react';
+import { formatLocalDate } from '../../../lib/dateUtils';
 
 export interface MonthOption {
   value: string; // YYYY-MM
@@ -31,7 +32,7 @@ export const FinancialPeriodFilter: React.FC<FinancialPeriodFilterProps> = ({
   availableMonths,
   onReset
 }) => {
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
+  const currentMonthStr = formatLocalDate().slice(0, 7);
 
   return (
     <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3 sm:px-4 sm:py-3 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
@@ -71,7 +72,7 @@ export const FinancialPeriodFilter: React.FC<FinancialPeriodFilterProps> = ({
           onClick={() => {
             const d = new Date();
             d.setMonth(d.getMonth() - 1);
-            const prevMonthStr = d.toISOString().slice(0, 7);
+            const prevMonthStr = formatLocalDate(d).slice(0, 7);
             setFilterMode('month');
             setSelectedMonth(prevMonthStr);
           }}

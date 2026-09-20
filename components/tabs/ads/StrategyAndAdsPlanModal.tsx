@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatLocalDate } from '../../../lib/dateUtils';
 import {
   X,
   Target,
@@ -84,14 +85,14 @@ export const StrategyAndAdsPlanModal: React.FC<StrategyAndAdsPlanModalProps> = (
     const defaultStart =
       initialData?.strategy?.startDate ||
       initialData?.startDate ||
-      new Date().toISOString().split('T')[0];
+      formatLocalDate();
     const defaultEnd =
       initialData?.strategy?.endDate ||
       initialData?.endDate ||
       (() => {
         const d = new Date();
         d.setDate(d.getDate() + 30);
-        return d.toISOString().split('T')[0];
+        return formatLocalDate(d);
       })();
 
     setTitle(
@@ -483,9 +484,13 @@ export const StrategyAndAdsPlanModal: React.FC<StrategyAndAdsPlanModalProps> = (
     }
     setFormError(null);
 
-    const calculatedTotalBudget =
-      Number(totalBudget) ||
-      campaigns.reduce((sum, c) => sum + (Number(c.campaignBudget) || 0), 0);
+    const campaignsBudgetTotal = campaigns.reduce(
+      (sum, campaign) => sum + (Number(campaign.campaignBudget) || 0),
+      0
+    );
+    const calculatedTotalBudget = campaigns.length > 0
+      ? campaignsBudgetTotal
+      : (Number(totalBudget) || 0);
 
     const strategyData: StrategyDetails = {
       startDate,
@@ -722,11 +727,21 @@ export const StrategyAndAdsPlanModal: React.FC<StrategyAndAdsPlanModalProps> = (
                     </label>
                     <input
                       type="number"
-                      value={totalBudget}
+                      min="0"
+                      step="0.01"
+                      value={campaigns.length > 0
+                        ? campaigns.reduce((sum, campaign) => sum + (Number(campaign.campaignBudget) || 0), 0)
+                        : totalBudget}
                       onChange={(e) => setTotalBudget(e.target.value)}
+                      readOnly={campaigns.length > 0}
                       placeholder="مثال: 20000"
-                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#2D2D2A] focus:outline-none focus:border-[#5A5A40]"
+                      className={`w-full border border-[#E5E5E0] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#2D2D2A] focus:outline-none focus:border-[#5A5A40] ${campaigns.length > 0 ? 'bg-[#EEEDE9] cursor-not-allowed' : 'bg-[#F9F8F6]'}`}
                     />
+                    {campaigns.length > 0 && (
+                      <p className="text-[10px] text-[#8E8E85] mt-1">
+                        يُحسب تلقائيًا من مجموع ميزانيات الحملات المسجلة أدناه.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

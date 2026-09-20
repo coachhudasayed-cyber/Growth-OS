@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Megaphone, Calendar, DollarSign, Target, Lightbulb, FileText, CheckCircle2 } from 'lucide-react';
 import { AdsPlanItem, AdStageType, AdCampaignType } from '../../../types';
+import { formatLocalDate } from '../../../lib/dateUtils';
 
 interface CampaignModalProps {
   initialCampaign?: AdsPlanItem | null;
@@ -52,7 +53,7 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
   const [campaignName, setCampaignName] = useState(initialCampaign?.campaignName || '');
   const [platform, setPlatform] = useState(initialCampaign?.platform || PLATFORMS[0]);
   const [campaignStage, setCampaignStage] = useState<AdStageType>(initialCampaign?.campaignStage || 'Testing');
-  const [startDate, setStartDate] = useState(initialCampaign?.startDate || new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(initialCampaign?.startDate || formatLocalDate());
   const [endDate, setEndDate] = useState(initialCampaign?.endDate || '');
   const [objective, setObjective] = useState(initialCampaign?.objective || OBJECTIVES[0]);
   const [campaignType, setCampaignType] = useState<AdCampaignType>(initialCampaign?.campaignType || 'CBO');

@@ -24,6 +24,7 @@ import {
 import { BudgetAlarm, UserRole, PaymentRecord, PaymentStatus } from '../../types';
 import { calculateBudgetEndDate, getBudgetDaysRemaining, isBudgetRechargeUrgent } from '../../lib/budgetLogic';
 import { formatLocalDate } from '../../lib/dateUtils';
+import { getPaymentCollectedAmount, getPaymentOutstandingAmount } from '../../lib/financialLogic';
 import { FinancialPeriodFilter, MonthOption } from './financial/FinancialPeriodFilter';
 import { FinancialKpiCards } from './financial/FinancialKpiCards';
 import { WeeklyPaymentsSection } from './financial/WeeklyPaymentsSection';
@@ -345,11 +346,13 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
     }
   });
 
-  const adSpendFromPayments = filteredPayments
-    .filter((p) => p.category === 'ad_spend' && p.status === 'paid')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const adSpendPaymentRecords = filteredPayments.filter((p) => p.category === 'ad_spend');
+  const adSpendFromPayments = adSpendPaymentRecords
+    .reduce((sum, p) => sum + getPaymentCollectedAmount(p), 0);
 
-  const totalAdSpend = adSpendFromBudgets > 0 ? adSpendFromBudgets : adSpendFromPayments;
+  // Explicit spend records are the source of truth. Budget history is a funding estimate fallback.
+  const hasActualSpendRecords = adSpendPaymentRecords.length > 0;
+  const totalAdSpend = hasActualSpendRecords ? adSpendFromPayments : adSpendFromBudgets;
 
   // 2. Media Buying Fees (اللي العميل دفعهولك)
   const mediaBuyingPayments = useMemo(() => {
@@ -357,16 +360,12 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   }, [filteredPayments]);
 
   const totalFeesPaid = mediaBuyingPayments.reduce((sum, p) => {
-    if (p.status === 'paid') return sum + p.amount;
-    if (p.status === 'partial') return sum + (p.paidAmount !== undefined ? p.paidAmount : p.amount);
-    return sum;
+    return sum + getPaymentCollectedAmount(p);
   }, 0);
   const feesPaidCount = mediaBuyingPayments.filter((p) => p.status === 'paid').length;
 
   const totalFeesPending = mediaBuyingPayments.reduce((sum, p) => {
-    if (p.status === 'pending') return sum + p.amount;
-    if (p.status === 'partial') return sum + (p.remainingAmount !== undefined ? p.remainingAmount : 0);
-    return sum;
+    return sum + getPaymentOutstandingAmount(p);
   }, 0);
   const feesPendingCount = mediaBuyingPayments.filter((p) => p.status === 'pending' || p.status === 'overdue').length;
 
@@ -374,6 +373,9 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   const feesOverdueCount = mediaBuyingPayments.filter(
     (p) => p.status === 'overdue' || (p.status === 'pending' && p.date < todayStr)
   ).length;
+  const totalFeesOverdue = mediaBuyingPayments
+    .filter((p) => p.status === 'overdue' || (p.status === 'pending' && p.date < todayStr))
+    .reduce((sum, payment) => sum + getPaymentOutstandingAmount(payment), 0);
 
   // 3. Monthly Summary: إجمالي Ads Spend + إجمالي أتعابك
   const totalCombinedVolume = totalAdSpend + totalFeesPaid;
@@ -441,9 +443,10 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
         adSpendCampaignsCount={adSpendCampaignsCount}
         adSpendFromPayments={adSpendFromPayments}
         adSpendFromBudgets={adSpendFromBudgets}
+        hasActualSpendRecords={hasActualSpendRecords}
         totalFeesPaid={totalFeesPaid}
         totalFeesPending={totalFeesPending}
-        totalFeesOverdue={feesOverdueCount}
+        totalFeesOverdue={totalFeesOverdue}
         feesPaidCount={feesPaidCount}
         feesPendingCount={feesPendingCount}
         feesOverdueCount={feesOverdueCount}
