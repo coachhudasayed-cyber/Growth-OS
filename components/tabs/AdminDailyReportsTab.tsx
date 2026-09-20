@@ -17,6 +17,7 @@ import {
   Download
 } from 'lucide-react';
 import { AdminDailyReport, BudgetAlarm, UserRole, AttachedReportFile } from '../../types';
+import { formatLocalDate } from '../../lib/dateUtils';
 
 interface AdminDailyReportsTabProps {
   reports: AdminDailyReport[];
@@ -63,7 +64,7 @@ export const AdminDailyReportsTab: React.FC<AdminDailyReportsTabProps> = ({
   // Deduplicate campaign names
   const availableCampaignOptions = Array.from(new Set(clientBudgetCampaigns));
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
 
   // Modal & Form State
   const [showModal, setShowModal] = useState(false);
@@ -84,7 +85,7 @@ export const AdminDailyReportsTab: React.FC<AdminDailyReportsTabProps> = ({
     // Pre-select first campaign or all if available
     setSelectedCampaigns(availableCampaignOptions.length > 0 ? [availableCampaignOptions[0]] : []);
     setCustomCampaignInput('');
-    setDate(new Date().toISOString().split('T')[0]); // Default to today but editable
+    setDate(formatLocalDate()); // Default to today but editable
     setQuickEvaluation('🟢 ممتاز');
     setMainNotes('');
     setAttachedFiles([]);

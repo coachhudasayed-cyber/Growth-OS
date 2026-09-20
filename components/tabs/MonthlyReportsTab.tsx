@@ -1,4 +1,6 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { calculatePerformanceMetrics, formatMetricMoney } from '../../lib/financialLogic';
+import { formatLocalDate } from '../../lib/dateUtils';
 import React, { useState, useEffect } from 'react';
 import {
   CalendarRange,
@@ -525,8 +527,8 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
     .filter((r) => r.clientId === clientId)
     .sort((a, b) => (b.month || b.startDate || '').localeCompare(a.month || a.startDate || ''));
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const currentMonthStr = new Date().toISOString().slice(0, 7); // e.g. 2026-08
+  const todayStr = formatLocalDate();
+  const currentMonthStr = formatLocalDate().slice(0, 7); // e.g. 2026-08
 
   // Template Questions State (Per-client customizable with Supabase persistence)
   const [questions, setQuestions] = useSupabaseSetting<MonthlyReportQuestion[]>(
@@ -598,49 +600,20 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
       if (q.standardKey) {
         next[q.standardKey] = val;
       }
+      if (q.standardKey === 'totalSpent' || q.standardKey === 'totalOrders' || q.standardKey === 'totalRevenue') {
+        const spend = Number(next.totalSpent ?? next.m_perf_spend) || 0;
+        const orders = Number(next.totalOrders ?? next.m_perf_orders) || 0;
+        const revenue = Number(next.totalRevenue ?? next.m_perf_revenue) || 0;
+        const metrics = calculatePerformanceMetrics(spend, orders, revenue);
+        next.roas = metrics.roas ?? 0;
+        next.m_perf_roas = metrics.roas ?? 0;
+        next.cpa = formatMetricMoney(metrics.cpa);
+        next.m_perf_cpa = formatMetricMoney(metrics.cpa);
+        next.aov = formatMetricMoney(metrics.aov);
+        next.m_perf_aov = formatMetricMoney(metrics.aov);
+      }
       return next;
     });
-
-    // Auto-calculate CPA, AOV, ROAS when spend/orders/revenue change
-    const isSpend = q.standardKey === 'totalSpent' || q.id === 'm_perf_spend';
-    const isOrders = q.standardKey === 'totalOrders' || q.id === 'm_perf_orders';
-    const isRev = q.standardKey === 'totalRevenue' || q.id === 'm_perf_revenue';
-
-    if (isSpend || isOrders || isRev) {
-      setTimeout(() => autoCalculatePerformanceMetrics(q, val), 0);
-    }
-  };
-
-  const autoCalculatePerformanceMetrics = (
-    changedQ: MonthlyReportQuestion,
-    newVal: string | number
-  ) => {
-    const currentValues = { ...formValues, [changedQ.id]: newVal };
-    if (changedQ.standardKey) currentValues[changedQ.standardKey] = newVal;
-
-    const spend = Number(currentValues['totalSpent'] ?? currentValues['m_perf_spend'] ?? 0);
-    const orders = Number(currentValues['totalOrders'] ?? currentValues['m_perf_orders'] ?? 0);
-    const rev = Number(currentValues['totalRevenue'] ?? currentValues['m_perf_revenue'] ?? 0);
-
-    const updates: Record<string, string | number> = {};
-
-    if (spend > 0 && orders > 0) {
-      const calculatedCpa = `${(spend / orders).toFixed(1)} EGP`;
-      updates['m_perf_cpa'] = calculatedCpa;
-      updates['cpa'] = calculatedCpa;
-    }
-    if (orders > 0 && rev > 0) {
-      const calculatedAov = `${(rev / orders).toFixed(1)} EGP`;
-      updates['m_perf_aov'] = calculatedAov;
-      updates['aov'] = calculatedAov;
-    }
-    if (spend > 0 && rev > 0) {
-      const calculatedRoas = Number((rev / spend).toFixed(2));
-      updates['m_perf_roas'] = calculatedRoas;
-      updates['roas'] = calculatedRoas;
-    }
-
-    setFormValues((prev) => ({ ...prev, ...updates }));
   };
 
   // --- Dynamic Question Actions ---
@@ -841,9 +814,29 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const rawSpent = Number(formValues['totalSpent'] ?? formValues['m_perf_spend']) || 0;
+    const rawOrders = Number(formValues['totalOrders'] ?? formValues['m_perf_orders']) || 0;
+    const rawRevenue = Number(formValues['totalRevenue'] ?? formValues['m_perf_revenue']) || 0;
+    const metrics = calculatePerformanceMetrics(rawSpent, rawOrders, rawRevenue);
+    const normalizedFormValues: Record<string, string | number> = {
+      ...formValues,
+      totalSpent: rawSpent,
+      m_perf_spend: rawSpent,
+      totalOrders: rawOrders,
+      m_perf_orders: rawOrders,
+      totalRevenue: rawRevenue,
+      m_perf_revenue: rawRevenue,
+      roas: metrics.roas ?? 0,
+      m_perf_roas: metrics.roas ?? 0,
+      cpa: formatMetricMoney(metrics.cpa),
+      m_perf_cpa: formatMetricMoney(metrics.cpa),
+      aov: formatMetricMoney(metrics.aov),
+      m_perf_aov: formatMetricMoney(metrics.aov)
+    };
+
     // Map questions to structured list
     const questionsList: MonthlyReportQuestionAnswer[] = questions.map((q) => {
-      const val = formValues[q.id] ?? (q.standardKey ? formValues[q.standardKey] : '') ?? '';
+      const val = normalizedFormValues[q.id] ?? (q.standardKey ? normalizedFormValues[q.standardKey] : '') ?? '';
       return {
         id: q.id,
         sectionId: q.sectionId,
@@ -855,15 +848,15 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
     });
 
     const getVal = (stdKey: string, fallbackId: string, defaultValue: any = '') => {
-      if (formValues[stdKey] !== undefined) return formValues[stdKey];
-      if (formValues[fallbackId] !== undefined) return formValues[fallbackId];
+      if (normalizedFormValues[stdKey] !== undefined) return normalizedFormValues[stdKey];
+      if (normalizedFormValues[fallbackId] !== undefined) return normalizedFormValues[fallbackId];
       return defaultValue;
     };
 
     const totalSpentVal = Number(getVal('totalSpent', 'm_perf_spend', 0)) || 0;
     const totalOrdersVal = Number(getVal('totalOrders', 'm_perf_orders', 0)) || 0;
     const totalRevenueVal = Number(getVal('totalRevenue', 'm_perf_revenue', 0)) || 0;
-    const roasVal = Number(getVal('roas', 'm_perf_roas', 0)) || 0;
+    const roasVal = metrics.roas ?? 0;
 
     const reportPayload: Omit<MonthlyReport, 'id'> = {
       clientId,
@@ -935,7 +928,7 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
       monthlyGrowthSummary: String(getVal('monthlyGrowthSummary', 'm_eval_summary', '')).trim() || undefined,
 
       // Dynamic answers and questions template
-      customAnswers: formValues,
+      customAnswers: normalizedFormValues,
       questionsList,
       customSectionsQuestions: questions
     };
@@ -1640,6 +1633,7 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
                                       min="0"
                                       step={q.standardKey === 'roas' ? '0.01' : 'any'}
                                       required={q.required}
+                                      readOnly={q.standardKey === 'roas'}
                                       value={val === '' ? '' : Number(val)}
                                       onChange={(e) =>
                                         handleFieldValueChange(
@@ -1654,6 +1648,7 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
                                     <input
                                       type="text"
                                       required={q.required}
+                                      readOnly={q.standardKey === 'cpa' || q.standardKey === 'aov'}
                                       value={String(val || '')}
                                       onChange={(e) => handleFieldValueChange(q, e.target.value)}
                                       placeholder={q.placeholder || ''}

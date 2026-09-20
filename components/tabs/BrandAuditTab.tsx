@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { formatLocalDate } from '../../lib/dateUtils';
 import {
   ShieldCheck,
   Plus,
@@ -166,9 +167,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const currentAudit: BrandAudit = audit || {
     clientId,
     score: 85,
-    auditDate: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString().split('T')[0],
-    updatedAt: new Date().toISOString().split('T')[0],
+    auditDate: formatLocalDate(),
+    createdAt: formatLocalDate(),
+    updatedAt: formatLocalDate(),
     swot: {
       strengths: [],
       weaknesses: [],
@@ -290,11 +291,11 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   // Save Full Audit Modal
   const handleSaveFullAudit = () => {
     if (userRole === 'client') return;
-    const updatedDate = formData.auditDate || new Date().toISOString().split('T')[0];
+    const updatedDate = formData.auditDate || formatLocalDate();
     const updatedAudit: BrandAudit = {
       ...formData,
       auditDate: updatedDate,
-      updatedAt: new Date().toISOString().split('T')[0]
+      updatedAt: formatLocalDate()
     };
     onUpdateAudit(clientId, updatedAudit);
     setShowFullAuditModal(false);
@@ -922,7 +923,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     const updatedAudit: BrandAudit = {
       ...currentAudit,
       [auditKey]: JSON.parse(JSON.stringify(defaultData)),
-      updatedAt: new Date().toISOString().split('T')[0]
+      updatedAt: formatLocalDate()
     };
 
     onUpdateAudit(clientId, updatedAudit);
@@ -987,9 +988,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     const defaultAudit: BrandAudit = JSON.parse(JSON.stringify(baseClient || {
       clientId,
       score: 85,
-      auditDate: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
+      auditDate: formatLocalDate(),
+      createdAt: formatLocalDate(),
+      updatedAt: formatLocalDate(),
       overview: getDefaultBrandAuditSectionData(clientId, 'overview'),
       digitalAssets: getDefaultBrandAuditSectionData(clientId, 'digitalAssets'),
       trackingAudit: getDefaultBrandAuditSectionData(clientId, 'tracking'),
@@ -2891,7 +2892,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               <div className="flex items-center gap-3 text-xs text-[#8E8E85] mt-1.5 flex-wrap">
                 <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-[#E5E5E0] font-bold text-[#2D2D2A]">
                   <Calendar className="w-3.5 h-3.5 text-[#5A5A40]" />
-                  <span>تاريخ التقييم: {currentAudit.auditDate || new Date().toISOString().split('T')[0]}</span>
+                  <span>تاريخ التقييم: {currentAudit.auditDate || formatLocalDate()}</span>
                 </span>
               </div>
             </div>
@@ -3217,7 +3218,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                   <label className="font-extrabold text-[#2D2D2A] block mb-1">تاريخ التقييم (Audit Date)</label>
                   <input
                     type="date"
-                    value={formData.auditDate || new Date().toISOString().split('T')[0]}
+                    value={formData.auditDate || formatLocalDate()}
                     onChange={(e) => setFormData({ ...formData, auditDate: e.target.value })}
                     className="w-full sm:w-1/2 p-2.5 rounded-xl border border-[#E5E5E0] bg-white font-bold text-[#2D2D2A]"
                   />

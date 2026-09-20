@@ -7,6 +7,7 @@ interface FinancialKpiCardsProps {
   adSpendCampaignsCount: number;
   adSpendFromPayments: number;
   adSpendFromBudgets: number;
+  hasActualSpendRecords: boolean;
   totalFeesPaid: number;
   totalFeesPending: number;
   totalFeesOverdue: number;
@@ -24,6 +25,9 @@ interface FinancialKpiCardsProps {
 export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
   totalAdSpend,
   adSpendCampaignsCount,
+  adSpendFromPayments,
+  adSpendFromBudgets,
+  hasActualSpendRecords,
   totalFeesPaid,
   totalFeesPending,
   totalFeesOverdue,
@@ -38,6 +42,11 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
   urgentCampaignsCount = 0
 }) => {
   const isEmployee = userRole === 'employee';
+  const hasActualSpend = hasActualSpendRecords;
+  const spendLabel = hasActualSpend ? 'Actual Ad Spend' : 'Budget Funding';
+  const spendDescription = hasActualSpend
+    ? `صرف فعلي مسجل${adSpendFromBudgets > 0 ? ` • شحنات ${adSpendFromBudgets.toLocaleString()} EGP` : ''}`
+    : 'إجمالي شحنات الميزانية المسجلة (ليس صرف المنصة الفعلي)';
 
   if (isEmployee) {
     return (
@@ -46,7 +55,7 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3 sm:p-4 shadow-2xs hover:border-[#5A5A40]/40 transition flex flex-col justify-between">
           <div className="flex items-center justify-between gap-1.5">
             <span className="text-[11px] sm:text-xs font-bold text-[#5A5A40] truncate">
-              💰 Ad Spend
+              💰 {spendLabel}
             </span>
             <span className="p-1 sm:p-1.5 bg-blue-50 text-blue-700 rounded-lg sm:rounded-xl shrink-0">
               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -57,7 +66,7 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
               {totalAdSpend.toLocaleString()} <span className="text-[10px] sm:text-xs font-bold text-[#8E8E85]">EGP</span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-[#8E8E85] font-medium mt-0.5 line-clamp-1">
-              إجمالي صرف الإعلانات للفترة
+              {spendDescription}
             </p>
           </div>
         </div>
@@ -131,7 +140,7 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
       <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3 sm:p-4 shadow-2xs hover:border-[#5A5A40]/40 transition flex flex-col justify-between">
         <div className="flex items-center justify-between gap-1.5">
           <span className="text-[11px] sm:text-xs font-bold text-[#5A5A40] truncate">
-            💰 Ad Spend
+            💰 {spendLabel}
           </span>
           <span className="p-1 sm:p-1.5 bg-blue-50 text-blue-700 rounded-lg sm:rounded-xl shrink-0">
             <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -142,7 +151,7 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
             {totalAdSpend.toLocaleString()} <span className="text-[10px] sm:text-xs font-bold text-[#8E8E85]">EGP</span>
           </div>
           <p className="text-[10px] sm:text-[11px] text-[#8E8E85] font-medium mt-0.5 line-clamp-1">
-            صرف الإعلانات ({adSpendCampaignsCount} حملات)
+            {spendDescription} ({adSpendCampaignsCount} حملات)
           </p>
         </div>
       </div>
@@ -162,7 +171,7 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
             {totalFeesPaid.toLocaleString()} <span className="text-[10px] sm:text-xs font-bold text-[#8E8E85]">EGP</span>
           </div>
           <p className="text-[10px] sm:text-[11px] text-emerald-700/80 font-medium mt-0.5 line-clamp-1">
-            أتعاب مستلمة ({feesPaidCount} دفعة)
+            أتعاب مستلمة ({feesPaidCount + feesPartialCount} دفعة)
           </p>
         </div>
       </div>
@@ -182,7 +191,7 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
             {totalCombinedVolume.toLocaleString()} <span className="text-[10px] sm:text-xs font-bold text-[#8E8E85]">EGP</span>
           </div>
           <p className="text-[10px] sm:text-[11px] text-[#8E8E85] font-medium mt-0.5 line-clamp-1">
-            إجمالي الصرف + الأتعاب
+            {hasActualSpend ? 'إجمالي الصرف الفعلي + الأتعاب' : 'إجمالي الشحنات + الأتعاب (تقديري)'}
           </p>
         </div>
       </div>
@@ -211,6 +220,10 @@ export const FinancialKpiCards: React.FC<FinancialKpiCardsProps> = ({
             <span className="text-xs sm:text-sm font-black text-blue-950">{feesPartialCount}</span>
           </div>
         </div>
+        <p className="text-[9px] sm:text-[10px] text-[#8E8E85] font-bold mt-1.5 text-center">
+          متبقي {totalFeesPending.toLocaleString()} EGP
+          {totalFeesOverdue > 0 ? ` • متأخر ${totalFeesOverdue.toLocaleString()} EGP` : ''}
+        </p>
       </div>
     </div>
   );

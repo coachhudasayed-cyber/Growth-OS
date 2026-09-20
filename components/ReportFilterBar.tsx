@@ -1,32 +1,33 @@
 import React from 'react';
 import { Search, Calendar, X, Filter, RotateCcw } from 'lucide-react';
+import { formatLocalDate } from '../lib/dateUtils';
 
 export type DateFilterPreset = 'all' | '7days' | '30days' | 'thisMonth' | 'lastMonth' | 'custom';
 export type DatePreset = DateFilterPreset;
 
 export const getDateRangeFromPreset = (preset: DateFilterPreset): { startDate: string; endDate: string } => {
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
 
   if (preset === '7days') {
     const d = new Date();
     d.setDate(d.getDate() - 7);
-    return { startDate: d.toISOString().split('T')[0], endDate: todayStr };
+    return { startDate: formatLocalDate(d), endDate: todayStr };
   }
   if (preset === '30days') {
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    return { startDate: d.toISOString().split('T')[0], endDate: todayStr };
+    return { startDate: formatLocalDate(d), endDate: todayStr };
   }
   if (preset === 'thisMonth') {
     const start = new Date(today.getFullYear(), today.getMonth(), 1);
     const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    return { startDate: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0] };
+    return { startDate: formatLocalDate(start), endDate: formatLocalDate(end) };
   }
   if (preset === 'lastMonth') {
     const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const end = new Date(today.getFullYear(), today.getMonth(), 0);
-    return { startDate: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0] };
+    return { startDate: formatLocalDate(start), endDate: formatLocalDate(end) };
   }
   return { startDate: '', endDate: '' };
 };

@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { ContentPlanItem, WeeklyReport, MonthlyReport, QuarterlyReport } from '../types';
 import { ContentLibraryCategory } from '../data/contentLibraryData';
+import { formatLocalDate } from '../lib/dateUtils';
 
 const getFormatBadge = (format: string) => {
   switch (format) {
@@ -412,7 +413,7 @@ function createA4PageNode(
   page.style.justifyContent = 'space-between';
   page.style.position = 'relative';
 
-  const todayFormatted = new Date().toISOString().split('T')[0];
+  const todayFormatted = formatLocalDate();
 
   // Top Header Banner
   const headerHtml = `

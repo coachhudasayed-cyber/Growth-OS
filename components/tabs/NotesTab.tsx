@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StickyNote, Pin, Plus, Trash2, Edit2, User, ShieldCheck, CheckCircle2, Clock } from 'lucide-react';
 import { NoteItem, UserRole } from '../../types';
+import { formatLocalDate } from '../../lib/dateUtils';
 
 interface NotesTabProps {
   notes: NoteItem[];
@@ -89,7 +90,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
         authorRole: currentUserRole,
         isPinned,
         status,
-        date: new Date().toISOString().split('T')[0]
+        date: formatLocalDate()
       });
     }
 
