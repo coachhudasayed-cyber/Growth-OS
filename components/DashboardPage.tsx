@@ -14,6 +14,8 @@ import {
   Filter,
   Megaphone
 } from 'lucide-react';
+import { getBudgetDaysRemaining, isBudgetRechargeUrgent } from '../lib/budgetLogic';
+import { formatLocalDate } from '../lib/dateUtils';
 import {
   Client,
   TodoTask,
@@ -99,10 +101,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const activeClientsInPeriod = filteredClients.filter((c) => c.status === 'active');
 
   // Today Date String for Budget Alarm checking
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
 
   // Urgent Budget Alarms (Ending today or expired)
-  const budgetAlerts = budgetAlarms.filter((alarm) => alarm.endDate <= todayStr);
+  const budgetAlerts = budgetAlarms.filter((alarm) => isBudgetRechargeUrgent(alarm, 2, todayStr));
 
   const handleAddTodoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +135,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       {budgetAlerts.length > 0 && (
         <div className="space-y-3 animate-in fade-in slide-in-from-top-4">
           {budgetAlerts.map((alarm) => {
-            const isToday = alarm.endDate === todayStr;
+            const daysLeft = getBudgetDaysRemaining(alarm.endDate, todayStr);
+            const isToday = daysLeft === 0;
+            const isExpired = daysLeft < 0;
+            const alertLabel = alarm.status === 'needs_recharge'
+              ? 'تحتاج شحن'
+              : isExpired
+              ? 'منتهية الشحن!'
+              : isToday
+              ? 'تنتهي اليوم!'
+              : daysLeft === 1
+              ? 'تنتهي غدًا!'
+              : `متبقي ${daysLeft} يوم`;
             return (
               <div
                 key={alarm.id}
@@ -146,7 +159,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <div className="flex items-start sm:items-center gap-3.5">
                   <div
                     className={`p-2.5 sm:p-3 rounded-xl shrink-0 mt-0.5 sm:mt-0 ${
-                      isToday ? 'bg-[#FAD9A5] text-[#A36813]' : 'bg-[#EACEC3] text-[#7D2D1C]'
+                    !isExpired ? 'bg-[#FAD9A5] text-[#A36813]' : 'bg-[#EACEC3] text-[#7D2D1C]'
                     }`}
                   >
                     <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 animate-bounce" />
@@ -158,16 +171,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </span>
                       <span
                         className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
-                          isToday
+                          !isExpired
                             ? 'bg-white text-[#A36813] border-[#FAD9A5]'
                             : 'bg-white text-[#7D2D1C] border-[#EACEC3]'
                         }`}
                       >
-                        {isToday ? 'تنتهي اليوم!' : 'منتهية الشحن!'}
+                        {alertLabel}
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-semibold mt-1 text-[#2D2D2A] leading-relaxed">
-                      🚨 ميزانية إعلانات <strong className="underline underline-offset-4">{alarm.brandName}</strong> {alarm.campaignName ? `(${alarm.campaignName})` : ''} ستنتهي اليوم ويجب شحنها! (الميزانية: {alarm.amount.toLocaleString()} EGP &bull; المنصة: {alarm.platform || 'General'})
+                      🚨 ميزانية إعلانات <strong className="underline underline-offset-4">{alarm.brandName}</strong> {alarm.campaignName ? `(${alarm.campaignName})` : ''} {isExpired ? 'انتهت وتحتاج للشحن.' : `موعد شحنها ${alertLabel}.`} (الميزانية: {alarm.amount.toLocaleString()} EGP &bull; المنصة: {alarm.platform || 'General'})
                     </p>
                   </div>
                 </div>
@@ -477,6 +490,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 budgetAlarms.map((alarm) => {
                   const isExpired = alarm.endDate < todayStr;
                   const isToday = alarm.endDate === todayStr;
+                  const isPaused = alarm.status === 'paused';
+                  const isCompleted = alarm.status === 'completed';
+                  const needsRecharge = alarm.status === 'needs_recharge';
 
                   return (
                     <div
@@ -509,7 +525,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                               : 'bg-[#FFF0E6] text-[#E07A48] border-[#F7C6A5]'
                           }`}
                         >
-                          {isToday ? 'تنتهي اليوم 🔥' : isExpired ? 'منتهية ❌' : 'نشطة ✅'}
+                          {isPaused
+                            ? 'متوقفة مؤقتًا ⏸️'
+                            : isCompleted
+                            ? 'مكتملة ✅'
+                            : needsRecharge
+                            ? 'تحتاج شحن ⚠️'
+                            : isToday
+                            ? 'تنتهي اليوم 🔥'
+                            : isExpired
+                            ? 'منتهية ❌'
+                            : 'نشطة ✅'}
                         </span>
                       </div>
 
@@ -531,7 +557,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </div>
 
                       {/* Alert Message Box */}
-                      {isToday && (
+                      {isToday && !isPaused && !isCompleted && (
                         <div className="p-2 bg-[#FEF6E6] border border-[#FAD9A5] rounded-xl text-[11px] font-bold text-[#A36813] flex items-center gap-2 mt-2">
                           <AlertTriangle className="w-4 h-4 shrink-0 text-[#A36813]" />
                           <span>"ميزانية إعلانات {alarm.brandName} ستنتهي اليوم ويجب شحنها."</span>

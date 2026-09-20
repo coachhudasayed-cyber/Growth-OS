@@ -5,8 +5,9 @@ import {
   AdsPlanItem, ClientAdsStageStrategy, ClientDailyReport, WeeklyReport,
   MonthlyReport, QuarterlyReport, AdminDailyReport, NoteItem
 } from '../types';
-import { calculateEndDate } from './initialData';
 import { supabase } from './supabase';
+import { addCalendarDays, differenceInCalendarDays, formatLocalDate } from './dateUtils';
+import { calculateBudgetEndDate } from './budgetLogic';
 
 type StoredRecord = {
   collection: string;
@@ -411,9 +412,10 @@ export function useAppData() {
     campaignName?: string,
     status?: 'active' | 'paused' | 'completed' | 'needs_recharge'
   ) => {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(expectedDays) || expectedDays < 1) return;
     const clientObj = clients.find(c => c.id === clientId);
     const brandName = clientObj ? clientObj.brandName : 'براند جديد';
-    const endDate = calculateEndDate(startDate, expectedDays);
+    const endDate = calculateBudgetEndDate(startDate, expectedDays);
 
     const initialHistoryRecord: BudgetRechargeRecord = {
       id: `rec-${crypto.randomUUID()}`,
@@ -438,7 +440,7 @@ export function useAppData() {
       platform: platform || 'Meta Ads (FB & Insta)',
       status: status || 'active',
       notes: notes || '',
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: formatLocalDate(),
       rechargesCount: 0,
       rechargeHistory: [initialHistoryRecord]
     };
@@ -449,11 +451,41 @@ export function useAppData() {
   const updateBudgetAlarm = (id: string, fields: Partial<BudgetAlarm>) => {
     setBudgetAlarms(prev => prev.map(b => {
       if (b.id !== id) return b;
-      const updated = { ...b, ...fields };
+      const todayStr = formatLocalDate();
+      const adjustedFields = { ...fields };
+      const isPausing = fields.status === 'paused' && b.status !== 'paused';
+      const isResuming = fields.status === 'active' && b.status === 'paused';
+      if (isPausing) adjustedFields.pausedAt = todayStr;
+      const updated = { ...b, ...adjustedFields };
       if (fields.startDate || fields.expectedDays !== undefined) {
         const sDate = fields.startDate || b.startDate;
         const eDays = fields.expectedDays !== undefined ? fields.expectedDays : b.expectedDays;
-        updated.endDate = calculateEndDate(sDate, eDays);
+        updated.endDate = calculateBudgetEndDate(sDate, eDays);
+      }
+      if (isResuming) {
+        const pausedDays = b.pausedAt
+          ? Math.max(0, differenceInCalendarDays(todayStr, b.pausedAt))
+          : 0;
+        updated.endDate = addCalendarDays(updated.endDate, pausedDays);
+        updated.pausedAt = undefined;
+        updated.totalPausedDays = (b.totalPausedDays || 0) + pausedDays;
+      }
+      const cycleChanged = fields.amount !== undefined
+        || fields.startDate !== undefined
+        || fields.expectedDays !== undefined
+        || fields.endDate !== undefined
+        || isResuming;
+      if (cycleChanged && updated.rechargeHistory?.length) {
+        const history = [...updated.rechargeHistory];
+        const latestIndex = history.length - 1;
+        history[latestIndex] = {
+          ...history[latestIndex],
+          amount: updated.amount,
+          expectedDays: updated.expectedDays,
+          startDate: updated.startDate,
+          endDate: updated.endDate
+        };
+        updated.rechargeHistory = history;
       }
       return updated;
     }));
@@ -466,9 +498,10 @@ export function useAppData() {
     newStartDate?: string,
     rechargeNotes?: string
   ) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    if (!Number.isFinite(newAmount) || newAmount <= 0 || !Number.isInteger(newExpectedDays) || newExpectedDays < 1) return;
+    const todayStr = formatLocalDate();
     const startDateToUse = newStartDate || todayStr;
-    const newEndDate = calculateEndDate(startDateToUse, newExpectedDays);
+    const newEndDate = calculateBudgetEndDate(startDateToUse, newExpectedDays);
 
     setBudgetAlarms(prev => prev.map(b => {
       if (b.id !== id) return b;
@@ -515,6 +548,8 @@ export function useAppData() {
         notes: updatedNotes,
         rechargesCount: (b.rechargesCount || 0) + 1,
         lastRechargedAt: todayStr,
+        pausedAt: undefined,
+        totalPausedDays: 0,
         rechargeHistory: [...existingHistory, newRechargeRecord]
       };
     }));
