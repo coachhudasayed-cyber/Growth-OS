@@ -27,6 +27,7 @@ import {
 } from '../../types';
 import { StrategyAndAdsPlanModal } from './ads/StrategyAndAdsPlanModal';
 import { StrategyAndAdsPlanViewModal } from './ads/StrategyAndAdsPlanViewModal';
+import { formatLocalDate } from '../../lib/dateUtils';
 
 interface AdsPlanTabProps {
   adsPlans: AdsPlanItem[];
@@ -134,7 +135,7 @@ export const AdsPlanTab: React.FC<AdsPlanTabProps> = ({
         campaignStrategyNotes: planData.campaignStrategyNotes,
         status: planData.status || 'active',
         adSets: planData.adSets || [],
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: formatLocalDate()
       };
       onAddAdsPlanItem(newItemData);
 

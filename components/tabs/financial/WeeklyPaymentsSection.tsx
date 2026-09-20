@@ -13,6 +13,8 @@ import {
   PieChart
 } from 'lucide-react';
 import { PaymentRecord, PaymentStatus, UserRole } from '../../../types';
+import { normalizePaymentAmounts } from '../../../lib/financialLogic';
+import { formatLocalDate } from '../../../lib/dateUtils';
 
 interface WeeklyPaymentsSectionProps {
   payments: PaymentRecord[];
@@ -35,7 +37,7 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
   onUpdatePaymentStatus,
   onDeletePayment
 }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
 
   // Filters state (all, paid, pending, partial)
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial'>('all');
@@ -50,11 +52,13 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
   const [formAmount, setFormAmount] = useState<number | ''>('');
   const [formPaidAmount, setFormPaidAmount] = useState<number | ''>('');
   const [formRemainingAmount, setFormRemainingAmount] = useState<number | ''>('');
+  const [formPaymentDate, setFormPaymentDate] = useState(todayStr);
   const [formPeriodStart, setFormPeriodStart] = useState(todayStr);
   const [formPeriodEnd, setFormPeriodEnd] = useState(todayStr);
   const [formMethod, setFormMethod] = useState('InstaPay');
   const [formStatus, setFormStatus] = useState<'paid' | 'pending' | 'partial'>('paid');
   const [formNotes, setFormNotes] = useState('');
+  const [formError, setFormError] = useState('');
 
   // Handle amount change - recalculate partial amounts if active
   const handleAmountChange = (val: number | '') => {
@@ -98,11 +102,13 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
     setFormAmount('');
     setFormPaidAmount('');
     setFormRemainingAmount('');
+    setFormPaymentDate(todayStr);
     setFormPeriodStart(todayStr);
     setFormPeriodEnd(todayStr);
     setFormMethod('InstaPay');
     setFormStatus('paid');
     setFormNotes('');
+    setFormError('');
     setShowAddEditModal(true);
   };
 
@@ -121,44 +127,38 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
         : 'pending';
 
     setFormStatus(currentStatus);
-    setFormPaidAmount(
-      pay.paidAmount !== undefined
-        ? pay.paidAmount
-        : currentStatus === 'paid'
-        ? pay.amount
-        : 0
-    );
-    setFormRemainingAmount(
-      pay.remainingAmount !== undefined
-        ? pay.remainingAmount
-        : currentStatus === 'pending'
-        ? pay.amount
-        : 0
-    );
+    const normalized = normalizePaymentAmounts(pay.amount, currentStatus, pay.paidAmount);
+    setFormPaidAmount(normalized.paidAmount);
+    setFormRemainingAmount(normalized.remainingAmount);
+    setFormPaymentDate(pay.date || todayStr);
 
     setFormPeriodStart(pay.periodStartDate || pay.date || todayStr);
     setFormPeriodEnd(pay.periodEndDate || pay.date || todayStr);
     setFormMethod(pay.method || 'InstaPay');
     setFormNotes(pay.notes || '');
+    setFormError('');
     setShowAddEditModal(true);
   };
 
   // Submit Add / Edit
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formAmount) return;
-
     const numAmount = Number(formAmount);
-    let finalPaid = numAmount;
-    let finalRemaining = 0;
-
-    if (formStatus === 'partial') {
-      finalPaid = formPaidAmount === '' ? 0 : Number(formPaidAmount);
-      finalRemaining = formRemainingAmount === '' ? Math.max(0, numAmount - finalPaid) : Number(formRemainingAmount);
-    } else if (formStatus === 'pending') {
-      finalPaid = 0;
-      finalRemaining = numAmount;
+    const partialPaid = Number(formPaidAmount);
+    if (!Number.isFinite(numAmount) || numAmount <= 0) {
+      setFormError('قيمة الدفعة يجب أن تكون أكبر من صفر.');
+      return;
     }
+    if (formPeriodStart && formPeriodEnd && formPeriodStart > formPeriodEnd) {
+      setFormError('تاريخ بداية الفترة يجب أن يسبق تاريخ النهاية.');
+      return;
+    }
+    if (formStatus === 'partial' && (!Number.isFinite(partialPaid) || partialPaid <= 0 || partialPaid >= numAmount)) {
+      setFormError('في الدفع الجزئي، المبلغ المدفوع يجب أن يكون أكبر من صفر وأقل من الإجمالي.');
+      return;
+    }
+    const normalized = normalizePaymentAmounts(numAmount, formStatus, partialPaid);
+    setFormError('');
 
     const periodCoveredText =
       formPeriodStart && formPeriodEnd
@@ -170,9 +170,8 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
         title: formTitle.trim() || 'مستحقات ميديا بايينج',
         category: 'media_buying_fees',
         amount: numAmount,
-        paidAmount: finalPaid,
-        remainingAmount: finalRemaining,
-        date: formPeriodStart || todayStr,
+        ...normalized,
+        date: formPaymentDate || todayStr,
         periodStartDate: formPeriodStart,
         periodEndDate: formPeriodEnd,
         periodCovered: periodCoveredText,
@@ -187,9 +186,8 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
         title: formTitle.trim() || 'مستحقات ميديا بايينج',
         category: 'media_buying_fees',
         amount: numAmount,
-        paidAmount: finalPaid,
-        remainingAmount: finalRemaining,
-        date: formPeriodStart || todayStr,
+        ...normalized,
+        date: formPaymentDate || todayStr,
         periodStartDate: formPeriodStart,
         periodEndDate: formPeriodEnd,
         periodCovered: periodCoveredText,
@@ -325,8 +323,9 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
             const isPaid = pay.status === 'paid';
             const isPending = pay.status === 'pending' || pay.status === 'overdue';
 
-            const paidVal = pay.paidAmount !== undefined ? pay.paidAmount : (isPaid ? pay.amount : 0);
-            const remainingVal = pay.remainingAmount !== undefined ? pay.remainingAmount : (isPending ? pay.amount : 0);
+            const normalizedAmounts = normalizePaymentAmounts(pay.amount, pay.status, pay.paidAmount);
+            const paidVal = normalizedAmounts.paidAmount;
+            const remainingVal = normalizedAmounts.remainingAmount;
 
             return (
               <div
@@ -490,6 +489,11 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
             </div>
 
             <form onSubmit={handleSubmitForm} className="space-y-3.5 mt-3.5">
+              {formError && (
+                <div role="alert" className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">
+                  {formError}
+                </div>
+              )}
               {/* Simple Title */}
               <div>
                 <label className="block text-xs font-bold text-[#5A5A40] mb-1">
@@ -513,10 +517,24 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
                 <input
                   type="number"
                   required
-                  min="1"
+                  min="0.01"
+                  step="0.01"
                   value={formAmount}
                   onChange={(e) => handleAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
                   placeholder="مثال: 5000"
+                  className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold text-[#2D2D2A] focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#5A5A40] mb-1">
+                  تاريخ التحصيل أو الاستحقاق *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={formPaymentDate}
+                  onChange={(e) => setFormPaymentDate(e.target.value)}
                   className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold text-[#2D2D2A] focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                 />
               </div>
@@ -629,8 +647,9 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
                       <input
                         type="number"
                         required
-                        min="0"
-                        max={typeof formAmount === 'number' ? formAmount : undefined}
+                        min="0.01"
+                        max={typeof formAmount === 'number' ? Math.max(0, formAmount - 0.01) : undefined}
+                        step="0.01"
                         value={formPaidAmount}
                         onChange={(e) => handlePaidAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
                         placeholder="2500"
@@ -644,12 +663,10 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
                       </label>
                       <input
                         type="number"
-                        required
-                        min="0"
                         value={formRemainingAmount}
-                        onChange={(e) => setFormRemainingAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                        placeholder="2500"
-                        className="w-full bg-white border border-rose-300 rounded-xl px-3 py-1.5 text-xs font-bold text-[#2D2D2A] focus:outline-none focus:ring-1 focus:ring-rose-500"
+                        readOnly
+                        aria-readonly="true"
+                        className="w-full bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 text-xs font-bold text-rose-800 cursor-not-allowed"
                       />
                     </div>
                   </div>

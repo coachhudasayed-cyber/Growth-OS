@@ -24,6 +24,11 @@ import {
   PaymentFrequency,
   PaymentStatus
 } from '../types';
+import {
+  getInstallmentAmount,
+  getPaymentCollectedAmount as calculateCollectedAmount,
+  normalizePaymentAmounts
+} from '../lib/financialLogic';
 
 const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
@@ -89,17 +94,7 @@ export const getPaymentActualDate = (p: PaymentRecord): string => {
 };
 
 export const getPaymentCollectedAmount = (p: PaymentRecord): number => {
-  if (p.status === 'paid') {
-    const amt = p.paidAmount !== undefined && p.paidAmount !== null && (p.paidAmount as unknown) !== ''
-      ? Number(p.paidAmount)
-      : Number(p.amount);
-    return isNaN(amt) ? 0 : amt;
-  }
-  if (p.status === 'partial') {
-    const amt = Number(p.paidAmount);
-    return isNaN(amt) ? 0 : amt;
-  }
-  return 0;
+  return calculateCollectedAmount(p);
 };
 
 interface AccountsPageProps {
@@ -135,6 +130,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
   const [startDate, setStartDate] = useState(todayYMD);
   const [monthlySalary, setMonthlySalary] = useState<number | ''>(20000);
   const [paymentFrequency, setPaymentFrequency] = useState<PaymentFrequency>('monthly');
+  const [installmentAmount, setInstallmentAmount] = useState<number | ''>(20000);
   const [agreementNotes, setAgreementNotes] = useState('');
 
   // Modal State for Record / Edit Payment
@@ -145,10 +141,12 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
   const [paymentMethod, setPaymentMethod] = useState('InstaPay');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
+  const [paymentPaidAmount, setPaymentPaidAmount] = useState<number | ''>('');
   const [daysCovered, setDaysCovered] = useState<number | ''>(7);
   const [periodStartDate, setPeriodStartDate] = useState(defaultAutoPeriod.start || todayYMD);
   const [periodEndDate, setPeriodEndDate] = useState(defaultAutoPeriod.end || todayYMD);
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [formError, setFormError] = useState('');
 
   // Filter States (Brand & Date Range)
   const [filterClientId, setFilterClientId] = useState<string>('all');
@@ -212,7 +210,9 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
 
   // 2. Unpaid Clients Count (عدد العملاء الذين لم يدفعوا بعد)
   const unpaidClientIds = new Set(
-    payments.filter((p) => p.status === 'pending' || p.status === 'overdue').map((p) => p.clientId)
+    payments
+      .filter((payment) => payment.status === 'pending' || payment.status === 'overdue' || payment.status === 'partial')
+      .map((payment) => payment.clientId)
   );
   const unpaidClientsCount = unpaidClientIds.size;
 
@@ -282,11 +282,41 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     }
   };
 
+  const handleMonthlySalaryChange = (value: string) => {
+    const salary = value ? Number(value) : '';
+    setMonthlySalary(salary);
+    setInstallmentAmount(
+      salary === '' ? '' : getInstallmentAmount(salary, paymentFrequency)
+    );
+  };
+
+  const handlePaymentFrequencyChange = (frequency: PaymentFrequency) => {
+    setPaymentFrequency(frequency);
+    setInstallmentAmount(
+      monthlySalary === '' ? '' : getInstallmentAmount(Number(monthlySalary), frequency)
+    );
+  };
+
+  const handlePaymentStatusChange = (status: PaymentStatus) => {
+    setPaymentStatus(status);
+    const amount = Number(paymentAmount) || 0;
+    if (status === 'partial') {
+      const existingPaid = Number(paymentPaidAmount);
+      setPaymentPaidAmount(
+        existingPaid > 0 && existingPaid < amount ? existingPaid : amount / 2
+      );
+      return;
+    }
+    setPaymentPaidAmount(status === 'paid' ? amount : 0);
+  };
+
   const handleAddAgreementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClientId || !monthlySalary) return;
+    if (!selectedClientId || !monthlySalary || !installmentAmount) return;
 
     const salary = Number(monthlySalary);
+    const installment = Number(installmentAmount);
+    if (!Number.isFinite(salary) || salary <= 0 || !Number.isFinite(installment) || installment <= 0) return;
 
     onAddAgreement({
       clientId: selectedClientId,
@@ -294,7 +324,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
       startDate,
       monthlySalary: salary,
       paymentFrequency,
-      installmentAmount: salary,
+      installmentAmount: installment,
       notes: agreementNotes
     });
 
@@ -321,7 +351,9 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
 
     setPaymentMethod('InstaPay');
     setPaymentStatus('paid');
+    setPaymentPaidAmount(agr.installmentAmount || agr.monthlySalary);
     setPaymentNotes('');
+    setFormError('');
     setShowAddPaymentModal(true);
   };
 
@@ -334,6 +366,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     setPaymentAmount(p.amount);
     setPaymentMethod(p.method);
     setPaymentStatus(p.status);
+    setPaymentPaidAmount(normalizePaymentAmounts(p.amount, p.status, p.paidAmount).paidAmount);
     const pDays = p.daysCovered !== undefined ? p.daysCovered : 7;
     setDaysCovered(pDays);
     
@@ -347,12 +380,33 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     }
 
     setPaymentNotes(p.notes || '');
+    setFormError('');
     setShowAddPaymentModal(true);
   };
 
   const handleAddPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentAmount) return;
+    const amount = Number(paymentAmount);
+    const days = Number(daysCovered);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFormError('قيمة الدفعة يجب أن تكون أكبر من صفر.');
+      return;
+    }
+    if (daysCovered !== '' && (!Number.isInteger(days) || days < 1)) {
+      setFormError('عدد الأيام يجب أن يكون رقمًا صحيحًا أكبر من صفر.');
+      return;
+    }
+    if (periodStartDate && periodEndDate && periodStartDate > periodEndDate) {
+      setFormError('تاريخ بداية الفترة يجب أن يسبق تاريخ النهاية.');
+      return;
+    }
+    const rawPaid = Number(paymentPaidAmount);
+    if (paymentStatus === 'partial' && (!Number.isFinite(rawPaid) || rawPaid <= 0 || rawPaid >= amount)) {
+      setFormError('في الدفع الجزئي، المبلغ المدفوع يجب أن يكون أكبر من صفر وأقل من إجمالي الدفعة.');
+      return;
+    }
+    const normalized = normalizePaymentAmounts(amount, paymentStatus, rawPaid);
+    setFormError('');
 
     const formattedPeriod = (periodStartDate && periodEndDate)
       ? `من ${periodStartDate} إلى ${periodEndDate}`
@@ -362,7 +416,8 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
       if (onUpdatePayment) {
         onUpdatePayment(editingPaymentRecord.id, {
           date: paymentDate,
-          amount: Number(paymentAmount),
+          amount,
+          ...normalized,
           method: paymentMethod,
           status: paymentStatus,
           daysCovered: daysCovered ? Number(daysCovered) : undefined,
@@ -384,7 +439,8 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
         clientId: clientIdToUse,
         brandName: brandNameToUse,
         date: paymentDate,
-        amount: Number(paymentAmount),
+        amount,
+        ...normalized,
         method: paymentMethod,
         status: paymentStatus,
         daysCovered: daysCovered ? Number(daysCovered) : undefined,
@@ -943,8 +999,10 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                   </label>
                   <input
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     value={monthlySalary}
-                    onChange={(e) => setMonthlySalary(e.target.value ? Number(e.target.value) : '')}
+                    onChange={(e) => handleMonthlySalaryChange(e.target.value)}
                     placeholder="20000"
                     className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-xs text-[#2D2D2A] outline-none font-bold"
                     required
@@ -957,7 +1015,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                   </label>
                   <select
                     value={paymentFrequency}
-                    onChange={(e) => setPaymentFrequency(e.target.value as PaymentFrequency)}
+                    onChange={(e) => handlePaymentFrequencyChange(e.target.value as PaymentFrequency)}
                     className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-xs text-[#2D2D2A] outline-none font-bold cursor-pointer"
                   >
                     <option value="weekly">أسبوعي (Weekly)</option>
@@ -965,6 +1023,24 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                     <option value="monthly">شهري (Monthly)</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2D2D2A] mb-1">
+                  قيمة كل دفعة (EGP)
+                </label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={installmentAmount}
+                  onChange={(e) => setInstallmentAmount(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-xs text-[#2D2D2A] outline-none font-bold"
+                  required
+                />
+                <p className="text-[10px] text-[#8E8E85] mt-1">
+                  تُحسب تلقائيًا حسب دورية الدفع ويمكن تعديلها قبل الحفظ.
+                </p>
               </div>
 
               <div>
@@ -1019,6 +1095,11 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
             </div>
 
             <form onSubmit={handleAddPaymentSubmit} className="space-y-4">
+              {formError && (
+                <div role="alert" className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">
+                  {formError}
+                </div>
+              )}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-semibold text-[#2D2D2A]">
@@ -1046,8 +1127,15 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                   </label>
                   <input
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : '')}
+                    onChange={(e) => {
+                      const nextAmount = e.target.value ? Number(e.target.value) : '';
+                      setPaymentAmount(nextAmount);
+                      if (paymentStatus === 'paid') setPaymentPaidAmount(nextAmount);
+                      if (paymentStatus === 'pending' || paymentStatus === 'overdue') setPaymentPaidAmount(0);
+                    }}
                     className="w-full bg-white border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs text-[#2D2D2A] outline-none font-bold focus:border-[#E07A48]"
                     required
                   />
@@ -1150,14 +1238,39 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                 <label className="block text-xs font-semibold text-[#2D2D2A] mb-1">حالة الدفع</label>
                 <select
                   value={paymentStatus}
-                  onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
+                  onChange={(e) => handlePaymentStatusChange(e.target.value as PaymentStatus)}
                   className="w-full bg-white border border-[#E5E5E0] rounded-xl px-4 py-2.5 text-xs text-[#2D2D2A] outline-none focus:border-[#E07A48]"
                 >
                   <option value="paid">مدفوع ✅</option>
+                  <option value="partial">دفع جزئي 🟦</option>
                   <option value="pending">معلق ⏳</option>
                   <option value="overdue">متأخر 🔴</option>
                 </select>
               </div>
+
+              {paymentStatus === 'partial' && (
+                <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-2xl">
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-800 mb-1">المبلغ المدفوع</label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      max={typeof paymentAmount === 'number' ? Math.max(0, paymentAmount - 0.01) : undefined}
+                      step="0.01"
+                      value={paymentPaidAmount}
+                      onChange={(e) => setPaymentPaidAmount(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-bold"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-rose-800 mb-1">المبلغ المتبقي</label>
+                    <div className="w-full bg-white border border-rose-200 rounded-xl px-3 py-2 text-xs font-bold text-rose-800">
+                      {Math.max(0, Number(paymentAmount || 0) - Number(paymentPaidAmount || 0)).toLocaleString()} EGP
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-[#2D2D2A] mb-1">ملاحظات</label>

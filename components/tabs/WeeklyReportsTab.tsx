@@ -1,4 +1,6 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { calculatePerformanceMetrics, formatMetricMoney } from '../../lib/financialLogic';
+import { formatLocalDate } from '../../lib/dateUtils';
 import React, { useState } from 'react';
 import {
   BarChart2,
@@ -403,7 +405,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     .filter((r) => r.clientId === clientId)
     .sort((a, b) => (b.weekStartDate || '').localeCompare(a.weekStartDate || ''));
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
 
   // --- Questions Template Management (Persistent per client) ---
   const storageKey = `weekly_report_questions_${clientId}`;
@@ -474,6 +476,18 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
       if (q.standardKey) {
         next[q.standardKey] = val;
       }
+      if (q.standardKey === 'totalSpent' || q.standardKey === 'totalOrders' || q.standardKey === 'totalRevenue') {
+        const spend = Number(next.totalSpent ?? next.perf_spend) || 0;
+        const orders = Number(next.totalOrders ?? next.perf_orders) || 0;
+        const revenue = Number(next.totalRevenue ?? next.perf_revenue) || 0;
+        const metrics = calculatePerformanceMetrics(spend, orders, revenue);
+        next.roas = metrics.roas ?? 0;
+        next.perf_roas = metrics.roas ?? 0;
+        next.cpa = formatMetricMoney(metrics.cpa);
+        next.perf_cpa = formatMetricMoney(metrics.cpa);
+        next.aov = formatMetricMoney(metrics.aov);
+        next.perf_aov = formatMetricMoney(metrics.aov);
+      }
       return next;
     });
   };
@@ -482,7 +496,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const handleOpenAdd = () => {
     setEditingReport(null);
     setReportTitle('');
-    setWeekStartDate(new Date().toISOString().split('T')[0]);
+    setWeekStartDate(formatLocalDate());
     setWeekEndDate('');
 
     const initialValues: Record<string, string | number> = {};
@@ -585,23 +599,15 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     const orders = Number(formValues['perf_orders'] ?? formValues['totalOrders']) || 0;
     const rev = Number(formValues['perf_revenue'] ?? formValues['totalRevenue']) || 0;
 
-    const updates: Record<string, string | number> = {};
-
-    if (spend > 0 && orders > 0) {
-      const calculatedCpa = `${(spend / orders).toFixed(1)} EGP`;
-      updates['perf_cpa'] = calculatedCpa;
-      updates['cpa'] = calculatedCpa;
-    }
-    if (orders > 0 && rev > 0) {
-      const calculatedAov = `${(rev / orders).toFixed(1)} EGP`;
-      updates['perf_aov'] = calculatedAov;
-      updates['aov'] = calculatedAov;
-    }
-    if (spend > 0 && rev > 0) {
-      const calculatedRoas = Number((rev / spend).toFixed(2));
-      updates['perf_roas'] = calculatedRoas;
-      updates['roas'] = calculatedRoas;
-    }
+    const metrics = calculatePerformanceMetrics(spend, orders, rev);
+    const updates: Record<string, string | number> = {
+      perf_cpa: formatMetricMoney(metrics.cpa),
+      cpa: formatMetricMoney(metrics.cpa),
+      perf_aov: formatMetricMoney(metrics.aov),
+      aov: formatMetricMoney(metrics.aov),
+      perf_roas: metrics.roas ?? 0,
+      roas: metrics.roas ?? 0
+    };
 
     setFormValues((prev) => ({ ...prev, ...updates }));
   };
@@ -684,9 +690,29 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const spend = Number(formValues['totalSpent'] ?? formValues['perf_spend']) || 0;
+    const orders = Number(formValues['totalOrders'] ?? formValues['perf_orders']) || 0;
+    const revenue = Number(formValues['totalRevenue'] ?? formValues['perf_revenue']) || 0;
+    const metrics = calculatePerformanceMetrics(spend, orders, revenue);
+    const normalizedFormValues: Record<string, string | number> = {
+      ...formValues,
+      totalSpent: spend,
+      perf_spend: spend,
+      totalOrders: orders,
+      perf_orders: orders,
+      totalRevenue: revenue,
+      perf_revenue: revenue,
+      roas: metrics.roas ?? 0,
+      perf_roas: metrics.roas ?? 0,
+      cpa: formatMetricMoney(metrics.cpa),
+      perf_cpa: formatMetricMoney(metrics.cpa),
+      aov: formatMetricMoney(metrics.aov),
+      perf_aov: formatMetricMoney(metrics.aov)
+    };
+
     // Map questions to structured list
     const questionsList: WeeklyReportQuestionAnswer[] = questions.map((q) => {
-      const val = formValues[q.id] ?? (q.standardKey ? formValues[q.standardKey] : '') ?? '';
+      const val = normalizedFormValues[q.id] ?? (q.standardKey ? normalizedFormValues[q.standardKey] : '') ?? '';
       return {
         id: q.id,
         sectionId: q.sectionId,
@@ -699,8 +725,8 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
 
     // Helper to get value for a standard key
     const getVal = (stdKey: string, fallbackId: string, defaultValue: any = '') => {
-      if (formValues[stdKey] !== undefined) return formValues[stdKey];
-      if (formValues[fallbackId] !== undefined) return formValues[fallbackId];
+      if (normalizedFormValues[stdKey] !== undefined) return normalizedFormValues[stdKey];
+      if (normalizedFormValues[fallbackId] !== undefined) return normalizedFormValues[fallbackId];
       return defaultValue;
     };
 
@@ -761,7 +787,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
       // Compatibility & Custom data
       totalConversions: Number(getVal('totalOrders', 'perf_orders', 0)) || 0,
       clientViewed: editingReport ? editingReport.clientViewed : false,
-      customAnswers: formValues,
+      customAnswers: normalizedFormValues,
       questionsList,
       customSectionsQuestions: questions
     };
@@ -1384,6 +1410,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                                       min="0"
                                       step={q.standardKey === 'roas' ? '0.01' : 'any'}
                                       required={q.required}
+                                      readOnly={q.standardKey === 'roas'}
                                       value={val === '' ? '' : Number(val)}
                                       onChange={(e) =>
                                         handleFieldValueChange(
@@ -1398,6 +1425,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                                     <input
                                       type="text"
                                       required={q.required}
+                                      readOnly={q.standardKey === 'cpa' || q.standardKey === 'aov'}
                                       value={String(val || '')}
                                       onChange={(e) => handleFieldValueChange(q, e.target.value)}
                                       placeholder={q.placeholder || 'اكتب الإجابة...'}

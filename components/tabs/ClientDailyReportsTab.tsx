@@ -1,4 +1,5 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { formatLocalDate } from '../../lib/dateUtils';
 import React, { useState } from 'react';
 import {
   FileSpreadsheet,
@@ -196,7 +197,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   } | null>(null);
 
   // Form Fields State (Dynamic Answers Map + Date)
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatLocalDate());
   const [answersMap, setAnswersMap] = useState<Record<string, string | number>>({});
 
   // Search & Date Filter State
@@ -276,7 +277,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
 
   const handleOpenAdd = () => {
     setEditingReport(null);
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(formatLocalDate());
     const initialMap: Record<string, string | number> = {};
     questions.forEach((q) => {
       initialMap[q.id] = '';
@@ -287,7 +288,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
 
   const handleOpenEdit = (rep: ClientDailyReport) => {
     setEditingReport(rep);
-    setDate(rep.date || new Date().toISOString().split('T')[0]);
+    setDate(rep.date || formatLocalDate());
 
     // Populate answers for each current question
     const currentMap: Record<string, string | number> = {};

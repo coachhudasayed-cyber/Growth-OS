@@ -8,6 +8,7 @@ import {
 import { supabase } from './supabase';
 import { addCalendarDays, differenceInCalendarDays, formatLocalDate } from './dateUtils';
 import { calculateBudgetEndDate } from './budgetLogic';
+import { normalizePaymentAmounts } from './financialLogic';
 
 type StoredRecord = {
   collection: string;
@@ -384,7 +385,7 @@ export function useAppData() {
       completed: false,
       priority,
       dueDate,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: formatLocalDate()
     };
     setTodos(prev => [newTask, ...prev]);
   };
@@ -568,7 +569,7 @@ export function useAppData() {
       ...data,
       id: `agr-${crypto.randomUUID()}`,
       brandName,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: formatLocalDate()
     };
 
     setAgreements(prev => [newAgreement, ...prev]);
@@ -581,15 +582,34 @@ export function useAppData() {
 
   // Payment Methods
   const addPayment = (paymentData: Omit<PaymentRecord, 'id'>) => {
+    const normalized = normalizePaymentAmounts(
+      Number(paymentData.amount),
+      paymentData.status,
+      paymentData.paidAmount
+    );
     const newPay: PaymentRecord = {
       ...paymentData,
+      amount: Number(paymentData.amount),
+      ...normalized,
       id: `pay-${crypto.randomUUID()}`
     };
     setPayments(prev => [newPay, ...prev]);
   };
 
-  const updatePaymentStatus = (id: string, status: 'paid' | 'pending' | 'overdue') => {
-    setPayments(prev => prev.map(p => (p.id === id ? { ...p, status } : p)));
+  const updatePaymentStatus = (id: string, status: PaymentRecord['status']) => {
+    setPayments(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const partialPaid = status === 'partial'
+        ? (p.status === 'partial' && Number(p.paidAmount) > 0
+          ? Number(p.paidAmount)
+          : Number(p.amount) / 2)
+        : p.paidAmount;
+      return {
+        ...p,
+        status,
+        ...normalizePaymentAmounts(Number(p.amount), status, partialPaid)
+      };
+    }));
   };
 
   const updatePayment = (id: string, updatedData: Partial<PaymentRecord>) => {
@@ -597,10 +617,18 @@ export function useAppData() {
       if (p.id !== id) return p;
       const clientObj = clients.find(c => c.id === (updatedData.clientId || p.clientId));
       const brandName = clientObj ? clientObj.brandName : p.brandName;
-      return {
+      const merged = {
         ...p,
         ...updatedData,
         brandName
+      };
+      return {
+        ...merged,
+        ...normalizePaymentAmounts(
+          Number(merged.amount),
+          merged.status,
+          merged.paidAmount
+        )
       };
     }));
   };
@@ -614,7 +642,7 @@ export function useAppData() {
     const newLog: DailyWorkLog = {
       ...logData,
       id: `dwl-${crypto.randomUUID()}`,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: formatLocalDate()
     };
     setDailyWorkLogs(prev => [newLog, ...prev]);
   };
@@ -672,7 +700,7 @@ export function useAppData() {
         [clientId]: {
           ...existing,
           ...strategy,
-          updatedAt: new Date().toISOString().split('T')[0]
+          updatedAt: formatLocalDate()
         }
       };
     });

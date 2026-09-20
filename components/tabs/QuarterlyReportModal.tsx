@@ -1,4 +1,5 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { calculatePerformanceMetrics, formatMetricMoney } from '../../lib/financialLogic';
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -868,41 +869,20 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
     setFormValues((prev) => {
       const next = { ...prev, [q.id]: val };
       if (q.standardKey) next[q.standardKey] = val;
+      if (q.standardKey === 'totalSpent' || q.standardKey === 'totalOrders' || q.standardKey === 'totalRevenue') {
+        const spend = Number(next.totalSpent ?? next.q_perf_spend) || 0;
+        const orders = Number(next.totalOrders ?? next.q_perf_orders) || 0;
+        const revenue = Number(next.totalRevenue ?? next.q_perf_revenue) || 0;
+        const metrics = calculatePerformanceMetrics(spend, orders, revenue);
+        next.roas = metrics.roas ?? 0;
+        next.q_perf_roas = metrics.roas ?? 0;
+        next.cpa = formatMetricMoney(metrics.cpa);
+        next.q_perf_cpa = formatMetricMoney(metrics.cpa);
+        next.aov = formatMetricMoney(metrics.aov);
+        next.q_perf_aov = formatMetricMoney(metrics.aov);
+      }
       return next;
     });
-
-    const isSpend = q.standardKey === 'totalSpent' || q.id === 'q_perf_spend';
-    const isOrders = q.standardKey === 'totalOrders' || q.id === 'q_perf_orders';
-    const isRev = q.standardKey === 'totalRevenue' || q.id === 'q_perf_revenue';
-
-    if (isSpend || isOrders || isRev) {
-      setTimeout(() => {
-        const curVals = { ...formValues, [q.id]: val };
-        if (q.standardKey) curVals[q.standardKey] = val;
-
-        const spend = Number(curVals['totalSpent'] ?? curVals['q_perf_spend'] ?? 0);
-        const orders = Number(curVals['totalOrders'] ?? curVals['q_perf_orders'] ?? 0);
-        const rev = Number(curVals['totalRevenue'] ?? curVals['q_perf_revenue'] ?? 0);
-
-        const updates: Record<string, string | number> = {};
-        if (spend > 0 && orders > 0) {
-          const cpaCalc = `${(spend / orders).toFixed(1)} EGP`;
-          updates['q_perf_cpa'] = cpaCalc;
-          updates['cpa'] = cpaCalc;
-        }
-        if (orders > 0 && rev > 0) {
-          const aovCalc = `${(rev / orders).toFixed(1)} EGP`;
-          updates['q_perf_aov'] = aovCalc;
-          updates['aov'] = aovCalc;
-        }
-        if (spend > 0 && rev > 0) {
-          const roasCalc = Number((rev / spend).toFixed(2));
-          updates['q_perf_roas'] = roasCalc;
-          updates['roas'] = roasCalc;
-        }
-        setFormValues((prev) => ({ ...prev, ...updates }));
-      }, 0);
-    }
   };
 
   // Dynamic question management
@@ -977,8 +957,28 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const rawSpent = Number(formValues['totalSpent'] ?? formValues['q_perf_spend']) || 0;
+    const rawOrders = Number(formValues['totalOrders'] ?? formValues['q_perf_orders']) || 0;
+    const rawRevenue = Number(formValues['totalRevenue'] ?? formValues['q_perf_revenue']) || 0;
+    const metrics = calculatePerformanceMetrics(rawSpent, rawOrders, rawRevenue);
+    const normalizedFormValues: Record<string, string | number> = {
+      ...formValues,
+      totalSpent: rawSpent,
+      q_perf_spend: rawSpent,
+      totalOrders: rawOrders,
+      q_perf_orders: rawOrders,
+      totalRevenue: rawRevenue,
+      q_perf_revenue: rawRevenue,
+      roas: metrics.roas ?? 0,
+      q_perf_roas: metrics.roas ?? 0,
+      cpa: formatMetricMoney(metrics.cpa),
+      q_perf_cpa: formatMetricMoney(metrics.cpa),
+      aov: formatMetricMoney(metrics.aov),
+      q_perf_aov: formatMetricMoney(metrics.aov)
+    };
+
     const questionsList: QuarterlyReportQuestionAnswer[] = questions.map((q) => {
-      const val = formValues[q.id] ?? (q.standardKey ? formValues[q.standardKey] : '') ?? '';
+      const val = normalizedFormValues[q.id] ?? (q.standardKey ? normalizedFormValues[q.standardKey] : '') ?? '';
       return {
         id: q.id,
         sectionId: q.sectionId,
@@ -990,15 +990,15 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
     });
 
     const getVal = (stdKey: string, fallbackId: string, defaultValue: any = '') => {
-      if (formValues[stdKey] !== undefined) return formValues[stdKey];
-      if (formValues[fallbackId] !== undefined) return formValues[fallbackId];
+      if (normalizedFormValues[stdKey] !== undefined) return normalizedFormValues[stdKey];
+      if (normalizedFormValues[fallbackId] !== undefined) return normalizedFormValues[fallbackId];
       return defaultValue;
     };
 
     const totalSpentVal = Number(getVal('totalSpent', 'q_perf_spend', 0)) || 0;
     const totalOrdersVal = Number(getVal('totalOrders', 'q_perf_orders', 0)) || 0;
     const totalRevenueVal = Number(getVal('totalRevenue', 'q_perf_revenue', 0)) || 0;
-    const roasVal = Number(getVal('roas', 'q_perf_roas', 0)) || 0;
+    const roasVal = metrics.roas ?? 0;
 
     const data: Omit<QuarterlyReport, 'id' | 'createdAt'> = {
       clientId,
@@ -1095,7 +1095,7 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
       quarterlyGrowthSummary: String(getVal('quarterlyGrowthSummary', 'q_sum_growth', '')).trim() || undefined,
       notes: String(getVal('notes', 'q_sum_notes', '')).trim() || undefined,
 
-      customAnswers: formValues,
+      customAnswers: normalizedFormValues,
       questionsList,
       customSectionsQuestions: questions
     };
@@ -1511,6 +1511,7 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
                               min="0"
                               step={q.standardKey === 'roas' ? '0.01' : 'any'}
                               required={q.required}
+                              readOnly={q.standardKey === 'roas'}
                               value={val === '' ? '' : Number(val)}
                               onChange={(e) =>
                                 handleFieldValueChange(
@@ -1525,6 +1526,7 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
                             <input
                               type="text"
                               required={q.required}
+                              readOnly={q.standardKey === 'cpa' || q.standardKey === 'aov'}
                               value={String(val || '')}
                               onChange={(e) => handleFieldValueChange(q, e.target.value)}
                               placeholder={q.placeholder || ''}
