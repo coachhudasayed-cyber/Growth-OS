@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Bell, AlertTriangle, Calendar, Search } from 'lucide-react';
 import { BudgetAlarm, UserRole } from '../types';
+import { getBudgetDaysRemaining, isBudgetRechargeUrgent } from '../lib/budgetLogic';
+import { formatLocalDate } from '../lib/dateUtils';
 
 interface AdminHeaderProps {
   title: string;
@@ -19,12 +21,10 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 }) => {
   const [showAlertsDropdown, setShowAlertsDropdown] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
 
   // Filter urgent budget alarms (ending today or already expired)
-  const urgentAlarms = budgetAlarms.filter((alarm) => {
-    return alarm.endDate <= todayStr;
-  });
+  const urgentAlarms = budgetAlarms.filter((alarm) => isBudgetRechargeUrgent(alarm, 2, todayStr));
 
   const currentDateFormatted = new Date().toLocaleDateString('ar-EG', {
     weekday: 'long',
@@ -89,7 +89,16 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               ) : (
                 <div className="space-y-2 max-h-80 overflow-y-auto">
                   {urgentAlarms.map((alarm) => {
-                    const isToday = alarm.endDate === todayStr;
+                    const daysLeft = getBudgetDaysRemaining(alarm.endDate, todayStr);
+                    const alertLabel = alarm.status === 'needs_recharge'
+                      ? 'تحتاج شحن'
+                      : daysLeft < 0
+                      ? 'منتهية'
+                      : daysLeft === 0
+                      ? 'تنتهي اليوم'
+                      : daysLeft === 1
+                      ? 'تنتهي غدًا'
+                      : `متبقي ${daysLeft} يوم`;
                     return (
                       <div
                         key={alarm.id}
@@ -112,12 +121,12 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                           </div>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                              isToday
+                              daysLeft >= 0
                                 ? 'bg-[#FEF6E6] text-[#A36813] border border-[#FAD9A5]'
                                 : 'bg-[#F9EBE6] text-[#7D2D1C] border border-[#EACEC3]'
                             }`}
                           >
-                            {isToday ? 'تنتهي اليوم' : 'منتهية'}
+                            {alertLabel}
                           </span>
                         </div>
 
@@ -126,7 +135,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </p>
 
                         <p className="text-[10px] text-[#D14D35] font-semibold mt-1">
-                          🚨 ميزانية إعلانات {alarm.brandName} ستنتهي اليوم ويجب شحنها!
+                          🚨 ميزانية إعلانات {alarm.brandName} {daysLeft < 0 ? 'انتهت وتحتاج للشحن.' : `موعد شحنها ${alertLabel}.`}
                         </p>
                       </div>
                     );

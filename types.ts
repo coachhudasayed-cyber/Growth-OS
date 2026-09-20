@@ -75,6 +75,8 @@ export interface BudgetAlarm {
   rechargesCount?: number;  // عدد مرات إعادة الشحن
   lastRechargedAt?: string; // تاريخ آخر إعادة شحن
   rechargeHistory?: BudgetRechargeRecord[]; // سجل الميزانيات السابقة وإعادات الشحن
+  pausedAt?: string;          // تاريخ بدء إيقاف الحملة مؤقتاً
+  totalPausedDays?: number;   // إجمالي أيام التوقف التي أضيفت للدورة الحالية
 }
 
 export type PaymentFrequency = 'weekly' | 'semi_monthly' | 'monthly';

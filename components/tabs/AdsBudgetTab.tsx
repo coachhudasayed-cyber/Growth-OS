@@ -22,7 +22,8 @@ import {
   ListFilter
 } from 'lucide-react';
 import { BudgetAlarm, UserRole, PaymentRecord, PaymentStatus } from '../../types';
-import { calculateEndDate } from '../../lib/initialData';
+import { calculateBudgetEndDate, getBudgetDaysRemaining, isBudgetRechargeUrgent } from '../../lib/budgetLogic';
+import { formatLocalDate } from '../../lib/dateUtils';
 import { FinancialPeriodFilter, MonthOption } from './financial/FinancialPeriodFilter';
 import { FinancialKpiCards } from './financial/FinancialKpiCards';
 import { WeeklyPaymentsSection } from './financial/WeeklyPaymentsSection';
@@ -75,7 +76,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
 }) => {
   const clientBudgets = budgetAlarms.filter((b) => b.clientId === clientId);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
 
   // Modals state
   const [showFormModal, setShowFormModal] = useState(false);
@@ -99,21 +100,15 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   const [status, setStatus] = useState<'active' | 'paused' | 'completed' | 'needs_recharge'>('active');
   const [notes, setNotes] = useState('');
 
-  // Helper to calculate days remaining
-  const getDaysRemaining = (endDateStr: string) => {
-    const end = new Date(endDateStr).getTime();
-    const today = new Date(todayStr).getTime();
-    const diffDays = Math.round((end - today) / (1000 * 3600 * 24));
-    return diffDays;
-  };
-
   // Quick Toggle Campaign Status (Active / Stopped)
   const handleToggleStatus = (budget: BudgetAlarm) => {
     if (userRole === 'client') return;
     if (onUpdateBudgetAlarm) {
-      const isCurrentlyPaused = budget.status === 'paused' || budget.status === 'completed';
-      const newStatus = isCurrentlyPaused ? 'active' : 'paused';
-      onUpdateBudgetAlarm(budget.id, { status: newStatus });
+      if (budget.status === 'paused') {
+        onUpdateBudgetAlarm(budget.id, { status: 'active' });
+      } else {
+        onUpdateBudgetAlarm(budget.id, { status: 'paused' });
+      }
     }
   };
 
@@ -158,24 +153,27 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   // Submit Add / Edit Form
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !startDate || !expectedDays) return;
+    const normalizedAmount = Number(amount);
+    const normalizedDays = Number(expectedDays);
+    if (!startDate || !Number.isFinite(normalizedAmount) || normalizedAmount <= 0
+      || !Number.isInteger(normalizedDays) || normalizedDays < 1) return;
 
     if (editingBudget && onUpdateBudgetAlarm) {
       onUpdateBudgetAlarm(editingBudget.id, {
         campaignName: campaignName.trim() || 'حملة إعلانية',
         platform,
-        amount: Number(amount),
+        amount: normalizedAmount,
         startDate,
-        expectedDays: Number(expectedDays),
+        expectedDays: normalizedDays,
         status,
         notes: notes.trim()
       });
     } else {
       onAddBudgetAlarm(
         clientId,
-        Number(amount),
+        normalizedAmount,
         startDate,
-        Number(expectedDays),
+        normalizedDays,
         platform,
         notes.trim(),
         campaignName.trim() || 'حملة إعلانية جديدة',
@@ -190,24 +188,27 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   // Submit Recharge Form
   const handleRechargeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rechargingBudget || !rechargeAmount || !rechargeDays) return;
+    const normalizedAmount = Number(rechargeAmount);
+    const normalizedDays = Number(rechargeDays);
+    if (!rechargingBudget || !rechargeStartDate || !Number.isFinite(normalizedAmount)
+      || normalizedAmount <= 0 || !Number.isInteger(normalizedDays) || normalizedDays < 1) return;
 
     if (onRechargeBudgetAlarm) {
       onRechargeBudgetAlarm(
         rechargingBudget.id,
-        Number(rechargeAmount),
-        Number(rechargeDays),
+        normalizedAmount,
+        normalizedDays,
         rechargeStartDate,
         rechargeNotes.trim()
       );
     } else if (onUpdateBudgetAlarm) {
       // Fallback
-      const newEndDate = calculateEndDate(rechargeStartDate, Number(rechargeDays));
+      const newEndDate = calculateBudgetEndDate(rechargeStartDate, normalizedDays);
       const oldNotes = rechargingBudget.notes || '';
       const addedNote = rechargeNotes ? `\n[إعادة شحن ${todayStr}]: ${rechargeNotes}` : '';
       onUpdateBudgetAlarm(rechargingBudget.id, {
-        amount: Number(rechargeAmount),
-        expectedDays: Number(rechargeDays),
+        amount: normalizedAmount,
+        expectedDays: normalizedDays,
         startDate: rechargeStartDate,
         endDate: newEndDate,
         status: 'active',
@@ -386,10 +387,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
       : `${customStartDate || 'البداية'} إلى ${customEndDate || 'اليوم'}`;
 
   // Calculate statistics & urgent alarms
-  const urgentCount = clientBudgets.filter((b) => {
-    const days = getDaysRemaining(b.endDate);
-    return days <= 2 || b.status === 'needs_recharge' || b.status === 'completed';
-  }).length;
+  const urgentCount = clientBudgets.filter((b) => isBudgetRechargeUrgent(b, 2, todayStr)).length;
 
   const activeCampaignsCount = clientBudgets.filter((b) => b.status === 'active').length;
 
@@ -575,9 +573,10 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
           </div>
         ) : (
           clientBudgets.map((budget) => {
-            const daysLeft = getDaysRemaining(budget.endDate);
+            const daysLeft = getBudgetDaysRemaining(budget.endDate, todayStr);
             const isToday = daysLeft === 0;
-            const isExpired = daysLeft < 0 || budget.status === 'completed';
+            const isCompleted = budget.status === 'completed';
+            const isExpired = daysLeft < 0;
             const isWarning = daysLeft >= 1 && daysLeft <= 2;
             const isNeedsRecharge = budget.status === 'needs_recharge';
             const isPaused = budget.status === 'paused';
@@ -611,6 +610,12 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
               statusBadge = {
                 label: 'توقفت 🔴',
                 bg: 'bg-rose-100 text-rose-800 border-rose-300 font-extrabold'
+              };
+            } else if (isCompleted) {
+              cardBgClass = 'bg-slate-100 border-slate-300';
+              statusBadge = {
+                label: 'مكتملة ✅',
+                bg: 'bg-slate-200 text-slate-800 border-slate-300'
               };
             } else if (isExpired || isNeedsRecharge) {
               cardBgClass = 'bg-rose-500/10 border-rose-500/40';
@@ -705,7 +710,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                   </div>
 
                   {/* Warning Messages */}
-                  {(isToday || isExpired || isWarning || isNeedsRecharge) && (
+                  {!isPaused && !isCompleted && (isToday || isExpired || isWarning || isNeedsRecharge) && (
                     <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs font-bold text-amber-950 flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
                       <span>
@@ -789,15 +794,15 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                     {userRole === 'client' ? (
                       <span
                         className={`px-3 py-1.5 border font-extrabold text-xs rounded-xl inline-flex items-center gap-1.5 ${
-                          isPaused
+                          isPaused || isCompleted
                             ? 'bg-rose-50 text-rose-800 border-rose-200'
                             : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         }`}
                       >
-                        {isPaused ? (
+                        {isPaused || isCompleted ? (
                           <>
                             <PauseCircle className="w-3.5 h-3.5 text-rose-600" />
-                            <span>الحالة: متوقفة</span>
+                            <span>{isCompleted ? 'الحالة: مكتملة' : 'الحالة: متوقفة'}</span>
                           </>
                         ) : (
                           <>
@@ -808,8 +813,13 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                       </span>
                     ) : (
                       <>
-                        {/* Status Toggle Button: active vs stopped */}
-                        <button
+                        {isCompleted ? (
+                          <span className="px-2.5 py-1.5 border font-extrabold text-xs rounded-xl inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 border-slate-300">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>الحملة مكتملة</span>
+                          </span>
+                        ) : (
+                          <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -837,7 +847,8 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                               <span>الحالة: نشطة</span>
                             </>
                           )}
-                        </button>
+                          </button>
+                        )}
 
                         <div className="flex items-center gap-1">
                           <button
@@ -933,6 +944,8 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                   </label>
                   <input
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : '')}
                     placeholder="15000"
@@ -945,6 +958,8 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                   <label className="block text-[#2D2D2A] font-bold mb-1">مدة التشغيل (بالأيام) *</label>
                   <input
                     type="number"
+                    min="1"
+                    step="1"
                     value={expectedDays}
                     onChange={(e) => setExpectedDays(e.target.value ? Number(e.target.value) : '')}
                     placeholder="7"
@@ -987,7 +1002,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                 <div className="p-3 bg-white border border-[#E5E5E0] rounded-xl flex items-center justify-between text-xs">
                   <span className="text-[#8E8E85]">تاريخ الانتهاء المتوقع:</span>
                   <span className="font-extrabold text-[#5A5A40]">
-                    {calculateEndDate(startDate, Number(expectedDays))}
+                    {calculateBudgetEndDate(startDate, Number(expectedDays))}
                   </span>
                 </div>
               )}
@@ -1089,6 +1104,8 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                   <label className="block text-[#2D2D2A] font-bold mb-1">مبلغ الشحن الجديد (EGP) *</label>
                   <input
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     value={rechargeAmount}
                     onChange={(e) => setRechargeAmount(e.target.value ? Number(e.target.value) : '')}
                     placeholder="15000"
@@ -1101,6 +1118,8 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                   <label className="block text-[#2D2D2A] font-bold mb-1">مدة التشغيل الجديدة (أيام) *</label>
                   <input
                     type="number"
+                    min="1"
+                    step="1"
                     value={rechargeDays}
                     onChange={(e) => setRechargeDays(e.target.value ? Number(e.target.value) : '')}
                     placeholder="7"
@@ -1115,7 +1134,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                 <div className="p-3 bg-white border border-[#E5E5E0] rounded-xl flex items-center justify-between">
                   <span className="text-[#8E8E85] font-semibold">تاريخ الانتهاء الجديد المتوقع:</span>
                   <span className="font-extrabold text-[#5A5A40]">
-                    {calculateEndDate(rechargeStartDate, Number(rechargeDays))}
+                    {calculateBudgetEndDate(rechargeStartDate, Number(rechargeDays))}
                   </span>
                 </div>
               )}
@@ -1215,9 +1234,10 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1 pl-1 text-xs">
               {(() => {
-                const daysLeft = getDaysRemaining(viewingDetailsBudget.endDate);
+                const daysLeft = getBudgetDaysRemaining(viewingDetailsBudget.endDate, todayStr);
                 const isToday = daysLeft === 0;
-                const isExpired = daysLeft < 0 || viewingDetailsBudget.status === 'completed';
+                const isCompleted = viewingDetailsBudget.status === 'completed';
+                const isExpired = daysLeft < 0;
                 const isWarning = daysLeft >= 1 && daysLeft <= 2;
                 const isNeedsRecharge = viewingDetailsBudget.status === 'needs_recharge';
                 const isPaused = viewingDetailsBudget.status === 'paused';
@@ -1246,6 +1266,11 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                   statusBadge = {
                     label: 'متوقفة 🔴',
                     bg: 'bg-rose-100 text-rose-800 border-rose-300 font-extrabold'
+                  };
+                } else if (isCompleted) {
+                  statusBadge = {
+                    label: 'مكتملة ✅',
+                    bg: 'bg-slate-200 text-slate-800 border-slate-300 font-extrabold'
                   };
                 } else if (isExpired || isNeedsRecharge) {
                   statusBadge = {
