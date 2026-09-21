@@ -58,7 +58,10 @@ export function useSupabaseSetting<T>(
         }
       }
       if (!active) return;
-      loadedValue.current = migrated ? '' : JSON.stringify(next);
+      // If the global key does not exist yet, force one save even when the
+      // resolved value is just the default. This prevents each client from
+      // independently falling back to a different local/per-client template.
+      loadedValue.current = result.data ? JSON.stringify(next) : '';
       setValue(next);
       setLoadedKey(key);
     })().catch(error => {
