@@ -394,6 +394,9 @@ export interface BrandAudit {
   // Editable labels for the fixed Brand Overview fields without changing their data keys
   overviewFieldLabels?: Record<string, string>;
 
+  // Saved visual order for built-in and custom Brand Audit sections. Custom IDs use custom:<id>.
+  sectionOrder?: string[];
+
   socialLinks?: {
     facebook?: string;
     instagram?: string;
