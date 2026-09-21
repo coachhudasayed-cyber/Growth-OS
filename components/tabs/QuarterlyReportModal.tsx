@@ -1,4 +1,5 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { MASTER_TEMPLATE_CLIENT_ID } from '../../lib/templateSource';
 import { calculatePerformanceMetrics, formatMetricMoney } from '../../lib/financialLogic';
 import React, { useState, useEffect } from 'react';
 import {
@@ -680,7 +681,7 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
   // Global questions template shared across all client profiles.
   const [questions, setQuestions] = useSupabaseSetting<QuarterlyReportQuestion[]>(
     'quarterly_report_questions_global', null, DEFAULT_QUARTERLY_REPORT_QUESTIONS, true,
-    [`quarterly_report_questions_${clientId}`]
+    [`quarterly_report_questions_${MASTER_TEMPLATE_CLIENT_ID}`, `quarterly_report_questions_${clientId}`]
   );
 
   const saveQuestionsTemplate = (updatedQuestions: QuarterlyReportQuestion[]) => setQuestions(updatedQuestions);
