@@ -220,6 +220,14 @@ export interface AuditCheckItem {
   notes?: string;
 }
 
+export interface CustomBrandAuditSection {
+  id: string;
+  title: string;
+  itemsTitle: string;
+  auditDate: string;
+  items: AuditCheckItem[];
+}
+
 export interface BrandAudit {
   clientId: string;
   score: number;                 // 0-100
@@ -371,6 +379,9 @@ export interface BrandAudit {
 
   // 13. Main Problems & Solutions (أهم المشاكل وحلها)
   problemsAndSolutions?: BrandAuditProblemSolution[];
+
+  // Custom audit sections created by the admin
+  customSections?: CustomBrandAuditSection[];
 
   socialLinks?: {
     facebook?: string;
