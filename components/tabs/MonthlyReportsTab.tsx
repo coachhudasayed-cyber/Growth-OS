@@ -1,4 +1,5 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { MASTER_TEMPLATE_CLIENT_ID } from '../../lib/templateSource';
 import { calculatePerformanceMetrics, formatMetricMoney } from '../../lib/financialLogic';
 import { formatLocalDate } from '../../lib/dateUtils';
 import React, { useState, useEffect } from 'react';
@@ -533,7 +534,7 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
   // Global template questions shared across all clients.
   const [questions, setQuestions] = useSupabaseSetting<MonthlyReportQuestion[]>(
     'monthly_report_questions_global', null, DEFAULT_MONTHLY_REPORT_QUESTIONS, userRole !== 'client',
-    [`monthly_report_questions_${clientId}`]
+    [`monthly_report_questions_${MASTER_TEMPLATE_CLIENT_ID}`, `monthly_report_questions_${clientId}`]
   );
 
   const saveQuestionsTemplate = (updatedQuestions: MonthlyReportQuestion[]) => setQuestions(updatedQuestions);
