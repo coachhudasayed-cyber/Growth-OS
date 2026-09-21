@@ -690,7 +690,7 @@ export function useAppData() {
     const nextSchema = extractBrandAuditSchema(audit);
     setBrandAuditSchema(nextSchema);
     setBrandAudits(prev => {
-      const syncedEntries = Object.entries(prev).map(([id, existingAudit]) => [
+      const syncedEntries = Object.entries(prev as Record<string, BrandAudit>).map(([id, existingAudit]) => [
         id,
         id === clientId
           ? applyBrandAuditSchema(nextSchema, audit)
