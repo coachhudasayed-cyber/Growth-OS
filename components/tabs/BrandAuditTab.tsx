@@ -323,10 +323,15 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenFullModal = () => {
     if (userRole === 'client') return;
     setFormData(JSON.parse(JSON.stringify(currentAudit)));
-    const firstVisibleStep = BUILT_IN_AUDIT_SECTIONS.find(
-      section => !currentAudit.builtInSectionSettings?.[section.id]?.hidden
+    const firstVisibleEntry = orderedSectionEntries.find(entry =>
+      entry.type === 'custom' || !currentAudit.builtInSectionSettings?.[entry.builtIn.id]?.hidden
     );
-    setModalActiveTab(firstVisibleStep?.num || 1);
+    if (firstVisibleEntry?.type === 'custom') {
+      const customIndex = (currentAudit.customSections || []).findIndex(section => section.id === firstVisibleEntry.custom.id);
+      setModalActiveTab(1000 + Math.max(customIndex, 0));
+    } else {
+      setModalActiveTab(firstVisibleEntry?.builtIn.num || 1);
+    }
     setShowFullAuditModal(true);
   };
 
@@ -1280,18 +1285,29 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (activeSection === `custom:${sectionId}`) setActiveSection('all');
   };
 
-  // Navigation items for the full audit form modal follow the saved section order.
-  const modalSteps = orderedSectionEntries
-    .filter(entry => entry.type === 'builtIn' && !isBuiltInSectionHidden(entry.builtIn.id))
-    .map(entry => {
-      const builtIn = entry.type === 'builtIn' ? entry.builtIn : null;
-      return builtIn ? {
-        num: builtIn.num,
-        title: getBuiltInSectionTitle(builtIn.id, builtIn.title)
-      } : null;
-    })
-    .filter(Boolean) as Array<{ num: number; title: string }>;
+  // Navigation items for the full audit form modal follow the saved section order,
+  // including custom sections created from the section manager.
+  const modalSteps = orderedSectionEntries.flatMap(entry => {
+    if (entry.type === 'builtIn') {
+      if (isBuiltInSectionHidden(entry.builtIn.id)) return [];
+      return [{
+        num: entry.builtIn.num,
+        title: getBuiltInSectionTitle(entry.builtIn.id, entry.builtIn.title),
+        type: 'builtIn' as const
+      }];
+    }
+    const customIndex = (currentAudit.customSections || []).findIndex(section => section.id === entry.custom.id);
+    return [{
+      num: 1000 + Math.max(customIndex, 0),
+      title: entry.custom.title,
+      type: 'custom' as const,
+      customId: entry.custom.id
+    }];
+  });
   const currentModalStepIndex = modalSteps.findIndex(step => step.num === modalActiveTab);
+  const activeCustomModalSection = modalActiveTab >= 1000
+    ? (currentAudit.customSections || [])[modalActiveTab - 1000]
+    : undefined;
 
   // Section display tabs follow the same saved order, including custom sections.
   const sectionTabs = [
@@ -3746,7 +3762,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     <Layers className="w-4 h-4 text-[#5A5A40]" />
                   </button>
                 )}
-                {userRole !== 'client' && (
+                {userRole !== 'client' && modalActiveTab < 1000 && (
                   <button
                     type="button"
                     onClick={() => handleResetModalStep(modalActiveTab)}
@@ -5133,6 +5149,41 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 </div>
               )}
             </div>
+
+              {/* CUSTOM SECTION CREATED FROM SECTION MANAGER */}
+              {activeCustomModalSection && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#E5E5E0] pb-2">
+                    <h4 className="font-extrabold text-sm text-[#5A5A40]">{activeCustomModalSection.title}</h4>
+                    <button
+                      type="button"
+                      onClick={() => openEditCustomSection(activeCustomModalSection)}
+                      className="p-2 rounded-xl border border-[#E5E5E0] text-[#5A5A40] hover:bg-[#F9F8F6]"
+                      title="تعديل بيانات السكشن"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="bg-[#F9F8F6] p-4 rounded-2xl border border-[#E5E5E0]">
+                    <label className="font-extrabold text-[#2D2D2A] block mb-1">تاريخ التقييم (Audit Date)</label>
+                    <input
+                      type="date"
+                      value={activeCustomModalSection.auditDate || formatLocalDate()}
+                      onChange={(e) => updateCustomSection(activeCustomModalSection.id, { auditDate: e.target.value })}
+                      className="w-full sm:w-1/2 p-2.5 rounded-xl border border-[#E5E5E0] bg-white font-bold text-[#2D2D2A]"
+                    />
+                  </div>
+
+                  <ChecklistEditorSection
+                    title={activeCustomModalSection.itemsTitle || 'عناصر التقييم'}
+                    items={activeCustomModalSection.items || []}
+                    onUpdate={(items) => updateCustomSection(activeCustomModalSection.id, { items })}
+                    placeholderAnswer="اكتب نتيجة التقييم أو الملاحظة..."
+                    columns={2}
+                  />
+                </div>
+              )}
 
             {/* Modal Footer Controls */}
             <div className="p-4 sm:p-5 border-t border-[#E5E5E0] bg-[#F9F8F6] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 shrink-0">
