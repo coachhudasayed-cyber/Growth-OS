@@ -156,19 +156,19 @@ const getUnitEconomicsSectionItems = (
 ) => getUnitEconomicsChecklist(unitEconomics).filter(item => item.id.startsWith(`ue-${sectionId}-`));
 
 const BUILT_IN_AUDIT_SECTIONS = [
-  { id: 'overview', num: 1, title: '1. Brand Overview (نبذة عن البراند)' },
-  { id: 'digitalAssets', num: 2, title: '2. Digital Assets Audit (تقييم الأصول الرقمية)' },
-  { id: 'tracking', num: 3, title: '3. Tracking Audit (تقييم التتبع)' },
-  { id: 'creative', num: 4, title: '4. Creative & Content Audit (تقييم المحتوى والكريتيف)' },
-  { id: 'socialMedia', num: 5, title: '5. Social Media Audit (تقييم السوشيال ميديا)' },
-  { id: 'operations', num: 6, title: '6. Operations Audit (تقييم التشغيل)' },
-  { id: 'salesFunnel', num: 7, title: '7. Sales Funnel Audit (تقييم رحلة العميل)' },
-  { id: 'unitEconomics', num: 8, title: '8. Unit Economics & Pricing (ربحية المنتج وتسعيرته)' },
-  { id: 'historicalAds', num: 9, title: '9. Historical Ads Analysis (تحليل الإعلانات السابقة)' },
-  { id: 'competitors', num: 10, title: '10. Competitor Analysis (تحليل المنافسين الشامل)' },
+  { id: 'overview', num: 1, title: '1. Brand Overview' },
+  { id: 'digitalAssets', num: 2, title: '2. Digital Assets Audit' },
+  { id: 'tracking', num: 3, title: '3. Tracking Audit' },
+  { id: 'creative', num: 4, title: '4. Creative & Content Audit' },
+  { id: 'socialMedia', num: 5, title: '5. Social Media Audit' },
+  { id: 'operations', num: 6, title: '6. Operations Audit' },
+  { id: 'salesFunnel', num: 7, title: '7. Sales Funnel Audit' },
+  { id: 'unitEconomics', num: 8, title: '8. Unit Economics & Pricing' },
+  { id: 'historicalAds', num: 9, title: '9. Historical Ads Analysis' },
+  { id: 'competitors', num: 10, title: '10. Competitor Analysis' },
   { id: 'swot', num: 11, title: '11. SWOT Analysis' },
-  { id: 'persona', num: 12, title: '12. Customer Persona & Brand Positioning (العميل المستهدف وتموضع البراند)' },
-  { id: 'problems', num: 13, title: '13. Main Problems & Solutions (أهم المشاكل وحلها)' }
+  { id: 'persona', num: 12, title: '12. Customer Persona & Brand Positioning' },
+  { id: 'problems', num: 13, title: '13. Main Problems & Solutions' }
 ] as const;
 
 const OVERVIEW_FIELD_DEFAULT_LABELS: Record<string, string> = {
@@ -1065,10 +1065,26 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setTimeout(() => setResetToast(null), 3500);
   };
 
-  const getBuiltInSectionTitle = (sectionId: string, fallback: string) =>
-    currentAudit.builtInSectionSettings?.[sectionId]?.title?.trim()
-    || BUILT_IN_AUDIT_SECTIONS.find(section => section.id === sectionId)?.title
-    || fallback;
+  const getBuiltInSectionTitle = (sectionId: string, fallback: string) => {
+    const savedTitle = currentAudit.builtInSectionSettings?.[sectionId]?.title?.trim();
+    const defaultTitle = BUILT_IN_AUDIT_SECTIONS.find(section => section.id === sectionId)?.title || fallback;
+    if (!savedTitle) return defaultTitle;
+    const legacyDefault = [
+      '1. Brand Overview (نبذة عن البراند)',
+      '2. Digital Assets Audit (تقييم الأصول الرقمية)',
+      '3. Tracking Audit (تقييم التتبع)',
+      '4. Creative & Content Audit (تقييم المحتوى والكريتيف)',
+      '5. Social Media Audit (تقييم السوشيال ميديا)',
+      '6. Operations Audit (تقييم التشغيل)',
+      '7. Sales Funnel Audit (تقييم رحلة العميل)',
+      '8. Unit Economics & Pricing (ربحية المنتج وتسعيرته)',
+      '9. Historical Ads Analysis (تحليل الإعلانات السابقة)',
+      '10. Competitor Analysis (تحليل المنافسين الشامل)',
+      '12. Customer Persona & Brand Positioning (العميل المستهدف وتموضع البراند)',
+      '13. Main Problems & Solutions (أهم المشاكل وحلها)'
+    ];
+    return legacyDefault.includes(savedTitle) ? defaultTitle : savedTitle;
+  };
 
   const isBuiltInSectionHidden = (sectionId: string) =>
     Boolean(currentAudit.builtInSectionSettings?.[sectionId]?.hidden);
@@ -3810,18 +3826,20 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
             {/* Modal Scrollable Body */}
             <div className="p-5 overflow-y-auto space-y-6 text-xs flex-1">
-              {/* DATE BAR */}
-              <div className="bg-[#F9F8F6] p-4 rounded-2xl border border-[#E5E5E0]">
-                <div>
-                  <label className="font-extrabold text-[#2D2D2A] block mb-1">تاريخ التقييم (Audit Date)</label>
-                  <input
-                    type="date"
-                    value={formData.auditDate || formatLocalDate()}
-                    onChange={(e) => setFormData({ ...formData, auditDate: e.target.value })}
-                    className="w-full sm:w-1/2 p-2.5 rounded-xl border border-[#E5E5E0] bg-white font-bold text-[#2D2D2A]"
-                  />
+              {/* DATE BAR - built-in sections only */}
+              {!activeCustomModalSection && (
+                <div className="bg-[#F9F8F6] p-4 rounded-2xl border border-[#E5E5E0]">
+                  <div>
+                    <label className="font-extrabold text-[#2D2D2A] block mb-1">تاريخ التقييم (Audit Date)</label>
+                    <input
+                      type="date"
+                      value={formData.auditDate || formatLocalDate()}
+                      onChange={(e) => setFormData({ ...formData, auditDate: e.target.value })}
+                      className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white font-bold text-[#2D2D2A]"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* STEP 1: BRAND OVERVIEW */}
               {modalActiveTab === 1 && (
@@ -5157,13 +5175,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                   </div>
                 </div>
               )}
-            </div>
 
               {/* CUSTOM SECTION CREATED FROM SECTION MANAGER */}
               {activeCustomModalSection && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between gap-3 border-b border-[#E5E5E0] pb-2">
-                    <h4 className="font-extrabold text-sm text-[#5A5A40]">{activeCustomModalSection.title}</h4>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#E5E5E0] pb-3">
+                    <h4 className="font-extrabold text-sm text-[#2D2D2A]">{activeCustomModalSection.title}</h4>
                     <button
                       type="button"
                       onClick={() => openEditCustomSection(activeCustomModalSection)}
@@ -5175,12 +5192,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                   </div>
 
                   <div className="bg-[#F9F8F6] p-4 rounded-2xl border border-[#E5E5E0]">
-                    <label className="font-extrabold text-[#2D2D2A] block mb-1">تاريخ التقييم (Audit Date)</label>
+                    <label className="font-extrabold text-[#2D2D2A] block mb-2">تاريخ التقييم (Audit Date)</label>
                     <input
                       type="date"
                       value={activeCustomModalSection.auditDate || formatLocalDate()}
                       onChange={(e) => updateCustomSection(activeCustomModalSection.id, { auditDate: e.target.value })}
-                      className="w-full sm:w-1/2 p-2.5 rounded-xl border border-[#E5E5E0] bg-white font-bold text-[#2D2D2A]"
+                      className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white font-bold text-[#2D2D2A] outline-none focus:border-[#5A5A40]"
                     />
                   </div>
 
@@ -5193,6 +5210,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                   />
                 </div>
               )}
+            </div>
 
             {/* Modal Footer Controls */}
             <div className="p-4 sm:p-5 border-t border-[#E5E5E0] bg-[#F9F8F6] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 shrink-0">
