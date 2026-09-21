@@ -6,7 +6,8 @@ export function useSupabaseSetting<T>(
   key: string,
   clientId: string | null,
   initialValue: T,
-  writable: boolean
+  writable: boolean,
+  legacyKeys: string[] = []
 ): [T, Dispatch<SetStateAction<T>>] {
   const [value, setValue] = useState<T>(initialValue);
   const [loadedKey, setLoadedKey] = useState('');
@@ -23,15 +24,33 @@ export function useSupabaseSetting<T>(
 
       let next = result.data ? result.data.data as T : initialValue;
       let migrated = false;
-      if (!result.data && writable) {
+
+      // One-time fallback from legacy per-client settings into the new global template key.
+      if (!result.data && writable && legacyKeys.length > 0) {
+        for (const legacyKey of legacyKeys) {
+          const legacyResult = await supabase.from('app_settings')
+            .select('data').eq('key', legacyKey).maybeSingle();
+          if (legacyResult.error) throw legacyResult.error;
+          if (legacyResult.data) {
+            next = legacyResult.data.data as T;
+            migrated = true;
+            break;
+          }
+        }
+      }
+
+      if (!result.data && !migrated && writable) {
         // Move settings saved by an older browser version into Supabase once.
         try {
-          const legacy = window.localStorage.getItem(key);
-          if (legacy) {
+          const localKeys = [key, ...legacyKeys];
+          for (const localKey of localKeys) {
+            const legacy = window.localStorage.getItem(localKey);
+            if (!legacy) continue;
             const parsed = JSON.parse(legacy);
             if (Array.isArray(parsed)) {
               next = parsed as T;
               migrated = true;
+              break;
             }
           }
         } catch {
@@ -49,7 +68,7 @@ export function useSupabaseSetting<T>(
       }
     });
     return () => { active = false; };
-  }, [key]);
+  }, [key, writable, JSON.stringify(legacyKeys)]);
 
   useEffect(() => {
     if (!writable || loadedKey !== key) return;
