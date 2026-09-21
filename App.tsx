@@ -50,6 +50,7 @@ export default function App() {
     rechargeBudgetAlarm,
     deleteBudgetAlarm,
     addAgreement,
+    updateAgreement,
     deleteAgreement,
     addPayment,
     updatePaymentStatus,
@@ -354,6 +355,7 @@ export default function App() {
               agreements={agreements}
               payments={payments}
               onAddAgreement={addAgreement}
+              onUpdateAgreement={updateAgreement}
               onDeleteAgreement={deleteAgreement}
               onAddPayment={addPayment}
               onUpdatePaymentStatus={updatePaymentStatus}
