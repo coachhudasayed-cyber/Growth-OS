@@ -2772,7 +2772,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Users className="w-4 h-4 text-[#5A5A40]" />
-              <span>{getBuiltInSectionTitle('persona', '12. {getBuiltInSectionTitle('persona', '12. Customer Persona (العميل المستهدف)')}')}</span>
+              <span>{getBuiltInSectionTitle('persona', '12. Customer Persona (العميل المستهدف)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
