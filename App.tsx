@@ -23,6 +23,7 @@ export default function App() {
     payments,
     dailyWorkLogs,
     brandAudits,
+    brandAuditSchema,
     contentPlans,
     adsPlans,
     clientAdsStrategies,
@@ -147,6 +148,7 @@ export default function App() {
           onLogout={logout}
           dailyWorkLogs={dailyWorkLogs}
           brandAudit={brandAudits[targetClient.id]}
+          brandAuditSchema={brandAuditSchema}
           contentPlans={contentPlans}
           adsPlans={adsPlans}
           clientAdsStrategy={clientAdsStrategies[targetClient.id]}
@@ -224,6 +226,7 @@ export default function App() {
             onLogout={logout}
             dailyWorkLogs={dailyWorkLogs}
             brandAudit={brandAudits[activeClient.id]}
+            brandAuditSchema={brandAuditSchema}
             contentPlans={contentPlans}
             adsPlans={adsPlans}
             clientAdsStrategy={clientAdsStrategies[activeClient.id]}
