@@ -575,6 +575,20 @@ export function useAppData() {
     setAgreements(prev => [newAgreement, ...prev]);
   };
 
+  const updateAgreement = (id: string, fields: Partial<Agreement>) => {
+    setAgreements(prev => prev.map(agreement => {
+      if (agreement.id !== id) return agreement;
+      const nextClientId = fields.clientId || agreement.clientId;
+      const clientObj = clients.find(c => c.id === nextClientId);
+      return {
+        ...agreement,
+        ...fields,
+        clientId: nextClientId,
+        brandName: clientObj ? clientObj.brandName : agreement.brandName
+      };
+    }));
+  };
+
   const deleteAgreement = (id: string) => {
     setAgreements(prev => prev.filter(a => a.id !== id));
     setPayments(prev => prev.filter(p => p.agreementId !== id));
@@ -836,6 +850,7 @@ export function useAppData() {
     rechargeBudgetAlarm,
     deleteBudgetAlarm,
     addAgreement,
+    updateAgreement,
     deleteAgreement,
     addPayment,
     updatePaymentStatus,
