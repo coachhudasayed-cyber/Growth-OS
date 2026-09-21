@@ -1317,7 +1317,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     <div className="flex flex-col gap-6">
       {/* 1. BRAND OVERVIEW */}
       {!isBuiltInSectionHidden('overview') && (activeSection === 'all' || activeSection === 'overview') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs relative">
+        <div style={{ order: getSectionOrderIndex('overview') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs relative">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Building className="w-4 h-4 text-[#5A5A40]" />
@@ -1414,7 +1414,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 2. DIGITAL ASSETS AUDIT */}
       {!isBuiltInSectionHidden('digitalAssets') && (activeSection === 'all' || activeSection === 'digitalAssets') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('digitalAssets') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Globe className="w-4 h-4 text-[#5A5A40]" />
@@ -1503,7 +1503,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 3. TRACKING AUDIT */}
       {!isBuiltInSectionHidden('tracking') && (activeSection === 'all' || activeSection === 'tracking') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('tracking') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Activity className="w-4 h-4 text-[#5A5A40]" />
@@ -1550,7 +1550,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 4. CREATIVE & CONTENT AUDIT */}
       {!isBuiltInSectionHidden('creative') && (activeSection === 'all' || activeSection === 'creative') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('creative') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-700" />
@@ -1694,7 +1694,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 5. SOCIAL MEDIA AUDIT */}
       {!isBuiltInSectionHidden('socialMedia') && (activeSection === 'all' || activeSection === 'socialMedia') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('socialMedia') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Share2 className="w-4 h-4 text-[#5A5A40]" />
@@ -1751,7 +1751,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 6. OPERATIONS AUDIT */}
       {!isBuiltInSectionHidden('operations') && (activeSection === 'all' || activeSection === 'operations') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('operations') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Settings className="w-4 h-4 text-[#5A5A40]" />
@@ -1802,7 +1802,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 7. SALES FUNNEL AUDIT */}
       {!isBuiltInSectionHidden('salesFunnel') && (activeSection === 'all' || activeSection === 'salesFunnel') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('salesFunnel') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Filter className="w-4 h-4 text-[#5A5A40]" />
@@ -1854,7 +1854,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 8. UNIT ECONOMICS AND PRICING */}
       {!isBuiltInSectionHidden('unitEconomics') && (activeSection === 'all' || activeSection === 'unitEconomics') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('unitEconomics') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-emerald-700" />
@@ -1909,7 +1909,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 9. HISTORICAL ADS ANALYSIS */}
       {!isBuiltInSectionHidden('historicalAds') && (activeSection === 'all' || activeSection === 'historicalAds') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('historicalAds') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#5A5A40]" />
@@ -1985,7 +1985,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 10. COMPETITOR ANALYSIS */}
       {!isBuiltInSectionHidden('competitors') && (activeSection === 'all' || activeSection === 'competitors') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('competitors') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <div>
               <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
@@ -2318,7 +2318,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 11. SWOT ANALYSIS */}
       {!isBuiltInSectionHidden('swot') && (activeSection === 'all' || activeSection === 'swot') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-6 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('swot') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-6 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#5A5A40]" />
@@ -2822,7 +2822,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 12. CUSTOMER PERSONA */}
       {!isBuiltInSectionHidden('persona') && (activeSection === 'all' || activeSection === 'persona') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-7 space-y-6 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('persona') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-7 space-y-6 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Users className="w-4 h-4 text-[#5A5A40]" />
@@ -2961,7 +2961,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* 13. MAIN PROBLEMS & SOLUTIONS */}
       {!isBuiltInSectionHidden('problems') && (activeSection === 'all' || activeSection === 'problems') && (
-        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div style={{ order: getSectionOrderIndex('problems') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600" />
@@ -3102,7 +3102,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
         const visible = activeSection === 'all' || activeSection === `custom:${section.id}`;
         if (!visible) return null;
         return (
-          <div key={section.id} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+          <div key={section.id} style={{ order: getSectionOrderIndex(`custom:${section.id}`) }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
             <div className="flex items-center justify-between gap-3 border-b border-[#E5E5E0] pb-3">
               <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
                 <Layers className="w-4 h-4 text-[#5A5A40]" />
