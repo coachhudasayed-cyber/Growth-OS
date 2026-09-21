@@ -1142,7 +1142,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     (audit.auditDate || audit.overview?.brandName || (audit.score && audit.score > 0) || (audit.problemsAndSolutions && audit.problemsAndSolutions.length > 0))
   );
 
-  const renderAuditSectionsContent = () => (
+  const renderAuditSectionsContent = (readOnly = false) => (
     <div className="space-y-6">
       {/* 1. BRAND OVERVIEW */}
       {(activeSection === 'all' || activeSection === 'overview') && (
@@ -2809,7 +2809,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       <h4 className="font-extrabold text-sm text-[#2D2D2A]">المشكلة: {prob.problem}</h4>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {userRole !== 'client' ? (
+                      {userRole !== 'client' && !readOnly ? (
                         <button
                           type="button"
                           onClick={() => toggleProblemStatus(prob.id)}
@@ -2944,7 +2944,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 type="date"
                 value={section.auditDate || ''}
                 onChange={(e) => updateCustomSection(section.id, { auditDate: e.target.value })}
-                disabled={userRole === 'client'}
+                disabled={userRole === 'client' || readOnly}
                 className="w-full bg-white border border-[#E5E5E0] rounded-xl px-4 py-3 text-sm font-bold text-[#2D2D2A] outline-none focus:border-[#5A5A40] disabled:bg-[#F9F8F6] disabled:cursor-default"
               />
             </div>
@@ -3400,7 +3400,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           </div>
         </div>
 
-        {renderAuditSectionsContent()}
+        {renderAuditSectionsContent(true)}
       </div>
 
       {/* FULL BRAND AUDIT POP-UP MODAL (بوب اب بكل الأسئلة بنفس الترتيب) */}
