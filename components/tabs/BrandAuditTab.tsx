@@ -155,6 +155,34 @@ const getUnitEconomicsSectionItems = (
   sectionId: string
 ) => getUnitEconomicsChecklist(unitEconomics).filter(item => item.id.startsWith(`ue-${sectionId}-`));
 
+const BUILT_IN_AUDIT_SECTIONS = [
+  { id: 'overview', num: 1, title: '1. Brand Overview (نبذة عن البراند)' },
+  { id: 'digitalAssets', num: 2, title: '2. Digital Assets Audit (تقييم الأصول الرقمية)' },
+  { id: 'tracking', num: 3, title: '3. Tracking Audit (تقييم التتبع)' },
+  { id: 'creative', num: 4, title: '4. Creative & Content Audit (تقييم المحتوى والكريتيف)' },
+  { id: 'socialMedia', num: 5, title: '5. Social Media Audit (تقييم السوشيال ميديا)' },
+  { id: 'operations', num: 6, title: '6. Operations Audit (تقييم التشغيل)' },
+  { id: 'salesFunnel', num: 7, title: '7. Sales Funnel Audit (تقييم رحلة العميل)' },
+  { id: 'unitEconomics', num: 8, title: '8. Unit Economics & Pricing (ربحية المنتج وتسعيرته)' },
+  { id: 'historicalAds', num: 9, title: '9. Historical Ads Analysis (تحليل الإعلانات السابقة)' },
+  { id: 'competitors', num: 10, title: '10. Competitor Analysis (تحليل المنافسين الشامل)' },
+  { id: 'swot', num: 11, title: '11. SWOT Analysis' },
+  { id: 'persona', num: 12, title: '12. Customer Persona & Brand Positioning (العميل المستهدف وتموضع البراند)' },
+  { id: 'problems', num: 13, title: '13. Main Problems & Solutions (أهم المشاكل وحلها)' }
+] as const;
+
+const OVERVIEW_FIELD_DEFAULT_LABELS: Record<string, string> = {
+  brandName: 'اسم البراند',
+  industry: 'النشاط',
+  coreProducts: 'المنتجات الأساسية',
+  targetAudience: 'الفئة المستهدفة',
+  avgProductPrice: 'متوسط سعر المنتجات',
+  avgMonthlyOrders: 'متوسط الاوردرات الشهرية',
+  salesChannels: 'قنوات البيع',
+  salesLocations: 'مناطق البيع و الانتشار',
+  brandStage: 'مرحلة البراند'
+};
+
 export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   audit,
   clientId,
@@ -283,6 +311,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const [customSectionTitle, setCustomSectionTitle] = useState('');
   const [customSectionItemsTitle, setCustomSectionItemsTitle] = useState('عناصر التقييم');
   const [customSectionDate, setCustomSectionDate] = useState(formatLocalDate());
+  const [showBuiltInSectionsModal, setShowBuiltInSectionsModal] = useState(false);
+  const [editingOverviewLabelKey, setEditingOverviewLabelKey] = useState<string | null>(null);
+  const [overviewLabelDraft, setOverviewLabelDraft] = useState('');
 
   // Quick Inline Edit State
   const [inlineEditingField, setInlineEditingField] = useState<{ section: string; key: string } | null>(null);
@@ -1023,6 +1054,59 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setTimeout(() => setResetToast(null), 3500);
   };
 
+  const getBuiltInSectionTitle = (sectionId: string, fallback: string) =>
+    currentAudit.builtInSectionSettings?.[sectionId]?.title?.trim() || fallback;
+
+  const isBuiltInSectionHidden = (sectionId: string) =>
+    Boolean(currentAudit.builtInSectionSettings?.[sectionId]?.hidden);
+
+  const updateBuiltInSectionSetting = (sectionId: string, patch: { title?: string; hidden?: boolean }) => {
+    if (userRole === 'client') return;
+    const currentSetting = currentAudit.builtInSectionSettings?.[sectionId] || {};
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      builtInSectionSettings: {
+        ...(currentAudit.builtInSectionSettings || {}),
+        [sectionId]: { ...currentSetting, ...patch }
+      },
+      updatedAt: formatLocalDate()
+    });
+  };
+
+  const hideBuiltInSection = (sectionId: string) => {
+    if (userRole === 'client') return;
+    updateBuiltInSectionSetting(sectionId, { hidden: true });
+    if (activeSection === sectionId) setActiveSection('all');
+  };
+
+  const restoreBuiltInSection = (sectionId: string) => {
+    if (userRole === 'client') return;
+    updateBuiltInSectionSetting(sectionId, { hidden: false });
+  };
+
+  const getOverviewFieldLabel = (key: string) =>
+    currentAudit.overviewFieldLabels?.[key]?.trim() || OVERVIEW_FIELD_DEFAULT_LABELS[key] || key;
+
+  const startOverviewLabelEdit = (key: string) => {
+    if (userRole === 'client') return;
+    setEditingOverviewLabelKey(key);
+    setOverviewLabelDraft(getOverviewFieldLabel(key));
+  };
+
+  const saveOverviewLabelEdit = () => {
+    if (userRole === 'client' || !editingOverviewLabelKey || !overviewLabelDraft.trim()) return;
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      overviewFieldLabels: {
+        ...(currentAudit.overviewFieldLabels || {}),
+        [editingOverviewLabelKey]: overviewLabelDraft.trim()
+      },
+      updatedAt: formatLocalDate()
+    });
+    setEditingOverviewLabelKey(null);
+    setOverviewLabelDraft('');
+  };
+
   const openAddCustomSection = () => {
     if (userRole === 'client') return;
     setEditingCustomSectionId(null);
@@ -1099,38 +1183,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   };
 
   // Navigation items for the full audit form modal
-  const modalSteps = [
-    { num: 1, title: '1. نبذة عن البراند' },
-    { num: 2, title: '2. الأصول الرقمية' },
-    { num: 3, title: '3. تقييم التتبع' },
-    { num: 4, title: '4. المحتوى والكريتيف' },
-    { num: 5, title: '5. السوشيال ميديا' },
-    { num: 6, title: '6. التشغيل' },
-    { num: 7, title: '7. رحلة العميل' },
-    { num: 8, title: '8. ربحية المنتج وتسعيرته' },
-    { num: 9, title: '9. الإعلانات السابقة' },
-    { num: 10, title: '10. المنافسين' },
-    { num: 11, title: '11. تحليل SWOT' },
-    { num: 12, title: '12. العميل المستهدف' },
-    { num: 13, title: '13. المشاكل والحلول' }
-  ];
+  const modalSteps = BUILT_IN_AUDIT_SECTIONS
+    .filter(section => !isBuiltInSectionHidden(section.id))
+    .map(section => ({
+      num: section.num,
+      title: getBuiltInSectionTitle(section.id, section.title)
+    }));
 
   // Section display tabs for main page
   const sectionTabs = [
     { id: 'all', label: 'التقرير الشامل (الكل)' },
-    { id: 'overview', label: '1. نبذة عن البراند' },
-    { id: 'digitalAssets', label: '2. الأصول الرقمية' },
-    { id: 'tracking', label: '3. التتبع' },
-    { id: 'creative', label: '4. المحتوى والكريتيف' },
-    { id: 'socialMedia', label: '5. السوشيال ميديا' },
-    { id: 'operations', label: '6. التشغيل' },
-    { id: 'salesFunnel', label: '7. رحلة العميل' },
-    { id: 'unitEconomics', label: '8. ربحية المنتج' },
-    { id: 'historicalAds', label: '9. الإعلانات السابقة' },
-    { id: 'competitors', label: '10. المنافسين' },
-    { id: 'swot', label: '11. تحليل SWOT' },
-    { id: 'persona', label: '12. العميل المستهدف' },
-    { id: 'problems', label: '13. المشاكل والحلول' },
+    ...BUILT_IN_AUDIT_SECTIONS
+      .filter(section => !isBuiltInSectionHidden(section.id))
+      .map(section => ({
+        id: section.id,
+        label: getBuiltInSectionTitle(section.id, section.title)
+      })),
     ...(currentAudit.customSections || []).map((section, index) => ({
       id: `custom:${section.id}`,
       label: `${14 + index}. ${section.title}`
