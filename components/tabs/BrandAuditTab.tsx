@@ -1155,6 +1155,49 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     </div>
   );
 
+  const defaultSectionOrder = [
+    ...BUILT_IN_AUDIT_SECTIONS.map(section => section.id),
+    ...(currentAudit.customSections || []).map(section => `custom:${section.id}`)
+  ];
+
+  const sectionOrder = [
+    ...(currentAudit.sectionOrder || []).filter(key => defaultSectionOrder.includes(key)),
+    ...defaultSectionOrder.filter(key => !(currentAudit.sectionOrder || []).includes(key))
+  ];
+
+  const getSectionOrderIndex = (sectionKey: string) => {
+    const index = sectionOrder.indexOf(sectionKey);
+    return index >= 0 ? index : sectionOrder.length;
+  };
+
+  const moveAuditSection = (sectionKey: string, direction: 'up' | 'down') => {
+    if (userRole === 'client') return;
+    const currentIndex = sectionOrder.indexOf(sectionKey);
+    if (currentIndex < 0) return;
+    const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= sectionOrder.length) return;
+    const nextOrder = [...sectionOrder];
+    [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      sectionOrder: nextOrder,
+      updatedAt: formatLocalDate()
+    });
+  };
+
+  const orderedSectionEntries = sectionOrder.map(sectionKey => {
+    if (sectionKey.startsWith('custom:')) {
+      const customId = sectionKey.replace('custom:', '');
+      const custom = (currentAudit.customSections || []).find(section => section.id === customId);
+      return custom ? { key: sectionKey, type: 'custom' as const, custom } : null;
+    }
+    const builtIn = BUILT_IN_AUDIT_SECTIONS.find(section => section.id === sectionKey);
+    return builtIn ? { key: sectionKey, type: 'builtIn' as const, builtIn } : null;
+  }).filter(Boolean) as Array<
+    | { key: string; type: 'builtIn'; builtIn: typeof BUILT_IN_AUDIT_SECTIONS[number] }
+    | { key: string; type: 'custom'; custom: CustomBrandAuditSection }
+  >;
+
   const openAddCustomSection = () => {
     if (userRole === 'client') return;
     setEditingCustomSectionId(null);
