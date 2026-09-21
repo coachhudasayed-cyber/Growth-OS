@@ -10,6 +10,7 @@ import { addCalendarDays, differenceInCalendarDays, formatLocalDate } from './da
 import { calculateBudgetEndDate } from './budgetLogic';
 import { normalizePaymentAmounts } from './financialLogic';
 import { applyBrandAuditSchema, BrandAuditSchema, extractBrandAuditSchema } from './brandAuditSchema';
+import { MASTER_TEMPLATE_CLIENT_ID } from './templateSource';
 
 type StoredRecord = {
   collection: string;
@@ -142,10 +143,20 @@ export function useAppData() {
     setDailyWorkLogs(byCollection('dailyWorkLogs') as DailyWorkLog[]);
     const loadedBrandAudits = asMap<BrandAudit>('brandAudits');
     const loadedBrandAuditSchemas = asMap<BrandAuditSchema>('brandAuditSchemas');
-    const loadedBrandAuditSchema = loadedBrandAuditSchemas.global || null;
+
+    // One-time bootstrap: if a shared Brand Audit schema does not exist yet,
+    // use Datra's current audit structure as the source of truth.
+    const sourceAudit = loadedBrandAudits[MASTER_TEMPLATE_CLIENT_ID];
+    const loadedBrandAuditSchema =
+      loadedBrandAuditSchemas.global ||
+      (sourceAudit ? extractBrandAuditSchema(sourceAudit) : null);
+
     setBrandAuditSchema(loadedBrandAuditSchema);
     setBrandAudits(Object.fromEntries(
-      Object.entries(loadedBrandAudits).map(([id, value]) => [id, applyBrandAuditSchema(loadedBrandAuditSchema, value)])
+      Object.entries(loadedBrandAudits).map(([id, value]) => [
+        id,
+        applyBrandAuditSchema(loadedBrandAuditSchema, value)
+      ])
     ));
     setContentPlans(byCollection('contentPlans') as ContentPlanItem[]);
     setAdsPlans(byCollection('adsPlans') as AdsPlanItem[]);
