@@ -9,6 +9,7 @@ import { supabase } from './supabase';
 import { addCalendarDays, differenceInCalendarDays, formatLocalDate } from './dateUtils';
 import { calculateBudgetEndDate } from './budgetLogic';
 import { normalizePaymentAmounts } from './financialLogic';
+import { applyBrandAuditSchema, BrandAuditSchema, extractBrandAuditSchema } from './brandAuditSchema';
 
 type StoredRecord = {
   collection: string;
@@ -79,6 +80,7 @@ export function useAppData() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>([]);
   const [brandAudits, setBrandAudits] = useState<Record<string, BrandAudit>>({});
+  const [brandAuditSchema, setBrandAuditSchema] = useState<BrandAuditSchema | null>(null);
   const [contentPlans, setContentPlans] = useState<ContentPlanItem[]>([]);
   const [adsPlans, setAdsPlans] = useState<AdsPlanItem[]>([]);
   const [clientAdsStrategies, setClientAdsStrategies] = useState<Record<string, ClientAdsStageStrategy>>({});
@@ -138,7 +140,13 @@ export function useAppData() {
     setAgreements(byCollection('agreements') as Agreement[]);
     setPayments(byCollection('payments') as PaymentRecord[]);
     setDailyWorkLogs(byCollection('dailyWorkLogs') as DailyWorkLog[]);
-    setBrandAudits(asMap<BrandAudit>('brandAudits'));
+    const loadedBrandAudits = asMap<BrandAudit>('brandAudits');
+    const loadedBrandAuditSchemas = asMap<BrandAuditSchema>('brandAuditSchemas');
+    const loadedBrandAuditSchema = loadedBrandAuditSchemas.global || null;
+    setBrandAuditSchema(loadedBrandAuditSchema);
+    setBrandAudits(Object.fromEntries(
+      Object.entries(loadedBrandAudits).map(([id, value]) => [id, applyBrandAuditSchema(loadedBrandAuditSchema, value)])
+    ));
     setContentPlans(byCollection('contentPlans') as ContentPlanItem[]);
     setAdsPlans(byCollection('adsPlans') as AdsPlanItem[]);
     setClientAdsStrategies(asMap<ClientAdsStageStrategy>('clientAdsStrategies'));
@@ -199,6 +207,7 @@ export function useAppData() {
     addItems('payments', payments);
     addItems('dailyWorkLogs', dailyWorkLogs);
     Object.entries(brandAudits).forEach(([id, value]) => add('brandAudits', id, id, value));
+    if (brandAuditSchema) add('brandAuditSchemas', 'global', null, brandAuditSchema);
     addItems('contentPlans', contentPlans);
     addItems('adsPlans', adsPlans);
     Object.entries(clientAdsStrategies).forEach(([id, value]) => add('clientAdsStrategies', id, id, value));
@@ -239,7 +248,7 @@ export function useAppData() {
       setSyncError(err instanceof Error ? err.message : 'تعذر حفظ آخر التغييرات.');
     });
   }, [ready, currentUser, todos, budgetAlarms, agreements, payments, dailyWorkLogs,
-      brandAudits, contentPlans, adsPlans, clientAdsStrategies, clientDailyReports,
+      brandAudits, brandAuditSchema, contentPlans, adsPlans, clientAdsStrategies, clientDailyReports,
       weeklyReports, monthlyReports, quarterlyReports, adminDailyReports, notes, retrySyncCount]);
 
   const login = async (email: string, password: string) => {
@@ -670,8 +679,30 @@ export function useAppData() {
   };
 
   // Brand Audit Update
+  // Questions, labels, section names/order and custom section structure are global.
+  // Answers remain isolated per client.
   const updateBrandAudit = (clientId: string, audit: BrandAudit) => {
-    setBrandAudits(prev => ({ ...prev, [clientId]: audit }));
+    if (currentUser?.role === 'client') {
+      setBrandAudits(prev => ({ ...prev, [clientId]: audit }));
+      return;
+    }
+
+    const nextSchema = extractBrandAuditSchema(audit);
+    setBrandAuditSchema(nextSchema);
+    setBrandAudits(prev => {
+      const syncedEntries = Object.entries(prev).map(([id, existingAudit]) => [
+        id,
+        id === clientId
+          ? applyBrandAuditSchema(nextSchema, audit)
+          : applyBrandAuditSchema(nextSchema, existingAudit)
+      ] as const);
+
+      if (!prev[clientId]) {
+        syncedEntries.push([clientId, applyBrandAuditSchema(nextSchema, audit)] as const);
+      }
+
+      return Object.fromEntries(syncedEntries);
+    });
   };
 
   // Content Plan CRUD
@@ -823,6 +854,7 @@ export function useAppData() {
     payments,
     dailyWorkLogs,
     brandAudits,
+    brandAuditSchema,
     contentPlans,
     adsPlans,
     clientAdsStrategies,
