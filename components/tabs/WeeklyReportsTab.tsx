@@ -1,4 +1,5 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { MASTER_TEMPLATE_CLIENT_ID } from '../../lib/templateSource';
 import { calculatePerformanceMetrics, formatMetricMoney } from '../../lib/financialLogic';
 import { formatLocalDate } from '../../lib/dateUtils';
 import React, { useState } from 'react';
@@ -413,7 +414,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
 
   const [questions, setQuestions] = useSupabaseSetting<WeeklyReportQuestion[]>(
     storageKey, null, DEFAULT_WEEKLY_REPORT_QUESTIONS, userRole !== 'client',
-    [`weekly_report_questions_${clientId}`]
+    [`weekly_report_questions_${MASTER_TEMPLATE_CLIENT_ID}`, `weekly_report_questions_${clientId}`]
   );
 
   const saveQuestionsTemplate = (newQuestions: WeeklyReportQuestion[]) => setQuestions(newQuestions);
