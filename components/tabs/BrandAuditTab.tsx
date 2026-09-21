@@ -1220,31 +1220,37 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     e.preventDefault();
     if (userRole === 'client' || !customSectionTitle.trim() || !customSectionItemsTitle.trim()) return;
     const existingSections = currentAudit.customSections || [];
-    const updatedSections = editingCustomSectionId
-      ? existingSections.map(section => section.id === editingCustomSectionId
-          ? {
-              ...section,
-              title: customSectionTitle.trim(),
-              itemsTitle: customSectionItemsTitle.trim(),
-              auditDate: customSectionDate || formatLocalDate()
-            }
-          : section)
-      : [
-          ...existingSections,
-          {
-            id: `custom-audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+
+    if (editingCustomSectionId) {
+      const updatedSections = existingSections.map(section => section.id === editingCustomSectionId
+        ? {
+            ...section,
             title: customSectionTitle.trim(),
             itemsTitle: customSectionItemsTitle.trim(),
-            auditDate: customSectionDate || formatLocalDate(),
-            items: []
+            auditDate: customSectionDate || formatLocalDate()
           }
-        ];
+        : section);
+      onUpdateAudit(clientId, {
+        ...currentAudit,
+        customSections: updatedSections,
+        updatedAt: formatLocalDate()
+      });
+    } else {
+      const newSection: CustomBrandAuditSection = {
+        id: `custom-audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title: customSectionTitle.trim(),
+        itemsTitle: customSectionItemsTitle.trim(),
+        auditDate: customSectionDate || formatLocalDate(),
+        items: []
+      };
+      onUpdateAudit(clientId, {
+        ...currentAudit,
+        customSections: [...existingSections, newSection],
+        sectionOrder: [...sectionOrder, `custom:${newSection.id}`],
+        updatedAt: formatLocalDate()
+      });
+    }
 
-    onUpdateAudit(clientId, {
-      ...currentAudit,
-      customSections: updatedSections,
-      updatedAt: formatLocalDate()
-    });
     setShowCustomSectionModal(false);
     setEditingCustomSectionId(null);
   };
@@ -1268,6 +1274,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     onUpdateAudit(clientId, {
       ...currentAudit,
       customSections: updatedSections,
+      sectionOrder: sectionOrder.filter(key => key !== `custom:${sectionId}`),
       updatedAt: formatLocalDate()
     });
     if (activeSection === `custom:${sectionId}`) setActiveSection('all');
