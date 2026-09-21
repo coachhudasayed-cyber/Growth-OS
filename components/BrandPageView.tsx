@@ -54,6 +54,7 @@ import { MonthlyReportsTab } from './tabs/MonthlyReportsTab';
 import { AdminDailyReportsTab } from './tabs/AdminDailyReportsTab';
 import { NotesTab } from './tabs/NotesTab';
 import { AccountSettings } from './AccountSettings';
+import type { BrandAuditSchema } from '../lib/brandAuditSchema';
 
 interface BrandPageViewProps {
   client: Client;
@@ -65,6 +66,7 @@ interface BrandPageViewProps {
   // App Data
   dailyWorkLogs: DailyWorkLog[];
   brandAudit?: BrandAudit;
+  brandAuditSchema?: BrandAuditSchema | null;
   contentPlans: ContentPlanItem[];
   adsPlans: AdsPlanItem[];
   clientAdsStrategy?: ClientAdsStageStrategy;
@@ -142,6 +144,7 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
   onLogout,
   dailyWorkLogs,
   brandAudit,
+  brandAuditSchema,
   contentPlans,
   adsPlans,
   clientAdsStrategy,
@@ -434,6 +437,7 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
             {activeTab === 'audit' && (
               <BrandAuditTab
                 audit={brandAudit}
+                schema={brandAuditSchema}
                 clientId={client.id}
                 userRole={userRole}
                 onUpdateAudit={onUpdateBrandAudit}
