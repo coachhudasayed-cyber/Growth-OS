@@ -323,7 +323,10 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenFullModal = () => {
     if (userRole === 'client') return;
     setFormData(JSON.parse(JSON.stringify(currentAudit)));
-    setModalActiveTab(1);
+    const firstVisibleStep = BUILT_IN_AUDIT_SECTIONS.find(
+      section => !currentAudit.builtInSectionSettings?.[section.id]?.hidden
+    );
+    setModalActiveTab(firstVisibleStep?.num || 1);
     setShowFullAuditModal(true);
   };
 
@@ -1107,6 +1110,37 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setOverviewLabelDraft('');
   };
 
+  const renderOverviewFieldLabelEditor = (key: string) => (
+    <div className="flex items-center gap-1.5 mb-1">
+      {editingOverviewLabelKey === key ? (
+        <div className="flex items-center gap-1 flex-1">
+          <input
+            type="text"
+            value={overviewLabelDraft}
+            onChange={(e) => setOverviewLabelDraft(e.target.value)}
+            className="w-full px-2 py-1.5 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white"
+            autoFocus
+          />
+          <button type="button" onClick={saveOverviewLabelEdit} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-md" title="حفظ اسم السؤال">
+            <Check className="w-3.5 h-3.5" />
+          </button>
+          <button type="button" onClick={() => setEditingOverviewLabelKey(null)} className="p-1 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-md" title="إلغاء">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <>
+          <label className="font-bold block">{getOverviewFieldLabel(key)}</label>
+          {userRole !== 'client' && (
+            <button type="button" onClick={() => startOverviewLabelEdit(key)} className="p-1 text-[#8E8E85] hover:text-[#5A5A40] hover:bg-[#E5E5E0] rounded-md" title="تعديل اسم السؤال">
+              <Edit2 className="w-3 h-3" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   const openAddCustomSection = () => {
     if (userRole === 'client') return;
     setEditingCustomSectionId(null);
@@ -1189,6 +1223,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       num: section.num,
       title: getBuiltInSectionTitle(section.id, section.title)
     }));
+  const currentModalStepIndex = modalSteps.findIndex(step => step.num === modalActiveTab);
 
   // Section display tabs for main page
   const sectionTabs = [
@@ -2730,7 +2765,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Users className="w-4 h-4 text-[#5A5A40]" />
-              <span>{getBuiltInSectionTitle('persona', '12. Customer Persona (العميل المستهدف)')}</span>
+              <span>{getBuiltInSectionTitle('persona', '12. {getBuiltInSectionTitle('persona', '12. Customer Persona (العميل المستهدف)')}')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -3143,7 +3178,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-800 border border-emerald-500/20 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  <span>تم تسجيل التقييم ({13 + (currentAudit.customSections?.length || 0)} محور)</span>
+                  <span>تم تسجيل التقييم ({BUILT_IN_AUDIT_SECTIONS.filter(section => !isBuiltInSectionHidden(section.id)).length + (currentAudit.customSections?.length || 0)} محور)</span>
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-[#8E8E85] mt-1.5 flex-wrap">
@@ -3189,6 +3224,16 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 >
                   <Plus className="w-4 h-4" />
                   <span>إضافة سكشن</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBuiltInSectionsModal(true)}
+                  className="px-3.5 py-2.5 bg-white hover:bg-[#E5E5E0] text-[#2D2D2A] border border-[#E5E5E0] font-extrabold rounded-2xl text-xs transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                  title="تعديل أو إخفاء السكاشن الأساسية"
+                >
+                  <Layers className="w-4 h-4 text-[#5A5A40]" />
+                  <span>إدارة السكاشن</span>
                 </button>
 
                 <button
@@ -3365,6 +3410,62 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
         </div>
       )}
 
+      {/* MANAGE BUILT-IN BRAND AUDIT SECTIONS */}
+      {showBuiltInSectionsModal && userRole !== 'client' && (
+        <div className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 no-print">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-[#E5E5E0] overflow-hidden">
+            <div className="p-5 border-b border-[#E5E5E0] bg-[#F9F8F6] flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-black text-base text-[#2D2D2A]">إدارة السكاشن الأساسية</h3>
+                <p className="text-[11px] text-[#8E8E85] mt-1">غيري اسم أي سكشن أو اخفيه. الإخفاء لا يمسح البيانات ويمكن استعادته في أي وقت.</p>
+              </div>
+              <button type="button" onClick={() => setShowBuiltInSectionsModal(false)} className="p-2 text-[#8E8E85] hover:text-[#2D2D2A] hover:bg-[#E5E5E0] rounded-xl">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3">
+              {BUILT_IN_AUDIT_SECTIONS.map(section => {
+                const hidden = isBuiltInSectionHidden(section.id);
+                return (
+                  <div key={section.id} className={`p-3.5 rounded-2xl border space-y-2 ${hidden ? 'bg-[#F5F5F0] border-dashed border-[#D5D5CE] opacity-80' : 'bg-white border-[#E5E5E0]'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-extrabold text-[#8E8E85]">السكشن الأساسي {section.num}</span>
+                      {hidden ? (
+                        <button type="button" onClick={() => restoreBuiltInSection(section.id)} className="px-3 py-1.5 text-[11px] font-extrabold rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100">
+                          استعادة السكشن
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => hideBuiltInSection(section.id)} className="px-3 py-1.5 text-[11px] font-extrabold rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100">
+                          إخفاء / حذف
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      key={`${section.id}-${getBuiltInSectionTitle(section.id, section.title)}`}
+                      type="text"
+                      defaultValue={getBuiltInSectionTitle(section.id, section.title)}
+                      onBlur={(e) => {
+                        const title = e.target.value.trim();
+                        if (title) updateBuiltInSectionSetting(section.id, { title });
+                      }}
+                      disabled={hidden}
+                      className="w-full px-3 py-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] disabled:cursor-not-allowed text-xs font-bold text-[#2D2D2A] focus:bg-white focus:border-[#5A5A40] outline-none"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-[#E5E5E0] bg-[#F9F8F6] flex items-center justify-end">
+              <button type="button" onClick={() => setShowBuiltInSectionsModal(false)} className="px-5 py-2.5 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs">
+                تم
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ADD / EDIT CUSTOM BRAND AUDIT SECTION MODAL */}
       {showCustomSectionModal && (
         <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 no-print">
@@ -3520,6 +3621,16 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 {userRole !== 'client' && (
                   <button
                     type="button"
+                    onClick={() => setShowBuiltInSectionsModal(true)}
+                    title="إدارة السكاشن الأساسية"
+                    className="p-2 bg-white hover:bg-[#E5E5E0] border border-[#E5E5E0] text-[#2D2D2A] rounded-2xl transition cursor-pointer flex items-center justify-center"
+                  >
+                    <Layers className="w-4 h-4 text-[#5A5A40]" />
+                  </button>
+                )}
+                {userRole !== 'client' && (
+                  <button
+                    type="button"
                     onClick={() => handleResetModalStep(modalActiveTab)}
                     title="استعادة الافتراضي لهذا القسم الحالي"
                     className="p-2 bg-white hover:bg-[#E5E5E0] border border-[#E5E5E0] text-[#2D2D2A] rounded-2xl transition cursor-pointer flex items-center justify-center hover:text-amber-700"
@@ -3573,11 +3684,11 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 1 && (
                 <div className="space-y-5">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Brand Overview (نبذة عن البراند)
+                    {getBuiltInSectionTitle('overview', '1. Brand Overview (نبذة عن البراند)')}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="font-bold block mb-1">اسم البراند</label>
+                      {renderOverviewFieldLabelEditor('brandName')}
                       <input
                         type="text"
                         value={formData.overview?.brandName || ''}
@@ -3587,7 +3698,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="font-bold block mb-1">النشاط</label>
+                      {renderOverviewFieldLabelEditor('industry')}
                       <input
                         type="text"
                         value={formData.overview?.industry || ''}
@@ -3597,7 +3708,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="font-bold block mb-1">المنتجات الأساسية</label>
+                      {renderOverviewFieldLabelEditor('coreProducts')}
                       <input
                         type="text"
                         value={formData.overview?.coreProducts || ''}
@@ -3607,7 +3718,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="font-bold block mb-1">الفئة المستهدفة</label>
+                      {renderOverviewFieldLabelEditor('targetAudience')}
                       <input
                         type="text"
                         value={formData.overview?.targetAudience || ''}
@@ -3617,7 +3728,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="font-bold block mb-1">متوسط سعر المنتجات</label>
+                      {renderOverviewFieldLabelEditor('avgProductPrice')}
                       <input
                         type="text"
                         value={formData.overview?.avgProductPrice || ''}
@@ -3627,7 +3738,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="font-bold block mb-1">متوسط الاوردرات الشهرية</label>
+                      {renderOverviewFieldLabelEditor('avgMonthlyOrders')}
                       <input
                         type="text"
                         value={formData.overview?.avgMonthlyOrders || ''}
@@ -3637,7 +3748,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="font-bold block mb-1">قنوات البيع</label>
+                      {renderOverviewFieldLabelEditor('salesChannels')}
                       <div className="flex flex-wrap gap-2 pt-1">
                         {['Website', 'Instagram', 'Facebook', 'TikTok', 'Google', 'WhatsApp', 'Marketplace'].map((channel) => {
                           const currentChannels = formData.overview?.salesChannels || ['Website', 'Instagram', 'Facebook', 'TikTok', 'Google', 'WhatsApp', 'Marketplace'];
@@ -3670,7 +3781,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="font-bold block mb-1">مناطق البيع و الانتشار</label>
+                      {renderOverviewFieldLabelEditor('salesLocations')}
                       <input
                         type="text"
                         value={formData.overview?.salesLocations || ''}
@@ -3680,7 +3791,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="font-bold block mb-1">مرحلة البراند</label>
+                      {renderOverviewFieldLabelEditor('brandStage')}
                       <select
                         value={formData.overview?.brandStage || 'جديد'}
                         onChange={(e) => setFormData({ ...formData, overview: { ...formData.overview, brandStage: e.target.value } })}
@@ -3718,7 +3829,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 2 && (
                 <div className="space-y-5">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Digital Assets Audit (تقييم الأصول الرقمية)
+                    {getBuiltInSectionTitle('digitalAssets', '2. Digital Assets Audit (تقييم الأصول الرقمية)')}
                   </h4>
 
                   {/* Website / Store */}
@@ -3791,7 +3902,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 3 && (
                 <div className="space-y-4">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Tracking Audit (تقييم التتبع)
+                    {getBuiltInSectionTitle('tracking', '3. Tracking Audit (تقييم التتبع)')}
                   </h4>
                   <ChecklistEditorSection
                     title="📊 عناصر تقييم التتبع والبيانات"
@@ -3832,7 +3943,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 4 && (
                 <div className="space-y-5">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Creative & Content Audit (تقييم المحتوى والكريتيف)
+                    {getBuiltInSectionTitle('creative', '4. Creative & Content Audit (تقييم المحتوى والكريتيف)')}
                   </h4>
 
                   {/* Brand Identity */}
@@ -3943,7 +4054,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 5 && (
                 <div className="space-y-4">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Social Media Audit (تقييم السوشيال ميديا)
+                    {getBuiltInSectionTitle('socialMedia', '5. Social Media Audit (تقييم السوشيال ميديا)')}
                   </h4>
                   <ChecklistEditorSection
                     title="📱 عناصر تقييم السوشيال ميديا"
@@ -3976,7 +4087,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 6 && (
                 <div className="space-y-4">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Operations Audit (تقييم التشغيل)
+                    {getBuiltInSectionTitle('operations', '6. Operations Audit (تقييم التشغيل)')}
                   </h4>
                   <ChecklistEditorSection
                     title="⚙️ عناصر تقييم التشغيل واللوجستيات"
@@ -4003,7 +4114,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 7 && (
                 <div className="space-y-4">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Sales Funnel Audit (تقييم رحلة العميل)
+                    {getBuiltInSectionTitle('salesFunnel', '7. Sales Funnel Audit (تقييم رحلة العميل)')}
                   </h4>
                   <ChecklistEditorSection
                     title="🛒 مراحل وفحص مسار المبيعات"
@@ -4049,7 +4160,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 <div className="space-y-5">
                   <div className="border-b border-[#E5E5E0] pb-3">
                     <h4 className="font-extrabold text-sm text-[#5A5A40]">
-                      # Unit Economics & Pricing (ربحية المنتج وتسعيرته)
+                      {getBuiltInSectionTitle('unitEconomics', '8. Unit Economics & Pricing (ربحية المنتج وتسعيرته)')}
                     </h4>
                     <p className="text-[11px] text-[#8E8E85] mt-1">
                       اجمع الأرقام الفعلية قدر الإمكان لتحديد CPA وROAS المناسبين للبراند.
@@ -4099,7 +4210,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 9 && (
                 <div className="space-y-4">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # Historical Ads Analysis (تحليل الإعلانات السابقة)
+                    {getBuiltInSectionTitle('historicalAds', '9. Historical Ads Analysis (تحليل الإعلانات السابقة)')}
                   </h4>
                   <ChecklistEditorSection
                     title="📈 بنود تحليل الحملات الإعلانية السابقة"
@@ -4160,7 +4271,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 10 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-2">
-                    <h4 className="font-extrabold text-sm text-[#5A5A40]"># Competitor Analysis (تحليل المنافسين)</h4>
+                    <h4 className="font-extrabold text-sm text-[#5A5A40]">{getBuiltInSectionTitle('competitors', '10. Competitor Analysis (تحليل المنافسين الشامل)')}</h4>
                     <button
                       type="button"
                       onClick={handleOpenAddCompetitor}
@@ -4202,7 +4313,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 11 && (
                 <div className="space-y-4">
                   <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    # SWOT Analysis (تحليل SWOT)
+                    {getBuiltInSectionTitle('swot', '11. SWOT Analysis (تحليل SWOT)')}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Strengths */}
@@ -4842,7 +4953,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               {modalActiveTab === 13 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-2">
-                    <h4 className="font-extrabold text-sm text-[#5A5A40]">Main Problems & Solutions (المشاكل والحلول)</h4>
+                    <h4 className="font-extrabold text-sm text-[#5A5A40]">{getBuiltInSectionTitle('problems', '13. Main Problems & Solutions (أهم المشاكل وحلها)')}</h4>
                     <button
                       type="button"
                       onClick={handleOpenAddProblem}
@@ -4908,19 +5019,19 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             {/* Modal Footer Controls */}
             <div className="p-4 sm:p-5 border-t border-[#E5E5E0] bg-[#F9F8F6] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2">
-                {modalActiveTab > 1 && (
+                {currentModalStepIndex > 0 && (
                   <button
                     type="button"
-                    onClick={() => setModalActiveTab(modalActiveTab - 1)}
+                    onClick={() => setModalActiveTab(modalSteps[currentModalStepIndex - 1].num)}
                     className="px-4 py-2 bg-white border border-[#E5E5E0] font-bold rounded-xl hover:bg-[#E5E5E0] text-xs transition cursor-pointer"
                   >
                     السابق
                   </button>
                 )}
-                {modalActiveTab < 13 && (
+                {currentModalStepIndex >= 0 && currentModalStepIndex < modalSteps.length - 1 && (
                   <button
                     type="button"
-                    onClick={() => setModalActiveTab(modalActiveTab + 1)}
+                    onClick={() => setModalActiveTab(modalSteps[currentModalStepIndex + 1].num)}
                     className="px-4 py-2 bg-white border border-[#E5E5E0] font-bold rounded-xl hover:bg-[#E5E5E0] text-xs transition cursor-pointer"
                   >
                     التالي
