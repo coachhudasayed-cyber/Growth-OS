@@ -57,9 +57,11 @@ import {
 } from '../../types';
 import { INITIAL_BRAND_AUDITS } from '../../lib/initialData';
 import { ChecklistEditorSection } from './ChecklistEditorSection';
+import { applyBrandAuditSchema, BrandAuditSchema, createBlankBrandAuditFromSchema } from '../../lib/brandAuditSchema';
 
 interface BrandAuditTabProps {
   audit?: BrandAudit;
+  schema?: BrandAuditSchema | null;
   clientId: string;
   userRole: UserRole;
   onUpdateAudit: (clientId: string, audit: BrandAudit) => void;
@@ -185,6 +187,7 @@ const OVERVIEW_FIELD_DEFAULT_LABELS: Record<string, string> = {
 
 export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   audit,
+  schema,
   clientId,
   userRole,
   onUpdateAudit
@@ -193,21 +196,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const [showConfirmResetAuditModal, setShowConfirmResetAuditModal] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  const currentAudit: BrandAudit = audit || {
-    clientId,
-    score: 85,
-    auditDate: formatLocalDate(),
-    createdAt: formatLocalDate(),
-    updatedAt: formatLocalDate(),
-    swot: {
-      strengths: [],
-      weaknesses: [],
-      opportunities: [],
-      threats: []
-    },
-    socialLinks: {},
-    notes: ''
-  };
+  const currentAudit: BrandAudit = audit
+    ? applyBrandAuditSchema(schema, audit)
+    : createBlankBrandAuditFromSchema(clientId, schema);
 
   // Section view filter
   const [activeSection, setActiveSection] = useState<string>('all');
