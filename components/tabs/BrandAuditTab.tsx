@@ -336,6 +336,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     const updatedDate = formData.auditDate || formatLocalDate();
     const updatedAudit: BrandAudit = {
       ...formData,
+      builtInSectionSettings: currentAudit.builtInSectionSettings,
+      overviewFieldLabels: currentAudit.overviewFieldLabels,
+      customSections: currentAudit.customSections,
       auditDate: updatedDate,
       updatedAt: formatLocalDate()
     };
@@ -1058,7 +1061,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   };
 
   const getBuiltInSectionTitle = (sectionId: string, fallback: string) =>
-    currentAudit.builtInSectionSettings?.[sectionId]?.title?.trim() || fallback;
+    currentAudit.builtInSectionSettings?.[sectionId]?.title?.trim()
+    || BUILT_IN_AUDIT_SECTIONS.find(section => section.id === sectionId)?.title
+    || fallback;
 
   const isBuiltInSectionHidden = (sectionId: string) =>
     Boolean(currentAudit.builtInSectionSettings?.[sectionId]?.hidden);
@@ -1080,6 +1085,13 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (userRole === 'client') return;
     updateBuiltInSectionSetting(sectionId, { hidden: true });
     if (activeSection === sectionId) setActiveSection('all');
+    const hiddenSection = BUILT_IN_AUDIT_SECTIONS.find(section => section.id === sectionId);
+    if (hiddenSection?.num === modalActiveTab) {
+      const nextVisible = BUILT_IN_AUDIT_SECTIONS.find(section =>
+        section.id !== sectionId && !currentAudit.builtInSectionSettings?.[section.id]?.hidden
+      );
+      setModalActiveTab(nextVisible?.num || 1);
+    }
   };
 
   const restoreBuiltInSection = (sectionId: string) => {
@@ -1098,19 +1110,21 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
   const saveOverviewLabelEdit = () => {
     if (userRole === 'client' || !editingOverviewLabelKey || !overviewLabelDraft.trim()) return;
+    const updatedLabels = {
+      ...(currentAudit.overviewFieldLabels || {}),
+      [editingOverviewLabelKey]: overviewLabelDraft.trim()
+    };
     onUpdateAudit(clientId, {
       ...currentAudit,
-      overviewFieldLabels: {
-        ...(currentAudit.overviewFieldLabels || {}),
-        [editingOverviewLabelKey]: overviewLabelDraft.trim()
-      },
+      overviewFieldLabels: updatedLabels,
       updatedAt: formatLocalDate()
     });
+    setFormData(prev => ({ ...prev, overviewFieldLabels: updatedLabels }));
     setEditingOverviewLabelKey(null);
     setOverviewLabelDraft('');
   };
 
-  const renderOverviewFieldLabelEditor = (key: string) => (
+  const renderOverviewFieldLabelEditor = (key: string, readOnly = false) => (
     <div className="flex items-center gap-1.5 mb-1">
       {editingOverviewLabelKey === key ? (
         <div className="flex items-center gap-1 flex-1">
@@ -1131,7 +1145,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       ) : (
         <>
           <label className="font-bold block">{getOverviewFieldLabel(key)}</label>
-          {userRole !== 'client' && (
+          {userRole !== 'client' && !readOnly && (
             <button type="button" onClick={() => startOverviewLabelEdit(key)} className="p-1 text-[#8E8E85] hover:text-[#5A5A40] hover:bg-[#E5E5E0] rounded-md" title="تعديل اسم السؤال">
               <Edit2 className="w-3 h-3" />
             </button>
@@ -1331,14 +1345,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             ))}
 
             <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0]">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[#8E8E85] font-bold block">{getOverviewFieldLabel('salesChannels')}</span>
-                {userRole !== 'client' && !readOnly && (
-                  <button type="button" onClick={() => startOverviewLabelEdit('salesChannels')} className="no-print p-1 text-[#8E8E85] hover:text-[#5A5A40]" title="تعديل اسم السؤال">
-                    <Edit2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
+              {renderOverviewFieldLabelEditor('salesChannels', readOnly)}
               <div className="flex flex-wrap gap-1 mt-1">
                 {(currentAudit.overview?.salesChannels || ['Website', 'Instagram', 'Facebook', 'TikTok', 'Google', 'WhatsApp', 'Marketplace']).map((ch, i) => (
                   <span key={i} className="bg-[#5A5A40]/10 text-[#5A5A40] border border-[#5A5A40]/20 px-2 py-0.5 rounded-md font-bold text-[10px]">
