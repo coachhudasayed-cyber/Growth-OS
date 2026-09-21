@@ -149,11 +149,13 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     .filter((r) => r.clientId === clientId)
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  // --- Questions Template Management ---
-  const storageKey = `client_daily_report_questions_${clientId}`;
+  // --- Global Questions Template Management ---
+  // Shared across every client profile; answers remain client-specific.
+  const storageKey = 'client_daily_report_questions_global';
 
   const [questions, setQuestions] = useSupabaseSetting<DailyReportQuestion[]>(
-    storageKey, clientId, DEFAULT_DAILY_REPORT_QUESTIONS, userRole !== 'client'
+    storageKey, null, DEFAULT_DAILY_REPORT_QUESTIONS, userRole !== 'client',
+    [`client_daily_report_questions_${clientId}`]
   );
 
   const saveQuestions = (newQuestions: DailyReportQuestion[]) => setQuestions(newQuestions);
