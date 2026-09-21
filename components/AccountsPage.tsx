@@ -102,6 +102,7 @@ interface AccountsPageProps {
   agreements: Agreement[];
   payments: PaymentRecord[];
   onAddAgreement: (data: Omit<Agreement, 'id' | 'createdAt' | 'brandName'>) => void;
+  onUpdateAgreement: (id: string, data: Partial<Agreement>) => void;
   onDeleteAgreement: (id: string) => void;
   onAddPayment: (paymentData: Omit<PaymentRecord, 'id'>) => void;
   onUpdatePaymentStatus: (id: string, status: PaymentStatus) => void;
@@ -114,6 +115,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
   agreements,
   payments,
   onAddAgreement,
+  onUpdateAgreement,
   onDeleteAgreement,
   onAddPayment,
   onUpdatePaymentStatus,
@@ -125,6 +127,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
 
   // Modal State for Add Agreement
   const [showAddAgreementModal, setShowAddAgreementModal] = useState(false);
+  const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '');
   const [agreementType, setAgreementType] = useState('إدارة إعلانات وتسويق كامل');
   const [startDate, setStartDate] = useState(todayYMD);
@@ -310,6 +313,39 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     setPaymentPaidAmount(status === 'paid' ? amount : 0);
   };
 
+  const resetAgreementForm = () => {
+    setEditingAgreement(null);
+    setSelectedClientId(clients[0]?.id || '');
+    setAgreementType('إدارة إعلانات وتسويق كامل');
+    setStartDate(todayYMD);
+    setMonthlySalary(20000);
+    setPaymentFrequency('monthly');
+    setInstallmentAmount(20000);
+    setAgreementNotes('');
+  };
+
+  const handleOpenAddAgreement = () => {
+    resetAgreementForm();
+    setShowAddAgreementModal(true);
+  };
+
+  const handleOpenEditAgreement = (agreement: Agreement) => {
+    setEditingAgreement(agreement);
+    setSelectedClientId(agreement.clientId);
+    setAgreementType(agreement.agreementType);
+    setStartDate(agreement.startDate);
+    setMonthlySalary(agreement.monthlySalary);
+    setPaymentFrequency(agreement.paymentFrequency);
+    setInstallmentAmount(agreement.installmentAmount || getInstallmentAmount(agreement.monthlySalary, agreement.paymentFrequency));
+    setAgreementNotes(agreement.notes || '');
+    setShowAddAgreementModal(true);
+  };
+
+  const handleCloseAgreementModal = () => {
+    setShowAddAgreementModal(false);
+    setEditingAgreement(null);
+  };
+
   const handleAddAgreementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClientId || !monthlySalary || !installmentAmount) return;
@@ -318,17 +354,25 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     const installment = Number(installmentAmount);
     if (!Number.isFinite(salary) || salary <= 0 || !Number.isFinite(installment) || installment <= 0) return;
 
-    onAddAgreement({
-      clientId: selectedClientId,
+    const agreementData = {
       agreementType,
       startDate,
       monthlySalary: salary,
       paymentFrequency,
       installmentAmount: installment,
       notes: agreementNotes
-    });
+    };
 
-    setShowAddAgreementModal(false);
+    if (editingAgreement) {
+      onUpdateAgreement(editingAgreement.id, agreementData);
+    } else {
+      onAddAgreement({
+        clientId: selectedClientId,
+        ...agreementData
+      });
+    }
+
+    handleCloseAgreementModal();
     setAgreementNotes('');
   };
 
@@ -473,7 +517,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
         </div>
 
         <button
-          onClick={() => setShowAddAgreementModal(true)}
+          onClick={handleOpenAddAgreement}
           className="px-4 sm:px-5 py-2.5 sm:py-3 bg-[#E07A48] hover:bg-[#C8662B] text-white font-extrabold rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
@@ -705,6 +749,13 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
 
                   <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                     <button
+                      onClick={() => handleOpenEditAgreement(agr)}
+                      className="p-1.5 text-[#78786E] hover:text-[#E07A48] rounded-lg hover:bg-[#E07A48]/10 transition cursor-pointer"
+                      title="تعديل الاتفاق"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleOpenAddPayment(agr)}
                       className="px-3 py-1.5 bg-[#E07A48] hover:bg-[#C8662B] text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1"
                     >
@@ -929,17 +980,17 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
         </div>
       </section>
 
-      {/* MODAL 1: ADD AGREEMENT */}
+      {/* MODAL 1: ADD / EDIT AGREEMENT */}
       {showAddAgreementModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-4">
               <div className="flex items-center gap-2 text-[#E07A48] font-bold text-base">
-                <Plus className="w-5 h-5" />
-                <span>إضافة اتفاق عقد جديد (Add Agreement)</span>
+                {editingAgreement ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                <span>{editingAgreement ? 'تعديل الاتفاق (Edit Agreement)' : 'إضافة اتفاق عقد جديد (Add Agreement)'}</span>
               </div>
               <button
-                onClick={() => setShowAddAgreementModal(false)}
+                onClick={handleCloseAgreementModal}
                 className="text-[#8E8E85] hover:text-[#2D2D2A] text-xs"
               >
                 إلغاء
@@ -954,7 +1005,8 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                 <select
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-xs text-[#2D2D2A] outline-none"
+                  disabled={Boolean(editingAgreement)}
+                  className="w-full bg-white border border-[#E5E5E0] focus:border-[#E07A48] rounded-xl px-4 py-2.5 text-xs text-[#2D2D2A] outline-none disabled:bg-[#F0F0EC] disabled:text-[#8E8E85] disabled:cursor-not-allowed"
                   required
                 >
                   {clients.map((c) => (
@@ -1059,11 +1111,11 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                   type="submit"
                   className="flex-1 bg-[#E07A48] hover:bg-[#C8662B] text-white font-extrabold py-3 rounded-xl text-xs transition cursor-pointer"
                 >
-                  حفظ الاتفاقية
+                  {editingAgreement ? 'حفظ التعديلات' : 'حفظ الاتفاقية'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddAgreementModal(false)}
+                  onClick={handleCloseAgreementModal}
                   className="px-4 bg-[#E5E5E0] text-[#2D2D2A] font-bold rounded-xl text-xs hover:bg-[#d8d8d2] transition cursor-pointer"
                 >
                   إلغاء
