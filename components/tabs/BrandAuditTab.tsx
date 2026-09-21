@@ -3471,54 +3471,111 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
         </div>
       )}
 
-      {/* MANAGE BUILT-IN BRAND AUDIT SECTIONS */}
+      {/* MANAGE ALL BRAND AUDIT SECTIONS */}
       {showBuiltInSectionsModal && userRole !== 'client' && (
         <div className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 no-print">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-[#E5E5E0] overflow-hidden">
             <div className="p-5 border-b border-[#E5E5E0] bg-[#F9F8F6] flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-black text-base text-[#2D2D2A]">إدارة السكاشن الأساسية</h3>
-                <p className="text-[11px] text-[#8E8E85] mt-1">غيري اسم أي سكشن أو اخفيه. الإخفاء لا يمسح البيانات ويمكن استعادته في أي وقت.</p>
+                <h3 className="font-black text-base text-[#2D2D2A]">إدارة سكاشن الـ Brand Audit</h3>
+                <p className="text-[11px] text-[#8E8E85] mt-1">ضيفي سكشن جديد، غيري أسماء السكاشن، اخفي أو استعيدي أي سكشن، ورتبيهم بالترتيب اللي يناسبك.</p>
               </div>
-              <button type="button" onClick={() => setShowBuiltInSectionsModal(false)} className="p-2 text-[#8E8E85] hover:text-[#2D2D2A] hover:bg-[#E5E5E0] rounded-xl">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openAddCustomSection}
+                  className="px-3.5 py-2 bg-[#5A5A40] hover:bg-[#4a4a34] text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة سكشن</span>
+                </button>
+                <button type="button" onClick={() => setShowBuiltInSectionsModal(false)} className="p-2 text-[#8E8E85] hover:text-[#2D2D2A] hover:bg-[#E5E5E0] rounded-xl">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="p-4 sm:p-5 overflow-y-auto space-y-3">
-              {BUILT_IN_AUDIT_SECTIONS.map(section => {
-                const hidden = isBuiltInSectionHidden(section.id);
-                return (
-                  <div key={section.id} className={`p-3.5 rounded-2xl border space-y-2 ${hidden ? 'bg-[#F5F5F0] border-dashed border-[#D5D5CE] opacity-80' : 'bg-white border-[#E5E5E0]'}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-extrabold text-[#8E8E85]">السكشن الأساسي {section.num}</span>
-                      {hidden ? (
-                        <button type="button" onClick={() => restoreBuiltInSection(section.id)} className="px-3 py-1.5 text-[11px] font-extrabold rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100">
-                          استعادة السكشن
-                        </button>
-                      ) : (
-                        <button type="button" onClick={() => hideBuiltInSection(section.id)} className="px-3 py-1.5 text-[11px] font-extrabold rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100">
-                          إخفاء / حذف
-                        </button>
-                      )}
+              {orderedSectionEntries.map((entry, index) => {
+                const isFirst = index === 0;
+                const isLast = index === orderedSectionEntries.length - 1;
+
+                if (entry.type === 'builtIn') {
+                  const section = entry.builtIn;
+                  const hidden = isBuiltInSectionHidden(section.id);
+                  return (
+                    <div key={entry.key} className={`p-3.5 rounded-2xl border space-y-2 ${hidden ? 'bg-[#F5F5F0] border-dashed border-[#D5D5CE] opacity-80' : 'bg-white border-[#E5E5E0]'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-lg bg-[#5A5A40]/10 text-[#5A5A40] flex items-center justify-center text-[11px] font-black">{index + 1}</span>
+                          <span className="text-[11px] font-extrabold text-[#8E8E85]">سكشن أساسي</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button type="button" onClick={() => moveAuditSection(entry.key, 'up')} disabled={isFirst} className="p-1.5 rounded-lg border border-[#E5E5E0] text-[#5A5A40] hover:bg-[#F9F8F6] disabled:opacity-30 disabled:cursor-not-allowed" title="تحريك لأعلى">
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button type="button" onClick={() => moveAuditSection(entry.key, 'down')} disabled={isLast} className="p-1.5 rounded-lg border border-[#E5E5E0] text-[#5A5A40] hover:bg-[#F9F8F6] disabled:opacity-30 disabled:cursor-not-allowed" title="تحريك لأسفل">
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          {hidden ? (
+                            <button type="button" onClick={() => restoreBuiltInSection(section.id)} className="px-3 py-1.5 text-[11px] font-extrabold rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100">
+                              استعادة
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => hideBuiltInSection(section.id)} className="px-3 py-1.5 text-[11px] font-extrabold rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100">
+                              إخفاء / حذف
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <input
+                        key={`${section.id}-${getBuiltInSectionTitle(section.id, section.title)}`}
+                        type="text"
+                        defaultValue={getBuiltInSectionTitle(section.id, section.title)}
+                        onBlur={(e) => {
+                          const title = e.target.value.trim();
+                          if (title) updateBuiltInSectionSetting(section.id, { title });
+                        }}
+                        disabled={hidden}
+                        className="w-full px-3 py-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] disabled:cursor-not-allowed text-xs font-bold text-[#2D2D2A] focus:bg-white focus:border-[#5A5A40] outline-none"
+                      />
                     </div>
-                    <input
-                      key={`${section.id}-${getBuiltInSectionTitle(section.id, section.title)}`}
-                      type="text"
-                      defaultValue={getBuiltInSectionTitle(section.id, section.title)}
-                      onBlur={(e) => {
-                        const title = e.target.value.trim();
-                        if (title) updateBuiltInSectionSetting(section.id, { title });
-                      }}
-                      disabled={hidden}
-                      className="w-full px-3 py-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] disabled:cursor-not-allowed text-xs font-bold text-[#2D2D2A] focus:bg-white focus:border-[#5A5A40] outline-none"
-                    />
+                  );
+                }
+
+                const section = entry.custom;
+                return (
+                  <div key={entry.key} className="p-3.5 rounded-2xl border border-[#E5E5E0] bg-white space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-7 h-7 rounded-lg bg-[#5A5A40]/10 text-[#5A5A40] flex items-center justify-center text-[11px] font-black">{index + 1}</span>
+                        <span className="text-[11px] font-extrabold text-[#8E8E85]">سكشن مضاف</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button type="button" onClick={() => moveAuditSection(entry.key, 'up')} disabled={isFirst} className="p-1.5 rounded-lg border border-[#E5E5E0] text-[#5A5A40] hover:bg-[#F9F8F6] disabled:opacity-30 disabled:cursor-not-allowed" title="تحريك لأعلى">
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => moveAuditSection(entry.key, 'down')} disabled={isLast} className="p-1.5 rounded-lg border border-[#E5E5E0] text-[#5A5A40] hover:bg-[#F9F8F6] disabled:opacity-30 disabled:cursor-not-allowed" title="تحريك لأسفل">
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => openEditCustomSection(section)} className="p-1.5 rounded-lg border border-[#E5E5E0] text-[#5A5A40] hover:bg-[#F9F8F6]" title="تعديل السكشن">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => deleteCustomSection(section.id)} className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100" title="حذف السكشن">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="w-full px-3 py-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-xs font-bold text-[#2D2D2A]">
+                      {section.title}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="p-4 border-t border-[#E5E5E0] bg-[#F9F8F6] flex items-center justify-end">
+            <div className="p-4 border-t border-[#E5E5E0] bg-[#F9F8F6] flex items-center justify-between gap-3">
+              <span className="text-[11px] font-bold text-[#8E8E85]">استخدمي ↑ ↓ لتغيير ترتيب السكاشن.</span>
               <button type="button" onClick={() => setShowBuiltInSectionsModal(false)} className="px-5 py-2.5 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs">
                 تم
               </button>
@@ -3529,7 +3586,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
       {/* ADD / EDIT CUSTOM BRAND AUDIT SECTION MODAL */}
       {showCustomSectionModal && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 no-print">
+        <div className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 no-print">
           <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl border border-[#E5E5E0]">
             <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
               <div>
