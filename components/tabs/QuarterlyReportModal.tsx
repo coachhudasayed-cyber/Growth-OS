@@ -677,9 +677,10 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
   brandName,
   clientId
 }) => {
-  // Questions template state
+  // Global questions template shared across all client profiles.
   const [questions, setQuestions] = useSupabaseSetting<QuarterlyReportQuestion[]>(
-    `quarterly_report_questions_${clientId}`, clientId, DEFAULT_QUARTERLY_REPORT_QUESTIONS, true
+    'quarterly_report_questions_global', null, DEFAULT_QUARTERLY_REPORT_QUESTIONS, true,
+    [`quarterly_report_questions_${clientId}`]
   );
 
   const saveQuestionsTemplate = (updatedQuestions: QuarterlyReportQuestion[]) => setQuestions(updatedQuestions);
@@ -733,12 +734,7 @@ export const QuarterlyReportModal: React.FC<QuarterlyReportModalProps> = ({
       setStartDate(editingReport.startDate || '');
       setEndDate(editingReport.endDate || '');
 
-      if (
-        editingReport.customSectionsQuestions &&
-        editingReport.customSectionsQuestions.length > 0
-      ) {
-        setQuestions(editingReport.customSectionsQuestions);
-      }
+      // Keep historical question snapshots inside the report, but never replace the global template when editing an old report.
 
       const initialValues: Record<string, string | number> = {
         totalSpent: editingReport.totalSpent !== undefined ? editingReport.totalSpent : 0,
