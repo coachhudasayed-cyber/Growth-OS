@@ -1,4 +1,5 @@
 import { useSupabaseSetting } from '../../lib/useSupabaseSetting';
+import { MASTER_TEMPLATE_CLIENT_ID } from '../../lib/templateSource';
 import { formatLocalDate } from '../../lib/dateUtils';
 import React, { useState } from 'react';
 import {
@@ -155,7 +156,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
 
   const [questions, setQuestions] = useSupabaseSetting<DailyReportQuestion[]>(
     storageKey, null, DEFAULT_DAILY_REPORT_QUESTIONS, userRole !== 'client',
-    [`client_daily_report_questions_${clientId}`]
+    [`client_daily_report_questions_${MASTER_TEMPLATE_CLIENT_ID}`, `client_daily_report_questions_${clientId}`]
   );
 
   const saveQuestions = (newQuestions: DailyReportQuestion[]) => setQuestions(newQuestions);
