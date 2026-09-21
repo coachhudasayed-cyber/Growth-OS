@@ -1213,12 +1213,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const renderAuditSectionsContent = (readOnly = false) => (
     <div className="space-y-6">
       {/* 1. BRAND OVERVIEW */}
-      {(activeSection === 'all' || activeSection === 'overview') && (
+      {!isBuiltInSectionHidden('overview') && (activeSection === 'all' || activeSection === 'overview') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs relative">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Building className="w-4 h-4 text-[#5A5A40]" />
-              <span>1. Brand Overview (نبذة عن البراند)</span>
+              <span>{getBuiltInSectionTitle('overview', '1. Brand Overview (نبذة عن البراند)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1242,18 +1242,39 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
             {[
-              { label: 'اسم البراند', value: currentAudit.overview?.brandName, key: 'overview.brandName' },
-              { label: 'النشاط', value: currentAudit.overview?.industry, key: 'overview.industry' },
-              { label: 'المنتجات الأساسية', value: currentAudit.overview?.coreProducts, key: 'overview.coreProducts' },
-              { label: 'الفئة المستهدفة', value: currentAudit.overview?.targetAudience, key: 'overview.targetAudience' },
-              { label: 'متوسط سعر المنتجات', value: currentAudit.overview?.avgProductPrice, key: 'overview.avgProductPrice' },
-              { label: 'متوسط الاوردرات الشهرية', value: currentAudit.overview?.avgMonthlyOrders, key: 'overview.avgMonthlyOrders' },
-              { label: 'مناطق البيع و الانتشار', value: currentAudit.overview?.salesLocations, key: 'overview.salesLocations' },
-              { label: 'مرحلة البراند', value: currentAudit.overview?.brandStage, key: 'overview.brandStage' }
+              { labelKey: 'brandName', label: getOverviewFieldLabel('brandName'), value: currentAudit.overview?.brandName, key: 'overview.brandName' },
+              { labelKey: 'industry', label: getOverviewFieldLabel('industry'), value: currentAudit.overview?.industry, key: 'overview.industry' },
+              { labelKey: 'coreProducts', label: getOverviewFieldLabel('coreProducts'), value: currentAudit.overview?.coreProducts, key: 'overview.coreProducts' },
+              { labelKey: 'targetAudience', label: getOverviewFieldLabel('targetAudience'), value: currentAudit.overview?.targetAudience, key: 'overview.targetAudience' },
+              { labelKey: 'avgProductPrice', label: getOverviewFieldLabel('avgProductPrice'), value: currentAudit.overview?.avgProductPrice, key: 'overview.avgProductPrice' },
+              { labelKey: 'avgMonthlyOrders', label: getOverviewFieldLabel('avgMonthlyOrders'), value: currentAudit.overview?.avgMonthlyOrders, key: 'overview.avgMonthlyOrders' },
+              { labelKey: 'salesLocations', label: getOverviewFieldLabel('salesLocations'), value: currentAudit.overview?.salesLocations, key: 'overview.salesLocations' },
+              { labelKey: 'brandStage', label: getOverviewFieldLabel('brandStage'), value: currentAudit.overview?.brandStage, key: 'overview.brandStage' }
             ].map((item, idx) => (
               <div key={idx} className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] relative group">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[#8E8E85] font-bold block">{item.label}</span>
+                <div className="flex items-center justify-between mb-1 gap-2">
+                  {editingOverviewLabelKey === item.labelKey && userRole !== 'client' && !readOnly ? (
+                    <div className="flex items-center gap-1 flex-1">
+                      <input
+                        type="text"
+                        value={overviewLabelDraft}
+                        onChange={(e) => setOverviewLabelDraft(e.target.value)}
+                        className="w-full px-2 py-1 text-[11px] font-bold rounded-lg border border-[#5A5A40] bg-white"
+                        autoFocus
+                      />
+                      <button type="button" onClick={saveOverviewLabelEdit} className="p-1 text-emerald-600"><Check className="w-3.5 h-3.5" /></button>
+                      <button type="button" onClick={() => setEditingOverviewLabelKey(null)} className="p-1 text-[#8E8E85]"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[#8E8E85] font-bold block">{item.label}</span>
+                      {userRole !== 'client' && !readOnly && (
+                        <button type="button" onClick={() => startOverviewLabelEdit(item.labelKey)} className="no-print p-1 text-[#8E8E85] hover:text-[#5A5A40]" title="تعديل اسم السؤال">
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {item.value && (
                     <button
                       onClick={() =>
@@ -1275,7 +1296,14 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             ))}
 
             <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0]">
-              <span className="text-[#8E8E85] font-bold block mb-1">قنوات البيع</span>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[#8E8E85] font-bold block">{getOverviewFieldLabel('salesChannels')}</span>
+                {userRole !== 'client' && !readOnly && (
+                  <button type="button" onClick={() => startOverviewLabelEdit('salesChannels')} className="no-print p-1 text-[#8E8E85] hover:text-[#5A5A40]" title="تعديل اسم السؤال">
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-1 mt-1">
                 {(currentAudit.overview?.salesChannels || ['Website', 'Instagram', 'Facebook', 'TikTok', 'Google', 'WhatsApp', 'Marketplace']).map((ch, i) => (
                   <span key={i} className="bg-[#5A5A40]/10 text-[#5A5A40] border border-[#5A5A40]/20 px-2 py-0.5 rounded-md font-bold text-[10px]">
@@ -1289,12 +1317,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 2. DIGITAL ASSETS AUDIT */}
-      {(activeSection === 'all' || activeSection === 'digitalAssets') && (
+      {!isBuiltInSectionHidden('digitalAssets') && (activeSection === 'all' || activeSection === 'digitalAssets') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Globe className="w-4 h-4 text-[#5A5A40]" />
-              <span>2. Digital Assets Audit (تقييم الأصول الرقمية)</span>
+              <span>{getBuiltInSectionTitle('digitalAssets', '2. Digital Assets Audit (تقييم الأصول الرقمية)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1378,12 +1406,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 3. TRACKING AUDIT */}
-      {(activeSection === 'all' || activeSection === 'tracking') && (
+      {!isBuiltInSectionHidden('tracking') && (activeSection === 'all' || activeSection === 'tracking') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Activity className="w-4 h-4 text-[#5A5A40]" />
-              <span>3. Tracking Audit (تقييم التتبع)</span>
+              <span>{getBuiltInSectionTitle('tracking', '3. Tracking Audit (تقييم التتبع)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1425,12 +1453,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 4. CREATIVE & CONTENT AUDIT */}
-      {(activeSection === 'all' || activeSection === 'creative') && (
+      {!isBuiltInSectionHidden('creative') && (activeSection === 'all' || activeSection === 'creative') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-700" />
-              <span>4. Creative & Content Audit (تقييم المحتوى والكريتيف)</span>
+              <span>{getBuiltInSectionTitle('creative', '4. Creative & Content Audit (تقييم المحتوى والكريتيف)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1569,12 +1597,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 5. SOCIAL MEDIA AUDIT */}
-      {(activeSection === 'all' || activeSection === 'socialMedia') && (
+      {!isBuiltInSectionHidden('socialMedia') && (activeSection === 'all' || activeSection === 'socialMedia') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Share2 className="w-4 h-4 text-[#5A5A40]" />
-              <span>5. Social Media Audit (تقييم السوشيال ميديا)</span>
+              <span>{getBuiltInSectionTitle('socialMedia', '5. Social Media Audit (تقييم السوشيال ميديا)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1626,12 +1654,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 6. OPERATIONS AUDIT */}
-      {(activeSection === 'all' || activeSection === 'operations') && (
+      {!isBuiltInSectionHidden('operations') && (activeSection === 'all' || activeSection === 'operations') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Settings className="w-4 h-4 text-[#5A5A40]" />
-              <span>6. Operations Audit (تقييم التشغيل)</span>
+              <span>{getBuiltInSectionTitle('operations', '6. Operations Audit (تقييم التشغيل)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1677,12 +1705,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 7. SALES FUNNEL AUDIT */}
-      {(activeSection === 'all' || activeSection === 'salesFunnel') && (
+      {!isBuiltInSectionHidden('salesFunnel') && (activeSection === 'all' || activeSection === 'salesFunnel') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Filter className="w-4 h-4 text-[#5A5A40]" />
-              <span>7. Sales Funnel Audit (تقييم رحلة العميل)</span>
+              <span>{getBuiltInSectionTitle('salesFunnel', '7. Sales Funnel Audit (تقييم رحلة العميل)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1729,12 +1757,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 8. UNIT ECONOMICS AND PRICING */}
-      {(activeSection === 'all' || activeSection === 'unitEconomics') && (
+      {!isBuiltInSectionHidden('unitEconomics') && (activeSection === 'all' || activeSection === 'unitEconomics') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-emerald-700" />
-              <span>8. Unit Economics & Pricing (ربحية المنتج وتسعيرته)</span>
+              <span>{getBuiltInSectionTitle('unitEconomics', '8. Unit Economics & Pricing (ربحية المنتج وتسعيرته)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1784,12 +1812,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 9. HISTORICAL ADS ANALYSIS */}
-      {(activeSection === 'all' || activeSection === 'historicalAds') && (
+      {!isBuiltInSectionHidden('historicalAds') && (activeSection === 'all' || activeSection === 'historicalAds') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#5A5A40]" />
-              <span>9. Historical Ads Analysis (تحليل الإعلانات السابقة)</span>
+              <span>{getBuiltInSectionTitle('historicalAds', '9. Historical Ads Analysis (تحليل الإعلانات السابقة)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -1860,13 +1888,13 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 10. COMPETITOR ANALYSIS */}
-      {(activeSection === 'all' || activeSection === 'competitors') && (
+      {!isBuiltInSectionHidden('competitors') && (activeSection === 'all' || activeSection === 'competitors') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <div>
               <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
                 <Users className="w-4 h-4 text-[#5A5A40]" />
-                <span>10. Competitor Analysis (تحليل المنافسين الشامل)</span>
+                <span>{getBuiltInSectionTitle('competitors', '10. Competitor Analysis (تحليل المنافسين الشامل)')}</span>
               </h3>
               <p className="text-[11px] text-[#78786E] font-medium mt-0.5">
                 تحليل تفصيلي لـ 9 محاور استراتيجية متكاملة لكل منافس
@@ -2193,12 +2221,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 11. SWOT ANALYSIS */}
-      {(activeSection === 'all' || activeSection === 'swot') && (
+      {!isBuiltInSectionHidden('swot') && (activeSection === 'all' || activeSection === 'swot') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-6 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#5A5A40]" />
-              <span>11. SWOT Analysis (تحليل SWOT)</span>
+              <span>{getBuiltInSectionTitle('swot', '11. SWOT Analysis (تحليل SWOT)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -2697,12 +2725,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 12. CUSTOMER PERSONA */}
-      {(activeSection === 'all' || activeSection === 'persona') && (
+      {!isBuiltInSectionHidden('persona') && (activeSection === 'all' || activeSection === 'persona') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-7 space-y-6 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Users className="w-4 h-4 text-[#5A5A40]" />
-              <span>12. Customer Persona (العميل المستهدف)</span>
+              <span>{getBuiltInSectionTitle('persona', '12. Customer Persona (العميل المستهدف)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -2836,12 +2864,12 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       )}
 
       {/* 13. MAIN PROBLEMS & SOLUTIONS */}
-      {(activeSection === 'all' || activeSection === 'problems') && (
+      {!isBuiltInSectionHidden('problems') && (activeSection === 'all' || activeSection === 'problems') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600" />
-              <span>13. Main Problems & Solutions (أهم المشاكل وحلها)</span>
+              <span>{getBuiltInSectionTitle('problems', '13. Main Problems & Solutions (أهم المشاكل وحلها)')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
