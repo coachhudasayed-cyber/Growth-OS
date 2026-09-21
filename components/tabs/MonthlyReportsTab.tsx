@@ -530,9 +530,10 @@ export const MonthlyReportsTab: React.FC<MonthlyReportsTabProps> = ({
   const todayStr = formatLocalDate();
   const currentMonthStr = formatLocalDate().slice(0, 7); // e.g. 2026-08
 
-  // Template Questions State (Per-client customizable with Supabase persistence)
+  // Global template questions shared across all clients.
   const [questions, setQuestions] = useSupabaseSetting<MonthlyReportQuestion[]>(
-    `monthly_report_questions_${clientId}`, clientId, DEFAULT_MONTHLY_REPORT_QUESTIONS, userRole !== 'client'
+    'monthly_report_questions_global', null, DEFAULT_MONTHLY_REPORT_QUESTIONS, userRole !== 'client',
+    [`monthly_report_questions_${clientId}`]
   );
 
   const saveQuestionsTemplate = (updatedQuestions: MonthlyReportQuestion[]) => setQuestions(updatedQuestions);
