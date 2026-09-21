@@ -228,6 +228,11 @@ export interface CustomBrandAuditSection {
   items: AuditCheckItem[];
 }
 
+export interface BuiltInBrandAuditSectionSetting {
+  title?: string;
+  hidden?: boolean;
+}
+
 export interface BrandAudit {
   clientId: string;
   score: number;                 // 0-100
@@ -382,6 +387,12 @@ export interface BrandAudit {
 
   // Custom audit sections created by the admin
   customSections?: CustomBrandAuditSection[];
+
+  // Per-client display settings for the 13 built-in Brand Audit sections
+  builtInSectionSettings?: Record<string, BuiltInBrandAuditSectionSetting>;
+
+  // Editable labels for the fixed Brand Overview fields without changing their data keys
+  overviewFieldLabels?: Record<string, string>;
 
   socialLinks?: {
     facebook?: string;
