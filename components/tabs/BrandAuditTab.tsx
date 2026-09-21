@@ -1280,28 +1280,32 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (activeSection === `custom:${sectionId}`) setActiveSection('all');
   };
 
-  // Navigation items for the full audit form modal
-  const modalSteps = BUILT_IN_AUDIT_SECTIONS
-    .filter(section => !isBuiltInSectionHidden(section.id))
-    .map(section => ({
-      num: section.num,
-      title: getBuiltInSectionTitle(section.id, section.title)
-    }));
+  // Navigation items for the full audit form modal follow the saved section order.
+  const modalSteps = orderedSectionEntries
+    .filter(entry => entry.type === 'builtIn' && !isBuiltInSectionHidden(entry.builtIn.id))
+    .map(entry => {
+      const builtIn = entry.type === 'builtIn' ? entry.builtIn : null;
+      return builtIn ? {
+        num: builtIn.num,
+        title: getBuiltInSectionTitle(builtIn.id, builtIn.title)
+      } : null;
+    })
+    .filter(Boolean) as Array<{ num: number; title: string }>;
   const currentModalStepIndex = modalSteps.findIndex(step => step.num === modalActiveTab);
 
-  // Section display tabs for main page
+  // Section display tabs follow the same saved order, including custom sections.
   const sectionTabs = [
     { id: 'all', label: 'التقرير الشامل (الكل)' },
-    ...BUILT_IN_AUDIT_SECTIONS
-      .filter(section => !isBuiltInSectionHidden(section.id))
-      .map(section => ({
-        id: section.id,
-        label: getBuiltInSectionTitle(section.id, section.title)
-      })),
-    ...(currentAudit.customSections || []).map((section, index) => ({
-      id: `custom:${section.id}`,
-      label: `${14 + index}. ${section.title}`
-    }))
+    ...orderedSectionEntries.flatMap(entry => {
+      if (entry.type === 'builtIn') {
+        if (isBuiltInSectionHidden(entry.builtIn.id)) return [];
+        return [{
+          id: entry.builtIn.id,
+          label: getBuiltInSectionTitle(entry.builtIn.id, entry.builtIn.title)
+        }];
+      }
+      return [{ id: entry.key, label: entry.custom.title }];
+    })
   ];
 
   const hasAudit = Boolean(
@@ -1310,7 +1314,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   );
 
   const renderAuditSectionsContent = (readOnly = false) => (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* 1. BRAND OVERVIEW */}
       {!isBuiltInSectionHidden('overview') && (activeSection === 'all' || activeSection === 'overview') && (
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs relative">
