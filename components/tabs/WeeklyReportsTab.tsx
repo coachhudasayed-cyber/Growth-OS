@@ -407,11 +407,13 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
 
   const todayStr = formatLocalDate();
 
-  // --- Questions Template Management (Persistent per client) ---
-  const storageKey = `weekly_report_questions_${clientId}`;
+  // --- Global Questions Template Management ---
+  // The question structure is shared across all client profiles; only report answers are client-specific.
+  const storageKey = 'weekly_report_questions_global';
 
   const [questions, setQuestions] = useSupabaseSetting<WeeklyReportQuestion[]>(
-    storageKey, clientId, DEFAULT_WEEKLY_REPORT_QUESTIONS, userRole !== 'client'
+    storageKey, null, DEFAULT_WEEKLY_REPORT_QUESTIONS, userRole !== 'client',
+    [`weekly_report_questions_${clientId}`]
   );
 
   const saveQuestionsTemplate = (newQuestions: WeeklyReportQuestion[]) => setQuestions(newQuestions);
@@ -524,10 +526,8 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     setWeekStartDate(rep.weekStartDate || todayStr);
     setWeekEndDate(rep.weekEndDate || '');
 
-    // If report has stored custom questions list, load them
-    if (rep.customSectionsQuestions && rep.customSectionsQuestions.length > 0) {
-      setQuestions(rep.customSectionsQuestions);
-    }
+    // Historical reports keep their own saved answers/questions snapshot.
+    // Do not overwrite the global template when opening an old report.
 
     const loadedValues: Record<string, string | number> = {
       // 1. Performance
