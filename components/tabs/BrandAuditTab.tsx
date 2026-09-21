@@ -52,6 +52,7 @@ import {
   BrandAuditProblemSolution,
   CompetitorItem,
   AuditCheckItem,
+  CustomBrandAuditSection,
   UserRole
 } from '../../types';
 import { INITIAL_BRAND_AUDITS } from '../../lib/initialData';
@@ -275,6 +276,13 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
   // Form state held inside the main Audit Modal
   const [formData, setFormData] = useState<BrandAudit>(currentAudit);
+
+  // Custom Brand Audit section state
+  const [showCustomSectionModal, setShowCustomSectionModal] = useState(false);
+  const [editingCustomSectionId, setEditingCustomSectionId] = useState<string | null>(null);
+  const [customSectionTitle, setCustomSectionTitle] = useState('');
+  const [customSectionItemsTitle, setCustomSectionItemsTitle] = useState('عناصر التقييم');
+  const [customSectionDate, setCustomSectionDate] = useState(formatLocalDate());
 
   // Quick Inline Edit State
   const [inlineEditingField, setInlineEditingField] = useState<{ section: string; key: string } | null>(null);
@@ -1015,6 +1023,81 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setTimeout(() => setResetToast(null), 3500);
   };
 
+  const openAddCustomSection = () => {
+    if (userRole === 'client') return;
+    setEditingCustomSectionId(null);
+    setCustomSectionTitle('');
+    setCustomSectionItemsTitle('عناصر التقييم');
+    setCustomSectionDate(formatLocalDate());
+    setShowCustomSectionModal(true);
+  };
+
+  const openEditCustomSection = (section: CustomBrandAuditSection) => {
+    if (userRole === 'client') return;
+    setEditingCustomSectionId(section.id);
+    setCustomSectionTitle(section.title);
+    setCustomSectionItemsTitle(section.itemsTitle || 'عناصر التقييم');
+    setCustomSectionDate(section.auditDate || formatLocalDate());
+    setShowCustomSectionModal(true);
+  };
+
+  const saveCustomSection = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (userRole === 'client' || !customSectionTitle.trim() || !customSectionItemsTitle.trim()) return;
+    const existingSections = currentAudit.customSections || [];
+    const updatedSections = editingCustomSectionId
+      ? existingSections.map(section => section.id === editingCustomSectionId
+          ? {
+              ...section,
+              title: customSectionTitle.trim(),
+              itemsTitle: customSectionItemsTitle.trim(),
+              auditDate: customSectionDate || formatLocalDate()
+            }
+          : section)
+      : [
+          ...existingSections,
+          {
+            id: `custom-audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            title: customSectionTitle.trim(),
+            itemsTitle: customSectionItemsTitle.trim(),
+            auditDate: customSectionDate || formatLocalDate(),
+            items: []
+          }
+        ];
+
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      customSections: updatedSections,
+      updatedAt: formatLocalDate()
+    });
+    setShowCustomSectionModal(false);
+    setEditingCustomSectionId(null);
+  };
+
+  const updateCustomSection = (sectionId: string, patch: Partial<CustomBrandAuditSection>) => {
+    if (userRole === 'client') return;
+    const updatedSections = (currentAudit.customSections || []).map(section =>
+      section.id === sectionId ? { ...section, ...patch } : section
+    );
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      customSections: updatedSections,
+      updatedAt: formatLocalDate()
+    });
+  };
+
+  const deleteCustomSection = (sectionId: string) => {
+    if (userRole === 'client') return;
+    if (!window.confirm('هل أنت متأكد من حذف السكشن وكل العناصر الموجودة بداخله؟')) return;
+    const updatedSections = (currentAudit.customSections || []).filter(section => section.id !== sectionId);
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      customSections: updatedSections,
+      updatedAt: formatLocalDate()
+    });
+    if (activeSection === `custom:${sectionId}`) setActiveSection('all');
+  };
+
   // Navigation items for the full audit form modal
   const modalSteps = [
     { num: 1, title: '1. نبذة عن البراند' },
@@ -1047,7 +1130,11 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     { id: 'competitors', label: '10. المنافسين' },
     { id: 'swot', label: '11. تحليل SWOT' },
     { id: 'persona', label: '12. العميل المستهدف' },
-    { id: 'problems', label: '13. المشاكل والحلول' }
+    { id: 'problems', label: '13. المشاكل والحلول' },
+    ...(currentAudit.customSections || []).map((section, index) => ({
+      id: `custom:${section.id}`,
+      label: `${14 + index}. ${section.title}`
+    }))
   ];
 
   const hasAudit = Boolean(
@@ -2817,6 +2904,80 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* CUSTOM BRAND AUDIT SECTIONS */}
+      {(currentAudit.customSections || []).map((section, index) => {
+        const visible = activeSection === 'all' || activeSection === `custom:${section.id}`;
+        if (!visible) return null;
+        return (
+          <div key={section.id} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+            <div className="flex items-center justify-between gap-3 border-b border-[#E5E5E0] pb-3">
+              <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#5A5A40]" />
+                <span>{14 + index}. {section.title}</span>
+              </h3>
+              {userRole !== 'client' && (
+                <div className="flex items-center gap-1.5 no-print">
+                  <button
+                    type="button"
+                    onClick={() => openEditCustomSection(section)}
+                    className="p-2 bg-white hover:bg-[#E5E5E0] border border-[#E5E5E0] rounded-xl text-[#78786E] hover:text-[#2D2D2A] transition cursor-pointer"
+                    title="تعديل بيانات السكشن"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteCustomSection(section.id)}
+                    className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-rose-600 transition cursor-pointer"
+                    title="حذف السكشن"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border border-[#E5E5E0] rounded-2xl p-4 sm:p-5">
+              <label className="block text-xs font-extrabold text-[#2D2D2A] mb-2">تاريخ التقييم (Audit Date)</label>
+              <input
+                type="date"
+                value={section.auditDate || ''}
+                onChange={(e) => updateCustomSection(section.id, { auditDate: e.target.value })}
+                disabled={userRole === 'client'}
+                className="w-full bg-white border border-[#E5E5E0] rounded-xl px-4 py-3 text-sm font-bold text-[#2D2D2A] outline-none focus:border-[#5A5A40] disabled:bg-[#F9F8F6] disabled:cursor-default"
+              />
+            </div>
+
+            {userRole !== 'client' ? (
+              <ChecklistEditorSection
+                title={section.itemsTitle || 'عناصر التقييم'}
+                items={section.items || []}
+                onUpdate={(items) => updateCustomSection(section.id, { items })}
+                placeholderAnswer="اكتب نتيجة التقييم أو الملاحظة..."
+                columns={2}
+              />
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-[#E5E5E0]">
+                  <h4 className="font-extrabold text-sm text-[#2D2D2A]">{section.itemsTitle || 'عناصر التقييم'}</h4>
+                  <span className="text-xs font-bold text-[#8E8E85]">({section.items?.length || 0})</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {(section.items || []).map(item => (
+                    <div key={item.id} className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] space-y-1">
+                      <span className="font-extrabold text-[#5A5A40] block">{item.label}</span>
+                      <p className="text-[#2D2D2A] bg-[#F9F8F6] p-2 rounded-lg border border-[#E5E5E0] font-medium leading-relaxed">
+                        {item.status || '—'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 
@@ -2901,6 +3062,16 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
             {userRole === 'client' ? (
               <>
+                <button
+                  type="button"
+                  onClick={openAddCustomSection}
+                  className="px-3.5 py-2.5 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-2xl text-xs transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                  title="إضافة سكشن جديد للتقييم"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة سكشن</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowViewDetailsModal(true)}
@@ -3094,6 +3265,83 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 إغلاق
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD / EDIT CUSTOM BRAND AUDIT SECTION MODAL */}
+      {showCustomSectionModal && (
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 no-print">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl border border-[#E5E5E0]">
+            <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
+              <div>
+                <h3 className="font-extrabold text-base text-[#2D2D2A]">
+                  {editingCustomSectionId ? 'تعديل السكشن' : 'إضافة سكشن جديد'}
+                </h3>
+                <p className="text-[11px] text-[#8E8E85] mt-0.5">السكشن الجديد هيظهر بنفس نظام أقسام الـ Brand Audit.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomSectionModal(false)}
+                className="p-1.5 text-[#8E8E85] hover:text-[#2D2D2A] hover:bg-[#F9F8F6] rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={saveCustomSection} className="space-y-4 text-xs">
+              <div>
+                <label className="font-extrabold text-[#2D2D2A] block mb-1">اسم السكشن</label>
+                <input
+                  type="text"
+                  required
+                  value={customSectionTitle}
+                  onChange={(e) => setCustomSectionTitle(e.target.value)}
+                  placeholder="مثال: Customer Experience Audit"
+                  className="w-full p-3 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold outline-none focus:bg-white focus:border-[#5A5A40]"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="font-extrabold text-[#2D2D2A] block mb-1">عنوان العناصر داخل السكشن</label>
+                <input
+                  type="text"
+                  required
+                  value={customSectionItemsTitle}
+                  onChange={(e) => setCustomSectionItemsTitle(e.target.value)}
+                  placeholder="مثال: عناصر تقييم تجربة العميل"
+                  className="w-full p-3 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold outline-none focus:bg-white focus:border-[#5A5A40]"
+                />
+              </div>
+
+              <div>
+                <label className="font-extrabold text-[#2D2D2A] block mb-1">تاريخ التقييم</label>
+                <input
+                  type="date"
+                  required
+                  value={customSectionDate}
+                  onChange={(e) => setCustomSectionDate(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-[#E5E5E0] bg-white text-[#2D2D2A] font-bold outline-none focus:border-[#5A5A40]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomSectionModal(false)}
+                  className="px-4 py-2 bg-[#F9F8F6] hover:bg-[#E5E5E0] border border-[#E5E5E0] text-[#2D2D2A] font-bold rounded-xl"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl shadow-xs"
+                >
+                  {editingCustomSectionId ? 'حفظ التعديلات' : 'إضافة السكشن'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
