@@ -1287,23 +1287,32 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
   // Navigation items for the full audit form modal follow the saved section order,
   // including custom sections created from the section manager.
-  const modalSteps = orderedSectionEntries.flatMap(entry => {
+  type ModalStep = {
+    num: number;
+    title: string;
+    type: 'builtIn' | 'custom';
+    customId?: string;
+  };
+  const modalSteps: ModalStep[] = orderedSectionEntries.reduce<ModalStep[]>((steps, entry) => {
     if (entry.type === 'builtIn') {
-      if (isBuiltInSectionHidden(entry.builtIn.id)) return [];
-      return [{
-        num: entry.builtIn.num,
-        title: getBuiltInSectionTitle(entry.builtIn.id, entry.builtIn.title),
-        type: 'builtIn' as const
-      }];
+      if (!isBuiltInSectionHidden(entry.builtIn.id)) {
+        steps.push({
+          num: entry.builtIn.num,
+          title: getBuiltInSectionTitle(entry.builtIn.id, entry.builtIn.title),
+          type: 'builtIn'
+        });
+      }
+      return steps;
     }
     const customIndex = (currentAudit.customSections || []).findIndex(section => section.id === entry.custom.id);
-    return [{
+    steps.push({
       num: 1000 + Math.max(customIndex, 0),
       title: entry.custom.title,
-      type: 'custom' as const,
+      type: 'custom',
       customId: entry.custom.id
-    }];
-  });
+    });
+    return steps;
+  }, []);
   const currentModalStepIndex = modalSteps.findIndex(step => step.num === modalActiveTab);
   const activeCustomModalSection = modalActiveTab >= 1000
     ? (currentAudit.customSections || [])[modalActiveTab - 1000]
