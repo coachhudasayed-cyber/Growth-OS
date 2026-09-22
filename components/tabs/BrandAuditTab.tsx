@@ -1720,7 +1720,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   );
 
   const renderAuditSectionsContent = (readOnly = false) => (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-pdf-sections>
       {/* 1. BRAND OVERVIEW */}
       {!isBuiltInSectionHidden('overview') && (activeSection === 'all' || activeSection === 'overview') && (
         <div style={{ order: getSectionOrderIndex('overview') }} className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs relative">
