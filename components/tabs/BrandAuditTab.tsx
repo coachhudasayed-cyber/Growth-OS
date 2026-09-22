@@ -690,6 +690,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       // Preserve their latest values here so the final "Save Full Report"
       // action cannot overwrite them with the stale snapshot from formData.
       competitors: currentAudit.competitors,
+      competitorAnalysisTemplate: currentAudit.competitorAnalysisTemplate,
       swot: currentAudit.swot,
       problemsAndSolutions: currentAudit.problemsAndSolutions,
       customSections: currentAudit.customSections,
@@ -842,7 +843,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setCompFormData(normalizeCompetitorChecklists({
       ...defaultCompetitorData,
       id: `comp-${Date.now()}`
-    }));
+    }, currentAudit.competitorAnalysisTemplate));
     setShowCompetitorModal(true);
   };
 
@@ -902,7 +903,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       recommendedAction: comp.recommendedAction || '',
       priceDiffReason: comp.priceDiffReason || '',
       sectionChecklists: comp.sectionChecklists
-    }));
+    }, currentAudit.competitorAnalysisTemplate));
     setShowCompetitorModal(true);
   };
 
@@ -911,69 +912,78 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (!compFormData.name?.trim()) return;
 
     const existing = currentAudit.competitors || [];
-    let updated: CompetitorItem[] = [];
 
-    const compData: CompetitorItem = {
-      id: editingCompetitor ? editingCompetitor.id : `comp-${Date.now()}`,
-      name: compFormData.name.trim(),
-      competitorType: compFormData.competitorType || 'مباشر',
-      pageLink: compFormData.pageLink?.trim() || '',
-      products: compFormData.products?.trim() || '',
-      targetAudience: compFormData.targetAudience?.trim() || '',
-      salesChannels: compFormData.salesChannels?.trim() || '',
-      price: compFormData.price?.trim() || '',
-      offers: compFormData.offers?.trim() || '',
-      discounts: compFormData.discounts?.trim() || '',
-      bundles: compFormData.bundles?.trim() || '',
-      giftsAndExtras: compFormData.giftsAndExtras?.trim() || '',
-      warrantyAndReturns: compFormData.warrantyAndReturns?.trim() || '',
-      marketingChannels: compFormData.marketingChannels?.trim() || '',
-      postingFrequency: compFormData.postingFrequency?.trim() || '',
-      contentType: compFormData.contentType?.trim() || '',
-      bestPerformingContent: compFormData.bestPerformingContent?.trim() || '',
-      marketingMessage: compFormData.marketingMessage?.trim() || '',
-      photographyStyle: compFormData.photographyStyle?.trim() || '',
-      primaryCta: compFormData.primaryCta?.trim() || '',
-      currentAds: compFormData.currentAds?.trim() || '',
-      adCopy: compFormData.adCopy?.trim() || '',
-      adHook: compFormData.adHook?.trim() || '',
-      adCta: compFormData.adCta?.trim() || '',
-      landingPageOrPurchaseLink: compFormData.landingPageOrPurchaseLink?.trim() || '',
-      offerTypeUsed: compFormData.offerTypeUsed?.trim() || '',
-      adStrategyNotes: compFormData.adStrategyNotes?.trim() || '',
-      landingPageQuality: compFormData.landingPageQuality?.trim() || '',
-      easeOfPurchase: compFormData.easeOfPurchase?.trim() || '',
-      afterSalesService: compFormData.afterSalesService?.trim() || '',
-      reviewsAndFeedback: compFormData.reviewsAndFeedback?.trim() || '',
-      recurringComplaintsOrObjections: compFormData.recurringComplaintsOrObjections?.trim() || '',
-      strengths: compFormData.strengths?.trim() || '',
-      weaknesses: compFormData.weaknesses?.trim() || '',
-      engagementLevel: compFormData.engagementLevel?.trim() || '',
-      winningPatterns: compFormData.winningPatterns?.trim() || '',
-      keyDifferentiator: compFormData.keyDifferentiator?.trim() || '',
-      marketGaps: compFormData.marketGaps?.trim() || '',
-      unexploitedNeeds: compFormData.unexploitedNeeds?.trim() || '',
-      opportunitiesToExploit: compFormData.opportunitiesToExploit?.trim() || '',
-      ideasToTest: compFormData.ideasToTest?.trim() || '',
-      biggestThreat: compFormData.biggestThreat?.trim() || '',
-      whyCustomerChoosesThem: compFormData.whyCustomerChoosesThem?.trim() || '',
-      movementsToWatch: compFormData.movementsToWatch?.trim() || '',
-      whatToLearn: compFormData.whatToLearn?.trim() || '',
-      whatNotToCopy: compFormData.whatNotToCopy?.trim() || '',
-      whatToTest: compFormData.whatToTest?.trim() || '',
-      opportunityToExploit: compFormData.opportunityToExploit?.trim() || '',
-      recommendedAction: compFormData.recommendedAction?.trim() || '',
-      priceDiffReason: compFormData.priceDiffReason?.trim() || '',
-      sectionChecklists: JSON.parse(JSON.stringify(compFormData.sectionChecklists || {}))
-    };
+const compData: CompetitorItem = {
+          id: editingCompetitor ? editingCompetitor.id : `comp-${Date.now()}`,
+          name: compFormData.name.trim(),
+          competitorType: compFormData.competitorType || 'مباشر',
+          pageLink: compFormData.pageLink?.trim() || '',
+          products: compFormData.products?.trim() || '',
+          targetAudience: compFormData.targetAudience?.trim() || '',
+          salesChannels: compFormData.salesChannels?.trim() || '',
+          price: compFormData.price?.trim() || '',
+          offers: compFormData.offers?.trim() || '',
+          discounts: compFormData.discounts?.trim() || '',
+          bundles: compFormData.bundles?.trim() || '',
+          giftsAndExtras: compFormData.giftsAndExtras?.trim() || '',
+          warrantyAndReturns: compFormData.warrantyAndReturns?.trim() || '',
+          marketingChannels: compFormData.marketingChannels?.trim() || '',
+          postingFrequency: compFormData.postingFrequency?.trim() || '',
+          contentType: compFormData.contentType?.trim() || '',
+          bestPerformingContent: compFormData.bestPerformingContent?.trim() || '',
+          marketingMessage: compFormData.marketingMessage?.trim() || '',
+          photographyStyle: compFormData.photographyStyle?.trim() || '',
+          primaryCta: compFormData.primaryCta?.trim() || '',
+          currentAds: compFormData.currentAds?.trim() || '',
+          adCopy: compFormData.adCopy?.trim() || '',
+          adHook: compFormData.adHook?.trim() || '',
+          adCta: compFormData.adCta?.trim() || '',
+          landingPageOrPurchaseLink: compFormData.landingPageOrPurchaseLink?.trim() || '',
+          offerTypeUsed: compFormData.offerTypeUsed?.trim() || '',
+          adStrategyNotes: compFormData.adStrategyNotes?.trim() || '',
+          landingPageQuality: compFormData.landingPageQuality?.trim() || '',
+          easeOfPurchase: compFormData.easeOfPurchase?.trim() || '',
+          afterSalesService: compFormData.afterSalesService?.trim() || '',
+          reviewsAndFeedback: compFormData.reviewsAndFeedback?.trim() || '',
+          recurringComplaintsOrObjections: compFormData.recurringComplaintsOrObjections?.trim() || '',
+          strengths: compFormData.strengths?.trim() || '',
+          weaknesses: compFormData.weaknesses?.trim() || '',
+          engagementLevel: compFormData.engagementLevel?.trim() || '',
+          winningPatterns: compFormData.winningPatterns?.trim() || '',
+          keyDifferentiator: compFormData.keyDifferentiator?.trim() || '',
+          marketGaps: compFormData.marketGaps?.trim() || '',
+          unexploitedNeeds: compFormData.unexploitedNeeds?.trim() || '',
+          opportunitiesToExploit: compFormData.opportunitiesToExploit?.trim() || '',
+          ideasToTest: compFormData.ideasToTest?.trim() || '',
+          biggestThreat: compFormData.biggestThreat?.trim() || '',
+          whyCustomerChoosesThem: compFormData.whyCustomerChoosesThem?.trim() || '',
+          movementsToWatch: compFormData.movementsToWatch?.trim() || '',
+          whatToLearn: compFormData.whatToLearn?.trim() || '',
+          whatNotToCopy: compFormData.whatNotToCopy?.trim() || '',
+          whatToTest: compFormData.whatToTest?.trim() || '',
+          opportunityToExploit: compFormData.opportunityToExploit?.trim() || '',
+          recommendedAction: compFormData.recommendedAction?.trim() || '',
+          priceDiffReason: compFormData.priceDiffReason?.trim() || '',
+          sectionChecklists: JSON.parse(JSON.stringify(compFormData.sectionChecklists || {}))
+        };
 
-    if (editingCompetitor) {
-      updated = existing.map((c) => (c.id === editingCompetitor.id ? compData : c));
-    } else {
-      updated = [...existing, compData];
-    }
+    const nextTemplate = competitorTemplateFromChecklists(compData.sectionChecklists);
+    const normalizeWithTemplate = (competitor: CompetitorItem) =>
+      normalizeCompetitorChecklists(competitor, nextTemplate);
 
-    onUpdateAudit(clientId, { ...currentAudit, competitors: updated });
+    const updated = editingCompetitor
+      ? existing.map((competitor) =>
+          competitor.id === editingCompetitor.id
+            ? normalizeWithTemplate(compData)
+            : normalizeWithTemplate(competitor)
+        )
+      : [...existing.map(normalizeWithTemplate), normalizeWithTemplate(compData)];
+
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      competitorAnalysisTemplate: nextTemplate,
+      competitors: updated
+    });
     setShowCompetitorModal(false);
   };
 
