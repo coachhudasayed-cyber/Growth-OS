@@ -138,6 +138,7 @@ export interface BrandAuditProblemSolution {
   priorityLevel: 'عالية جداً' | 'عالية' | 'متوسطة' | 'منخفضة' | string;
   solutionStrategy: string;
   status?: 'قيد التنفيذ' | 'تم التنفيذ';
+  checklist?: AuditCheckItem[];
 }
 
 export interface CompetitorItem {
