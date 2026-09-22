@@ -4699,375 +4699,42 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
 
               {/* STEP 12: PERSONA */}
               {modalActiveTab === 12 && (
-                <div className="space-y-6 text-xs text-[#2D2D2A]">
-                  <h4 className="font-extrabold text-sm text-[#5A5A40] border-b border-[#E5E5E0] pb-2">
-                    Customer Persona (العميل المستهدف)
-                  </h4>
-
-                  {/* 1. Target Audience */}
-                  <div className="p-4 bg-[#F9F8F6] rounded-2xl border border-[#E5E5E0] space-y-4">
-                    <div>
-                      <h5 className="font-black text-sm text-[#2D2D2A]">1. Target Audience</h5>
-                      <p className="text-xs font-bold text-[#8E8E85] mt-0.5">من هو العميل المثالي للبراند؟</p>
+                <div className="space-y-5 text-xs text-[#2D2D2A]">
+                  {[
+                    {
+                      title: 'Target Audience | الجمهور المستهدف',
+                      items: getTargetAudienceItems(formData.customerPersona),
+                      key: 'targetAudienceChecklist' as const
+                    },
+                    {
+                      title: 'Customer Insights | فهم العميل',
+                      items: getCustomerInsightItems(formData.customerPersona),
+                      key: 'insightsChecklist' as const
+                    },
+                    {
+                      title: 'Brand Positioning | تمركز البراند',
+                      items: getBrandPositioningItems(formData.customerPersona),
+                      key: 'positioningChecklist' as const
+                    }
+                  ].map(group => (
+                    <div key={group.key} className="p-4 bg-[#F9F8F6] rounded-2xl border border-[#E5E5E0]">
+                      <ChecklistEditorSection
+                        title={group.title}
+                        items={group.items}
+                        onUpdate={(items) =>
+                          setFormData({
+                            ...formData,
+                            customerPersona: {
+                              ...formData.customerPersona,
+                              [group.key]: items
+                            }
+                          })
+                        }
+                        placeholderAnswer="اكتب الإجابة أو الملاحظة..."
+                        columns={2}
+                      />
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">الفئة العمرية</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.targetAudienceDetails?.ageRange || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              targetAudienceDetails: { ...formData.customerPersona?.targetAudienceDetails, ageRange: e.target.value }
-                            }
-                          })}
-                          placeholder="مثال: 18 - 35 سنة"
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">الجنس</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.targetAudienceDetails?.gender || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              targetAudienceDetails: { ...formData.customerPersona?.targetAudienceDetails, gender: e.target.value }
-                            }
-                          })}
-                          placeholder="مثال: ذكور وإناث"
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">المستوى المادي</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.targetAudienceDetails?.incomeLevel || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              targetAudienceDetails: { ...formData.customerPersona?.targetAudienceDetails, incomeLevel: e.target.value }
-                            }
-                          })}
-                          placeholder="مثال: متوسط إلى فوق المتوسط"
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">الاهتمامات</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.targetAudienceDetails?.interests || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              targetAudienceDetails: { ...formData.customerPersona?.targetAudienceDetails, interests: e.target.value }
-                            }
-                          })}
-                          placeholder="مثال: التقنية والألعاب والإكسسوارات"
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">أسلوب الحياة</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.targetAudienceDetails?.lifestyle || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              targetAudienceDetails: { ...formData.customerPersona?.targetAudienceDetails, lifestyle: e.target.value }
-                            }
-                          })}
-                          placeholder="مثال: شباب عملي يبحث عن الجودة والتسوق السريع"
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">مكان الإقامة</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.targetAudienceDetails?.location || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              targetAudienceDetails: { ...formData.customerPersona?.targetAudienceDetails, location: e.target.value }
-                            }
-                          })}
-                          placeholder="مثال: القاهرة الكبرى والمحافظات الرئيسية"
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-                    </div>
-
-                    <ChecklistEditorSection
-                      title="📋 بنود تقييم الجمهور المستهدف"
-                      items={formData.customerPersona?.targetAudienceChecklist || []}
-                      defaultItems={[
-                        { id: 'ta-1', label: 'وضوح الشريحة المستهدفة وسهولة استهدافها', status: 'واضحة ومحددة بدقة' },
-                        { id: 'ta-2', label: 'توافق الرسالة الإعلانية مع الفئة', status: 'متوافقة جداً مع تطلعاتهم' }
-                      ]}
-                      onUpdate={(items) =>
-                        setFormData({
-                          ...formData,
-                          customerPersona: {
-                            ...formData.customerPersona,
-                            targetAudienceChecklist: items
-                          }
-                        })
-                      }
-                    />
-                  </div>
-
-                  {/* 2. Customer Insights */}
-                  <div className="p-4 bg-[#F9F8F6] rounded-2xl border border-[#E5E5E0] space-y-4">
-                    <div>
-                      <h5 className="font-black text-sm text-[#2D2D2A]">2. Customer Insights</h5>
-                      <p className="text-xs font-bold text-[#8E8E85] mt-0.5">فهم سلوك العميل ودوافعه.</p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="font-bold block mb-0.5 text-[#2D2D2A]">Pain Points</label>
-                        <span className="text-[11px] text-[#8E8E85] block mb-1">المشاكل التي يعاني منها العميل ويحلها المنتج.</span>
-                        <textarea
-                          rows={2}
-                          value={formData.customerPersona?.insights?.painPoints || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              insights: { ...formData.customerPersona?.insights, painPoints: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-0.5 text-[#2D2D2A]">Buying Motivation</label>
-                        <span className="text-[11px] text-[#8E8E85] block mb-1">لماذا قد يشتري هذا المنتج؟</span>
-                        <textarea
-                          rows={2}
-                          value={formData.customerPersona?.insights?.buyingMotivation || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              insights: { ...formData.customerPersona?.insights, buyingMotivation: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-0.5 text-[#2D2D2A]">Buying Triggers</label>
-                        <span className="text-[11px] text-[#8E8E85] block mb-1">ما الذي يدفعه لاتخاذ قرار الشراء بسرعة؟</span>
-                        <textarea
-                          rows={2}
-                          value={formData.customerPersona?.insights?.buyingTriggers || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              insights: { ...formData.customerPersona?.insights, buyingTriggers: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-0.5 text-[#2D2D2A]">Objections</label>
-                        <span className="text-[11px] text-[#8E8E85] block mb-1">ما الاعتراضات أو المخاوف التي تمنعه من الشراء؟</span>
-                        <textarea
-                          rows={2}
-                          value={formData.customerPersona?.insights?.objections || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              insights: { ...formData.customerPersona?.insights, objections: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-                    </div>
-
-                    <ChecklistEditorSection
-                      title="📋 بنود تقييم رؤى وتفضيلات العملاء"
-                      items={formData.customerPersona?.insightsChecklist || []}
-                      defaultItems={[
-                        { id: 'in-1', label: 'معالجة الاعتراضات في صفحات الهبوط والإعلانات', status: 'تتم معالجتها بالضمانات وتقييمات العملاء' },
-                        { id: 'in-2', label: 'قوة محفزات الشراء السريع', status: 'عروض محدودة بوقت مع شحن مجاني' }
-                      ]}
-                      onUpdate={(items) =>
-                        setFormData({
-                          ...formData,
-                          customerPersona: {
-                            ...formData.customerPersona,
-                            insightsChecklist: items
-                          }
-                        })
-                      }
-                    />
-                  </div>
-
-                  {/* 3. Brand Positioning */}
-                  <div className="p-4 bg-[#F9F8F6] rounded-2xl border border-[#E5E5E0] space-y-4">
-                    <div>
-                      <h5 className="font-black text-sm text-[#2D2D2A]">3. Brand Positioning</h5>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">القيمة الأساسية التي يقدمها البراند</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.positioning?.coreValue || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              positioning: { ...formData.customerPersona?.positioning, coreValue: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">الميزة التنافسية (USP)</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.positioning?.usp || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              positioning: { ...formData.customerPersona?.positioning, usp: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">الرسالة الأساسية للبراند</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.positioning?.coreMessage || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              positioning: { ...formData.customerPersona?.positioning, coreMessage: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">الانطباع الأول</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.positioning?.firstImpression || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              positioning: { ...formData.customerPersona?.positioning, firstImpression: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">مكانة البراند في السوق (اقتصادي - متوسط - Premium)</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.positioning?.marketTier || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              positioning: { ...formData.customerPersona?.positioning, marketTier: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold block mb-1 text-[#5A5A40]">مدى وضوح الهوية</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.positioning?.identityClarity || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              positioning: { ...formData.customerPersona?.positioning, identityClarity: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="font-bold block mb-1 text-[#5A5A40]">تقييم جاهزية البراند للنمو</label>
-                        <input
-                          type="text"
-                          value={formData.customerPersona?.positioning?.growthReadiness || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            customerPersona: {
-                              ...formData.customerPersona,
-                              positioning: { ...formData.customerPersona?.positioning, growthReadiness: e.target.value }
-                            }
-                          })}
-                          className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white text-xs font-medium text-[#2D2D2A]"
-                        />
-                      </div>
-                    </div>
-
-                    <ChecklistEditorSection
-                      title="📋 بنود تقييم تموضع البراند في السوق"
-                      items={formData.customerPersona?.positioningChecklist || []}
-                      defaultItems={[
-                        { id: 'pos-1', label: 'تميز الهوية البصرية مقارنة بالمنافسين', status: 'هوية مميزة وحديثة' },
-                        { id: 'pos-2', label: 'اتساق الرسائل التسويقية عبر كافة القنوات', status: 'رسائل متسقة وثابتة' }
-                      ]}
-                      onUpdate={(items) =>
-                        setFormData({
-                          ...formData,
-                          customerPersona: {
-                            ...formData.customerPersona,
-                            positioningChecklist: items
-                          }
-                        })
-                      }
-                    />
-                  </div>
+                  ))}
                 </div>
               )}
 
