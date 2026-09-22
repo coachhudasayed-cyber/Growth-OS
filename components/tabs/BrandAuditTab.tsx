@@ -4473,36 +4473,34 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.strengths || []).map((st, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {st}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل نقطة القوة:', st);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('strengths', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'strengths',
-                                    idOrIndex: i,
-                                    title: `نقطة قوة: ${st}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'strengths' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  value={editingSwotItem.text}
+                                  onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleUpdateSwot('strengths', i, editingSwotItem.text);
+                                      setEditingSwotItem(null);
+                                    }
+                                  }}
+                                  className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none"
+                                  autoFocus
+                                />
+                                <button type="button" onClick={() => { handleUpdateSwot('strengths', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {st}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'strengths', index: i, text: st })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'strengths', idOrIndex: i, title: `نقطة قوة: ${st}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -4537,36 +4535,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.weaknesses || []).map((wk, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {wk}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل نقطة الضعف:', wk);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('weaknesses', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'weaknesses',
-                                    idOrIndex: i,
-                                    title: `نقطة ضعف: ${wk}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'weaknesses' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input type="text" value={editingSwotItem.text} onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { handleUpdateSwot('weaknesses', i, editingSwotItem.text); setEditingSwotItem(null); } }} className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none" autoFocus />
+                                <button type="button" onClick={() => { handleUpdateSwot('weaknesses', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {wk}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'weaknesses', index: i, text: wk })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'weaknesses', idOrIndex: i, title: `نقطة ضعف: ${wk}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -4601,36 +4585,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.opportunities || []).map((op, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {op}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل الفرصة:', op);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('opportunities', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'opportunities',
-                                    idOrIndex: i,
-                                    title: `فرصة: ${op}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'opportunities' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input type="text" value={editingSwotItem.text} onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { handleUpdateSwot('opportunities', i, editingSwotItem.text); setEditingSwotItem(null); } }} className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none" autoFocus />
+                                <button type="button" onClick={() => { handleUpdateSwot('opportunities', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {op}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'opportunities', index: i, text: op })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'opportunities', idOrIndex: i, title: `فرصة: ${op}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -4665,36 +4635,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.threats || []).map((th, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {th}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل التهديد:', th);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('threats', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'threats',
-                                    idOrIndex: i,
-                                    title: `تهديد: ${th}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'threats' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input type="text" value={editingSwotItem.text} onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { handleUpdateSwot('threats', i, editingSwotItem.text); setEditingSwotItem(null); } }} className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none" autoFocus />
+                                <button type="button" onClick={() => { handleUpdateSwot('threats', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {th}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'threats', index: i, text: th })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'threats', idOrIndex: i, title: `تهديد: ${th}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
