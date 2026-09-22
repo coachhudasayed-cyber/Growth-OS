@@ -330,6 +330,7 @@ export interface BrandAudit {
     profitMargin?: string;
     allowsAds?: string;
     checklist?: AuditCheckItem[];
+    sectionChecklists?: Record<string, AuditCheckItem[]>;
   };
 
   // 9. Historical Ads Analysis (تحليل الإعلانات السابقة)
@@ -347,6 +348,7 @@ export interface BrandAudit {
 
   // 10. Competitor Analysis (تحليل المنافسين)
   competitors?: CompetitorItem[];
+  competitorAnalysisTemplate?: Record<string, AuditCheckItem[]>;
 
   // 11. SWOT Analysis
   swot: {
