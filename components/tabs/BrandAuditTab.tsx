@@ -134,28 +134,235 @@ const UNIT_ECONOMICS_DEFAULT_ITEMS: AuditCheckItem[] = UNIT_ECONOMICS_SECTIONS.f
 );
 
 const getUnitEconomicsChecklist = (unitEconomics?: BrandAudit['unitEconomics']): AuditCheckItem[] => {
-  const existing = unitEconomics?.checklist || [];
-  const byId = new Map(existing.map(item => [item.id, item]));
+  const existing = unitEconomics?.checklist;
+  const existingItems = existing || [];
+  const byId = new Map(existingItems.map(item => [item.id, item]));
+  const legacyIds = new Set(['ue-1', 'ue-2', 'ue-3', 'ue-4']);
   const legacyAnswers: Record<string, string | undefined> = {
     'ue-selling-actual-price': byId.get('ue-1')?.status || unitEconomics?.avgPriceRange,
     'ue-selling-gross-margin': byId.get('ue-4')?.status || unitEconomics?.profitMargin
   };
-  const knownIds = new Set(UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => item.id));
-  const legacyIds = new Set(['ue-1', 'ue-2', 'ue-3', 'ue-4']);
-  const defaults = UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => ({
+
+  // Once the editable checklist exists, it is the source of truth.
+  // This preserves edited labels, custom questions and intentional deletions.
+  // Only the old legacy four-item structure is migrated to the new defaults.
+  if (existing !== undefined) {
+    const isLegacyOnly = existing.length > 0 && existing.every(item => legacyIds.has(item.id));
+    if (!isLegacyOnly) {
+      return existing.map(item => ({ ...item }));
+    }
+  }
+
+  return UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => ({
     ...item,
     status: byId.get(item.id)?.status || legacyAnswers[item.id] || ''
   }));
-  const customItems = existing
-    .filter(item => !knownIds.has(item.id) && !legacyIds.has(item.id))
-    .map(item => ({ ...item, id: item.id.startsWith('ue-selling-') ? item.id : `ue-selling-legacy-${item.id}` }));
-  return [...defaults, ...customItems];
 };
 
 const getUnitEconomicsSectionItems = (
   unitEconomics: BrandAudit['unitEconomics'],
   sectionId: string
 ) => getUnitEconomicsChecklist(unitEconomics).filter(item => item.id.startsWith(`ue-${sectionId}-`));
+
+
+
+const PROBLEM_DEFAULT_ITEMS: AuditCheckItem[] = [
+  { id: 'problem-main', label: 'Problem | المشكلة', status: '' },
+  { id: 'problem-impact', label: 'Impact on Sales | تأثيرها على المبيعات', status: '' },
+  { id: 'problem-priority', label: 'Priority | درجة الاولوية', status: '' },
+  { id: 'problem-solution', label: 'Solution | طريقة الحل', status: '' },
+  { id: 'problem-status', label: 'Status | حالة معالجة المشكلة', status: '' }
+];
+
+const getProblemChecklist = (problem?: BrandAuditProblemSolution | null): AuditCheckItem[] => {
+  if (!problem) return PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item }));
+  if (problem.checklist !== undefined) return problem.checklist.map(item => ({ ...item }));
+  return PROBLEM_DEFAULT_ITEMS.map(item => ({
+    ...item,
+    status:
+      item.id === 'problem-main' ? problem.problem || '' :
+      item.id === 'problem-impact' ? problem.impactOnSales || '' :
+      item.id === 'problem-priority' ? problem.priorityLevel || '' :
+      item.id === 'problem-solution' ? problem.solutionStrategy || '' :
+      item.id === 'problem-status' ? problem.status || '' :
+      ''
+  }));
+};
+
+const syncProblemFieldsFromChecklist = (
+  base: BrandAuditProblemSolution,
+  checklist: AuditCheckItem[]
+): BrandAuditProblemSolution => {
+  const answer = (id: string, fallback: string) =>
+    checklist.find(item => item.id === id)?.status?.trim() || fallback;
+
+  const statusAnswer = answer('problem-status', base.status || 'قيد التنفيذ');
+  const normalizedStatus: 'قيد التنفيذ' | 'تم التنفيذ' =
+    statusAnswer === 'تم التنفيذ' ? 'تم التنفيذ' : 'قيد التنفيذ';
+
+  return {
+    ...base,
+    problem: answer('problem-main', base.problem || 'مشكلة جديدة'),
+    impactOnSales: answer('problem-impact', base.impactOnSales || ''),
+    priorityLevel: answer('problem-priority', base.priorityLevel || 'عالية'),
+    solutionStrategy: answer('problem-solution', base.solutionStrategy || ''),
+    status: normalizedStatus,
+    checklist
+  };
+};
+
+type CompetitorSectionField = {
+  id: string;
+  key: keyof CompetitorItem;
+  label: string;
+};
+
+const COMPETITOR_SECTION_DEFINITIONS: Record<number, { title: string; itemsTitle: string; fields: CompetitorSectionField[] }> = {
+  1: {
+    title: '1. بيانات المنافس | Competitor Profile',
+    itemsTitle: 'بيانات وتحليل المنافس',
+    fields: [
+      { id: 'comp-profile-page-link', key: 'pageLink', label: 'رابط الحساب / الموقع | Page / Website Link' },
+      { id: 'comp-profile-products', key: 'products', label: 'المنتجات والخدمات | Products & Services' },
+      { id: 'comp-profile-target-audience', key: 'targetAudience', label: 'الجمهور المستهدف | Target Audience' },
+      { id: 'comp-profile-sales-channels', key: 'salesChannels', label: 'قنوات البيع | Sales Channels' }
+    ]
+  },
+  2: {
+    title: '2. التسعير والعروض | Pricing & Offers',
+    itemsTitle: 'بنود التسعير والعروض',
+    fields: [
+      { id: 'comp-pricing-price', key: 'price', label: 'متوسط الأسعار | Average Price' },
+      { id: 'comp-pricing-offers', key: 'offers', label: 'العروض الحالية | Current Offers' },
+      { id: 'comp-pricing-discounts', key: 'discounts', label: 'الخصومات | Discounts' },
+      { id: 'comp-pricing-bundles', key: 'bundles', label: 'الباقات والحزم | Bundles' },
+      { id: 'comp-pricing-gifts', key: 'giftsAndExtras', label: 'الهدايا والمزايا الإضافية | Gifts & Extras' },
+      { id: 'comp-pricing-returns', key: 'warrantyAndReturns', label: 'شروط الضمان والاسترجاع | Warranty & Returns' }
+    ]
+  },
+  3: {
+    title: '3. التسويق والمحتوى | Marketing & Content',
+    itemsTitle: 'بنود التسويق والمحتوى',
+    fields: [
+      { id: 'comp-marketing-channels', key: 'marketingChannels', label: 'قنوات التسويق | Marketing Channels' },
+      { id: 'comp-marketing-frequency', key: 'postingFrequency', label: 'تكرار النشر | Posting Frequency' },
+      { id: 'comp-marketing-content-type', key: 'contentType', label: 'أنواع المحتوى | Content Types' },
+      { id: 'comp-marketing-best-content', key: 'bestPerformingContent', label: 'أفضل المحتوى وسبب نجاحه | Best Performing Content' },
+      { id: 'comp-marketing-message', key: 'marketingMessage', label: 'الرسائل التسويقية الأساسية | Marketing Message' },
+      { id: 'comp-marketing-style', key: 'photographyStyle', label: 'أسلوب التصوير والكريتيف | Creative Style' },
+      { id: 'comp-marketing-cta', key: 'primaryCta', label: 'الـ CTA الأساسي | Primary CTA' }
+    ]
+  },
+  4: {
+    title: '4. الإعلانات | Advertising',
+    itemsTitle: 'بنود تحليل الإعلانات',
+    fields: [
+      { id: 'comp-ads-current', key: 'currentAds', label: 'الإعلانات الحالية النشطة | Current Ads' },
+      { id: 'comp-ads-copy', key: 'adCopy', label: 'النص الإعلاني | Ad Copy' },
+      { id: 'comp-ads-hook', key: 'adHook', label: 'الهوك الإعلاني | Ad Hook' },
+      { id: 'comp-ads-cta', key: 'adCta', label: 'الـ CTA في الإعلان | Ad CTA' },
+      { id: 'comp-ads-landing', key: 'landingPageOrPurchaseLink', label: 'صفحة الهبوط / رابط الشراء | Landing Page' },
+      { id: 'comp-ads-offer', key: 'offerTypeUsed', label: 'نوع العرض المستخدم | Offer Type' },
+      { id: 'comp-ads-strategy', key: 'adStrategyNotes', label: 'ملاحظات على استراتيجية الإعلان | Ad Strategy Notes' }
+    ]
+  },
+  5: {
+    title: '5. تجربة العميل | Customer Experience',
+    itemsTitle: 'بنود تجربة العميل',
+    fields: [
+      { id: 'comp-cx-landing', key: 'landingPageQuality', label: 'جودة صفحة الهبوط | Landing Page Quality' },
+      { id: 'comp-cx-purchase', key: 'easeOfPurchase', label: 'سهولة الشراء | Ease of Purchase' },
+      { id: 'comp-cx-after-sales', key: 'afterSalesService', label: 'خدمة ما بعد البيع | After-Sales Service' },
+      { id: 'comp-cx-reviews', key: 'reviewsAndFeedback', label: 'الريفيوز وملاحظات العملاء | Reviews & Feedback' },
+      { id: 'comp-cx-objections', key: 'recurringComplaintsOrObjections', label: 'الاعتراضات أو المشاكل المتكررة | Recurring Objections' }
+    ]
+  },
+  6: {
+    title: '6. أداء المنافس | Competitive Assessment',
+    itemsTitle: 'بنود تقييم أداء المنافس',
+    fields: [
+      { id: 'comp-assessment-strengths', key: 'strengths', label: 'نقاط القوة | Strengths' },
+      { id: 'comp-assessment-weaknesses', key: 'weaknesses', label: 'نقاط الضعف | Weaknesses' },
+      { id: 'comp-assessment-engagement', key: 'engagementLevel', label: 'مستوى التفاعل | Engagement Level' },
+      { id: 'comp-assessment-patterns', key: 'winningPatterns', label: 'أهم الأنماط الرابحة | Winning Patterns' },
+      { id: 'comp-assessment-differentiator', key: 'keyDifferentiator', label: 'الميزة الفارقة | Key Differentiator' }
+    ]
+  },
+  7: {
+    title: '7. فرص السوق | Market Opportunities',
+    itemsTitle: 'بنود فرص السوق',
+    fields: [
+      { id: 'comp-opps-gaps', key: 'marketGaps', label: 'الفجوات الموجودة في السوق | Market Gaps' },
+      { id: 'comp-opps-needs', key: 'unexploitedNeeds', label: 'احتياجات غير مستغلة | Unexploited Needs' },
+      { id: 'comp-opps-exploit', key: 'opportunitiesToExploit', label: 'فرص يمكن للبراند استغلالها | Opportunities to Exploit' },
+      { id: 'comp-opps-test', key: 'ideasToTest', label: 'أفكار يمكن اختبارها | Ideas to Test' }
+    ]
+  },
+  8: {
+    title: '8. التهديدات | Competitive Threats',
+    itemsTitle: 'بنود التهديدات التنافسية',
+    fields: [
+      { id: 'comp-threat-biggest', key: 'biggestThreat', label: 'أكبر تهديد من هذا المنافس | Biggest Threat' },
+      { id: 'comp-threat-choice', key: 'whyCustomerChoosesThem', label: 'لماذا قد يختاره العميل بدل البراند؟ | Why Customers Choose Them' },
+      { id: 'comp-threat-watch', key: 'movementsToWatch', label: 'تحركات تستحق المتابعة | Movements to Watch' }
+    ]
+  },
+  9: {
+    title: '9. التوصيات الاستراتيجية | Strategic Takeaways',
+    itemsTitle: 'بنود التوصيات الاستراتيجية',
+    fields: [
+      { id: 'comp-strategy-learn', key: 'whatToLearn', label: 'ماذا نتعلم من المنافس؟ | What to Learn' },
+      { id: 'comp-strategy-not-copy', key: 'whatNotToCopy', label: 'ماذا لا يجب أن ننسخه؟ | What Not to Copy' },
+      { id: 'comp-strategy-test', key: 'whatToTest', label: 'ما الذي يمكن اختباره؟ | What to Test' },
+      { id: 'comp-strategy-opportunity', key: 'opportunityToExploit', label: 'ما الفرصة التي يجب استغلالها؟ | Opportunity to Exploit' },
+      { id: 'comp-strategy-action', key: 'recommendedAction', label: 'الإجراء المقترح للبراند | Recommended Action' }
+    ]
+  }
+};
+
+const getCompetitorSectionItems = (competitor: CompetitorItem, sectionId: number): AuditCheckItem[] => {
+  const saved = competitor.sectionChecklists?.[String(sectionId)];
+  if (saved !== undefined) return saved.map(item => ({ ...item }));
+
+  return (COMPETITOR_SECTION_DEFINITIONS[sectionId]?.fields || []).map(field => ({
+    id: field.id,
+    label: field.label,
+    status: String(competitor[field.key] || '')
+  }));
+};
+
+const normalizeCompetitorChecklists = (competitor: CompetitorItem): CompetitorItem => {
+  const sectionChecklists = { ...(competitor.sectionChecklists || {}) };
+  Object.keys(COMPETITOR_SECTION_DEFINITIONS).forEach(key => {
+    const sectionId = Number(key);
+    if (sectionChecklists[key] === undefined) {
+      sectionChecklists[key] = getCompetitorSectionItems(competitor, sectionId);
+    }
+  });
+  return { ...competitor, sectionChecklists };
+};
+
+const updateCompetitorSectionItems = (
+  competitor: CompetitorItem,
+  sectionId: number,
+  items: AuditCheckItem[]
+): CompetitorItem => {
+  const next = {
+    ...competitor,
+    sectionChecklists: {
+      ...(competitor.sectionChecklists || {}),
+      [String(sectionId)]: items
+    }
+  } as CompetitorItem;
+
+  const fields = COMPETITOR_SECTION_DEFINITIONS[sectionId]?.fields || [];
+  fields.forEach(field => {
+    const item = items.find(entry => entry.id === field.id);
+    (next as unknown as Record<string, unknown>)[field.key as string] = item?.status || '';
+  });
+
+  return next;
+};
 
 const BUILT_IN_AUDIT_SECTIONS = [
   { id: 'overview', num: 1, title: '1. Brand Overview' },
@@ -278,11 +485,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   // Modal State for Problem & Solution (Add/Edit)
   const [showProblemModal, setShowProblemModal] = useState(false);
   const [editingProblem, setEditingProblem] = useState<BrandAuditProblemSolution | null>(null);
-  const [probTitle, setProbTitle] = useState('');
-  const [probImpact, setProbImpact] = useState('');
-  const [probPriority, setProbPriority] = useState<string>('عالية');
-  const [probSolution, setProbSolution] = useState('');
-  const [probStatus, setProbStatus] = useState<'قيد التنفيذ' | 'تم التنفيذ'>('قيد التنفيذ');
+  const [problemChecklist, setProblemChecklist] = useState<AuditCheckItem[]>(PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item })));
 
   // Modal State for Competitor (Add/Edit)
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
@@ -488,55 +691,37 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenAddProblem = () => {
     if (userRole === 'client') return;
     setEditingProblem(null);
-    setProbTitle('');
-    setProbImpact('');
-    setProbPriority('عالية');
-    setProbSolution('');
-    setProbStatus('قيد التنفيذ');
+    setProblemChecklist(PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item })));
     setShowProblemModal(true);
   };
 
   const handleOpenEditProblem = (prob: BrandAuditProblemSolution) => {
     if (userRole === 'client') return;
     setEditingProblem(prob);
-    setProbTitle(prob.problem);
-    setProbImpact(prob.impactOnSales);
-    setProbPriority(prob.priorityLevel || 'عالية');
-    setProbSolution(prob.solutionStrategy);
-    setProbStatus(prob.status || 'قيد التنفيذ');
+    setProblemChecklist(getProblemChecklist(prob));
     setShowProblemModal(true);
   };
 
   const handleSaveProblem = (e: React.FormEvent) => {
     e.preventDefault();
     if (userRole === 'client') return;
-    const existing = currentAudit.problemsAndSolutions || [];
-    let updated: BrandAuditProblemSolution[] = [];
 
-    if (editingProblem) {
-      updated = existing.map((p) =>
-        p.id === editingProblem.id
-          ? {
-              ...p,
-              problem: probTitle.trim(),
-              impactOnSales: probImpact.trim(),
-              priorityLevel: probPriority,
-              solutionStrategy: probSolution.trim(),
-              status: probStatus
-            }
-          : p
-      );
-    } else {
-      const newProb: BrandAuditProblemSolution = {
-        id: `ps-${Date.now()}`,
-        problem: probTitle.trim(),
-        impactOnSales: probImpact.trim(),
-        priorityLevel: probPriority,
-        solutionStrategy: probSolution.trim(),
-        status: probStatus
-      };
-      updated = [...existing, newProb];
-    }
+    const existing = currentAudit.problemsAndSolutions || [];
+    const base: BrandAuditProblemSolution = editingProblem
+      ? { ...editingProblem }
+      : {
+          id: `ps-${Date.now()}`,
+          problem: 'مشكلة جديدة',
+          impactOnSales: '',
+          priorityLevel: 'عالية',
+          solutionStrategy: '',
+          status: 'قيد التنفيذ'
+        };
+
+    const savedProblem = syncProblemFieldsFromChecklist(base, problemChecklist);
+    const updated = editingProblem
+      ? existing.map((p) => (p.id === editingProblem.id ? savedProblem : p))
+      : [...existing, savedProblem];
 
     onUpdateAudit(clientId, { ...currentAudit, problemsAndSolutions: updated });
     setShowProblemModal(false);
@@ -566,10 +751,10 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (userRole === 'client') return;
     setEditingCompetitor(null);
     setCompActiveModalTab(1);
-    setCompFormData({
+    setCompFormData(normalizeCompetitorChecklists({
       ...defaultCompetitorData,
       id: `comp-${Date.now()}`
-    });
+    }));
     setShowCompetitorModal(true);
   };
 
@@ -577,7 +762,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (userRole === 'client') return;
     setEditingCompetitor(comp);
     setCompActiveModalTab(1);
-    setCompFormData({
+    setCompFormData(normalizeCompetitorChecklists({
       id: comp.id,
       name: comp.name || '',
       competitorType: comp.competitorType || 'مباشر',
@@ -627,8 +812,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       whatToTest: comp.whatToTest || '',
       opportunityToExploit: comp.opportunityToExploit || '',
       recommendedAction: comp.recommendedAction || '',
-      priceDiffReason: comp.priceDiffReason || ''
-    });
+      priceDiffReason: comp.priceDiffReason || '',
+      sectionChecklists: comp.sectionChecklists
+    }));
     setShowCompetitorModal(true);
   };
 
@@ -689,7 +875,8 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       whatToTest: compFormData.whatToTest?.trim() || '',
       opportunityToExploit: compFormData.opportunityToExploit?.trim() || '',
       recommendedAction: compFormData.recommendedAction?.trim() || '',
-      priceDiffReason: compFormData.priceDiffReason?.trim() || ''
+      priceDiffReason: compFormData.priceDiffReason?.trim() || '',
+      sectionChecklists: JSON.parse(JSON.stringify(compFormData.sectionChecklists || {}))
     };
 
     if (editingCompetitor) {
@@ -4317,6 +4504,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                           title={`${section.icon} ${section.title} (${section.subtitle})`}
                           items={sectionItems}
                           defaultItems={section.items.map(item => ({ ...item }))}
+                          fallbackToDefaultItemsWhenEmpty={false}
                           placeholderAnswer="اكتب الرقم أو النسبة أو الإجابة المتاحة..."
                           columns={2}
                           onUpdate={(items) => {
@@ -4465,36 +4653,34 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.strengths || []).map((st, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {st}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل نقطة القوة:', st);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('strengths', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'strengths',
-                                    idOrIndex: i,
-                                    title: `نقطة قوة: ${st}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'strengths' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  value={editingSwotItem.text}
+                                  onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleUpdateSwot('strengths', i, editingSwotItem.text);
+                                      setEditingSwotItem(null);
+                                    }
+                                  }}
+                                  className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none"
+                                  autoFocus
+                                />
+                                <button type="button" onClick={() => { handleUpdateSwot('strengths', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {st}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'strengths', index: i, text: st })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'strengths', idOrIndex: i, title: `نقطة قوة: ${st}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -4529,36 +4715,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.weaknesses || []).map((wk, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {wk}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل نقطة الضعف:', wk);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('weaknesses', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'weaknesses',
-                                    idOrIndex: i,
-                                    title: `نقطة ضعف: ${wk}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'weaknesses' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input type="text" value={editingSwotItem.text} onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { handleUpdateSwot('weaknesses', i, editingSwotItem.text); setEditingSwotItem(null); } }} className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none" autoFocus />
+                                <button type="button" onClick={() => { handleUpdateSwot('weaknesses', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {wk}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'weaknesses', index: i, text: wk })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'weaknesses', idOrIndex: i, title: `نقطة ضعف: ${wk}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -4593,36 +4765,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.opportunities || []).map((op, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {op}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل الفرصة:', op);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('opportunities', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'opportunities',
-                                    idOrIndex: i,
-                                    title: `فرصة: ${op}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'opportunities' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input type="text" value={editingSwotItem.text} onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { handleUpdateSwot('opportunities', i, editingSwotItem.text); setEditingSwotItem(null); } }} className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none" autoFocus />
+                                <button type="button" onClick={() => { handleUpdateSwot('opportunities', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {op}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'opportunities', index: i, text: op })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'opportunities', idOrIndex: i, title: `فرصة: ${op}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -4657,36 +4815,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         {(currentAudit.swot.threats || []).map((th, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#E5E5E0]">
-                            <span className="font-bold text-xs text-[#2D2D2A]">• {th}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newText = prompt('تعديل التهديد:', th);
-                                  if (newText && newText.trim()) {
-                                    handleUpdateSwot('threats', i, newText.trim());
-                                  }
-                                }}
-                                className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDeleteConfirmation({
-                                    type: 'swot',
-                                    swotCategory: 'threats',
-                                    idOrIndex: i,
-                                    title: `تهديد: ${th}`
-                                  })
-                                }
-                                className="p-1 text-rose-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <div key={i} className="bg-white p-2 rounded-xl border border-[#E5E5E0]">
+                            {editingSwotItem?.category === 'threats' && editingSwotItem.index === i ? (
+                              <div className="flex items-center gap-1.5">
+                                <input type="text" value={editingSwotItem.text} onChange={(e) => setEditingSwotItem({ ...editingSwotItem, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { handleUpdateSwot('threats', i, editingSwotItem.text); setEditingSwotItem(null); } }} className="flex-1 p-2 text-xs font-bold rounded-lg border border-[#5A5A40] bg-white text-[#2D2D2A] focus:outline-none" autoFocus />
+                                <button type="button" onClick={() => { handleUpdateSwot('threats', i, editingSwotItem.text); setEditingSwotItem(null); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"><Check className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => setEditingSwotItem(null)} className="p-1.5 text-[#8E8E85] hover:bg-[#E5E5E0] rounded-lg"><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-[#2D2D2A]">• {th}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button type="button" onClick={() => setEditingSwotItem({ category: 'threats', index: i, text: th })} className="p-1 text-[#8E8E85] hover:text-[#2D2D2A]"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => setDeleteConfirmation({ type: 'swot', swotCategory: 'threats', idOrIndex: i, title: `تهديد: ${th}` })} className="p-1 text-rose-500 hover:text-rose-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -4918,85 +5062,19 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             </div>
 
             <form onSubmit={handleSaveProblem} className="space-y-3 text-xs">
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">1. المشكلة</label>
-                <input
-                  type="text"
-                  required
-                  value={probTitle}
-                  onChange={(e) => setProbTitle(e.target.value)}
-                  placeholder="مثلاً: عدم وجود فيديوهات Reels للمنتجات..."
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold"
-                />
-              </div>
+              <ChecklistEditorSection
+                title="Main Problems & Solutions | المشاكل والحلول"
+                items={problemChecklist}
+                defaultItems={PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item }))}
+                fallbackToDefaultItemsWhenEmpty={false}
+                onUpdate={setProblemChecklist}
+                placeholderAnswer="اكتب الاجابة أو الملاحظة..."
+                columns={1}
+              />
 
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">2. تأثيرها على المبيعات</label>
-                <textarea
-                  required
-                  rows={2}
-                  value={probImpact}
-                  onChange={(e) => setProbImpact(e.target.value)}
-                  placeholder="مثلاً: ضعف ثقة العملاء المترددين وتراجع معدل التحويل..."
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A]"
-                />
-              </div>
-
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">3. درجة الأولوية</label>
-                <select
-                  value={probPriority}
-                  onChange={(e) => setProbPriority(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] font-bold text-[#2D2D2A]"
-                >
-                  <option value="عالية جداً">عالية جداً</option>
-                  <option value="عالية">عالية</option>
-                  <option value="متوسطة">متوسطة</option>
-                  <option value="منخفضة">منخفضة</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">4. طريقة حلها (الاستراتيجية والخدمة)</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={probSolution}
-                  onChange={(e) => setProbSolution(e.target.value)}
-                  placeholder="مثلاً: تصوير 6 فيديوهات Reels واقعية وتجهيز حملة Reels جديدة..."
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A]"
-                />
-              </div>
-
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">5. حالة معالجة المشكلة</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setProbStatus('قيد التنفيذ')}
-                    className={`p-2.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                      probStatus === 'قيد التنفيذ'
-                        ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
-                        : 'bg-[#F9F8F6] border-[#E5E5E0] text-[#78786E] hover:bg-[#E5E5E0]'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
-                    <span>قيد التنفيذ</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProbStatus('تم التنفيذ')}
-                    className={`p-2.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                      probStatus === 'تم التنفيذ'
-                        ? 'bg-emerald-100 border-emerald-300 text-emerald-900 shadow-2xs'
-                        : 'bg-[#F9F8F6] border-[#E5E5E0] text-[#78786E] hover:bg-[#E5E5E0]'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>تم التنفيذ</span>
-                  </button>
-                </div>
-              </div>
+              <p className="text-[11px] text-[#8E8E85] leading-relaxed">
+                تقدري تعدلي اسم اي سؤال، تمسحيه، أو تضيفي سؤال جديد. الاسئلة الاساسية المعروفة بتفضل مرتبطة ببيانات المشكلة في التقرير.
+              </p>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -5085,19 +5163,11 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               onSubmit={handleSaveCompetitor}
               className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 text-xs"
             >
-              {/* TAB 1: COMPETITOR PROFILE */}
+              {/* Competitor identity stays fixed; all analysis questions below are fully editable. */}
               {compActiveModalTab === 1 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-[#5A5A40] flex items-center gap-1.5">
-                      <Building className="w-4 h-4" />
-                      <span>1. بيانات المنافس | Competitor Profile</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">البيانات التعريفية والأساسية</span>
-                  </div>
-
+                <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="sm:col-span-2">
+                    <div>
                       <label className="font-extrabold text-[#2D2D2A] block mb-1">
                         اسم المنافس <span className="text-rose-500">*</span>
                       </label>
@@ -5110,14 +5180,11 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                         className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold focus:bg-white focus:outline-none focus:border-[#5A5A40]"
                       />
                     </div>
-
                     <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        نوع المنافس
-                      </label>
+                      <label className="font-extrabold text-[#2D2D2A] block mb-1">نوع المنافس</label>
                       <select
                         value={compFormData.competitorType || 'مباشر'}
-                        onChange={(e) => setCompFormData({ ...compFormData, competitorType: e.target.value as 'مباشر' | 'غير مباشر' | 'كبير' })}
+                        onChange={(e) => setCompFormData({ ...compFormData, competitorType: e.target.value })}
                         className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold focus:bg-white focus:outline-none focus:border-[#5A5A40]"
                       >
                         <option value="مباشر">منافس مباشر (Direct Competitor)</option>
@@ -5125,736 +5192,36 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                         <option value="كبير">منافس كبير / رائد سوق (Market Leader)</option>
                       </select>
                     </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        رابط الحساب / الموقع
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.pageLink || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, pageLink: e.target.value })}
-                        placeholder="رابط الموقع، فيسبوك، إنستجرام، تيك توك..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        المنتجات والخدمات
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.products || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, products: e.target.value })}
-                        placeholder="أهم تصنيفات المنتجات والخدمات التي يقدمها المنافس..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الجمهور المستهدف
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.targetAudience || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, targetAudience: e.target.value })}
-                        placeholder="الفئة العمرية، الاهتمامات، الطبقة المستهدفة..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        قنوات البيع
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.salesChannels || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, salesChannels: e.target.value })}
-                        placeholder="الموقع الإلكتروني، وتساب، رسائل السوشيال، فروع..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: PRICING & OFFERS */}
-              {compActiveModalTab === 2 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-emerald-800 flex items-center gap-1.5">
-                      <Tag className="w-4 h-4" />
-                      <span>2. التسعير والعروض | Pricing & Offers</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">هيكل الأسعار والعروض التنافسية</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        متوسط الأسعار
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.price || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, price: e.target.value })}
-                        placeholder="مثلاً: 350 - 750 جنيه (أو رخيص / متوسط / مرتفع)..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        العروض الحالية
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.offers || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, offers: e.target.value })}
-                        placeholder="مثلاً: اشتري 2 واحصل على 1 مجاناً، شحن مجاني..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الخصومات
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.discounts || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, discounts: e.target.value })}
-                        placeholder="نسب أو قيم الخصومات المباشرة..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الـ Bundles (الباقات والحزم)
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.bundles || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, bundles: e.target.value })}
-                        placeholder="باقات المنتجات المجمعة وأسعارها..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الهدايا والمزايا الإضافية
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.giftsAndExtras || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, giftsAndExtras: e.target.value })}
-                        placeholder="هدايا مع كل طلب، عينات تجربة، نقاط ولاء..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        شروط الضمان والاسترجاع
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.warrantyAndReturns || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, warrantyAndReturns: e.target.value })}
-                        placeholder="ضمان 14 يوم، معاينة قبل الاستلام، استرجاع مجاني..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-4">
+                <div className="border-b border-[#E5E5E0] pb-2">
+                  <h4 className="font-black text-sm text-[#5A5A40]">
+                    {COMPETITOR_SECTION_DEFINITIONS[compActiveModalTab]?.title}
+                  </h4>
+                  <p className="text-[11px] text-[#78786E] font-bold mt-0.5">
+                    تقدري تعدلي اسم أي سؤال أو تمسحيه أو تضيفي سؤال جديد داخل السكشن.
+                  </p>
                 </div>
-              )}
 
-              {/* TAB 3: MARKETING & CONTENT */}
-              {compActiveModalTab === 3 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-blue-800 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4" />
-                      <span>3. التسويق والمحتوى | Marketing & Content</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">استراتيجية المحتوى والتفاعل</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        قنوات التسويق
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.marketingChannels || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, marketingChannels: e.target.value })}
-                        placeholder="إنستجرام، فيسبوك، تيك توك، سناب شات، جوجل..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        تكرار النشر
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.postingFrequency || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, postingFrequency: e.target.value })}
-                        placeholder="مثلاً: يومياً، 3 بوستات أسبوعياً، ستوريز مستمرة..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        أنواع المحتوى
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.contentType || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, contentType: e.target.value })}
-                        placeholder="Reels قصيرة، UGC، صور منتجات، كاورسل، لايف..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الـ CTA الأساسي
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.primaryCta || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, primaryCta: e.target.value })}
-                        placeholder="مثلاً: اطلب الآن، تواصل عبر الواتساب، احصل على الخصم..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        أفضل المحتوى + سبب نجاحه
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.bestPerformingContent || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, bestPerformingContent: e.target.value })}
-                        placeholder="أعلى ريلز أو بوست حقق تفاعل وسبب وصوله للجمهور..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الرسائل التسويقية الأساسية
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.marketingMessage || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, marketingMessage: e.target.value })}
-                        placeholder="الوعود والرسائل والشعارات الرئيسية..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        أسلوب التصوير والـ Creative Style
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.photographyStyle || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, photographyStyle: e.target.value })}
-                        placeholder="تصوير ستوديو نظيف، تصوير هاتف طبيعي UGC، إضاءة سينمائية..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 4: ADVERTISING */}
-              {compActiveModalTab === 4 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-indigo-800 flex items-center gap-1.5">
-                      <Megaphone className="w-4 h-4" />
-                      <span>4. الإعلانات | Advertising</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">تحليل الحملات الممولة ونصوص الإعلانات</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="sm:col-span-2">
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الإعلانات الحالية النشطة
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.currentAds || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, currentAds: e.target.value })}
-                        placeholder="عدد الإعلانات الشغالة في الـ Ad Library، التركيز على أي منتجات..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الـ Hook الإعلاني
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.adHook || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, adHook: e.target.value })}
-                        placeholder="الجملة الافتتاحية / أول 3 ثوانٍ في الفيديو..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الـ CTA في الإعلان
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.adCta || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, adCta: e.target.value })}
-                        placeholder="Shop Now, Send Message, Order WhatsApp..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الـ Ad Copy (نص الإعلان)
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.adCopy || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, adCopy: e.target.value })}
-                        placeholder="هيكل الكوبي الإعلاني (قصة، نقاط بيع، عاطفة، خوف من التفويت)..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        Landing Page / رابط الشراء
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.landingPageOrPurchaseLink || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, landingPageOrPurchaseLink: e.target.value })}
-                        placeholder="رابط صفحة الهبوط أو صفحة المنتج الموجه إليها الإعلان..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        نوع الـ Offer المستخدم
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.offerTypeUsed || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, offerTypeUsed: e.target.value })}
-                        placeholder="عرض السعر، باقة مجانية، خصم لفترة محدودة، تجربة أولى..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        ملاحظات على استراتيجية الإعلان
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.adStrategyNotes || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, adStrategyNotes: e.target.value })}
-                        placeholder="تحليل التكتيكات الإعلانية ومواضع التميز أو الضعف في إعلاناتهم..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 5: CUSTOMER EXPERIENCE */}
-              {compActiveModalTab === 5 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-amber-900 flex items-center gap-1.5">
-                      <MessageSquare className="w-4 h-4" />
-                      <span>5. تجربة العميل | Customer Experience</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">رحلة الشراء ورأي العملاء</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        جودة صفحة الهبوط
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.landingPageQuality || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, landingPageQuality: e.target.value })}
-                        placeholder="سرعة التحميل، تصميم احترافي، وضوح الصور، متجاوب..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        سهولة الشراء
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.easeOfPurchase || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, easeOfPurchase: e.target.value })}
-                        placeholder="خطوات شراء سريعة بضغطة واحدة، فورم سلس، طرق دفع متعددة..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        خدمة ما بعد البيع
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.afterSalesService || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, afterSalesService: e.target.value })}
-                        placeholder="متابعة الشحن، سرعة الرد على الشكاوى، استبدال سريع..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        أكثر الاعتراضات أو المشاكل المتكررة
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.recurringComplaintsOrObjections || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, recurringComplaintsOrObjections: e.target.value })}
-                        placeholder="تأخر الشحن، جودة التغليف، صعوبة التواصل مع السيلز..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-rose-700 font-bold focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الريفيوز وملاحظات العملاء
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={compFormData.reviewsAndFeedback || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, reviewsAndFeedback: e.target.value })}
-                        placeholder="أبرز ما يشيد به العملاء في التعليقات وما يشتكون منه..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 6: COMPETITIVE ASSESSMENT */}
-              {compActiveModalTab === 6 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-purple-900 flex items-center gap-1.5">
-                      <Award className="w-4 h-4" />
-                      <span>6. أداء المنافس | Competitive Assessment</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">تقييم القوة والضعف والأنماط الرابحة</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="font-extrabold text-emerald-800 block mb-1">
-                        نقاط القوة
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={compFormData.strengths || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, strengths: e.target.value })}
-                        placeholder="المزايا التنافسية، جودة المحتوى، قوة البراندينج، خدمة العملاء..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-rose-800 block mb-1">
-                        نقاط الضعف
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={compFormData.weaknesses || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, weaknesses: e.target.value })}
-                        placeholder="الثغرات، ضعف التفاعل، بطء الموقع، أسعار مرتفعة غير مبررة..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        مستوى التفاعل
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.engagementLevel || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, engagementLevel: e.target.value })}
-                        placeholder="تفاعل عالي، تعليقات إيجابية، شيرات كثيرة، تفاعل منخفض..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        أهم الـ Winning Patterns
-                      </label>
-                      <input
-                        type="text"
-                        value={compFormData.winningPatterns || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, winningPatterns: e.target.value })}
-                        placeholder="أنماط المحتوى والإعلانات والعروض الأكثر نجاحاً وتكراراً لديه..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        ما الذي يميزه عن باقي المنافسين؟ (Key Differentiator)
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.keyDifferentiator || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, keyDifferentiator: e.target.value })}
-                        placeholder="العنصر الفريد الذي يجعل المنافس متصدراً أو متميزاً في السوق..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 7: MARKET OPPORTUNITIES */}
-              {compActiveModalTab === 7 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-cyan-900 flex items-center gap-1.5">
-                      <Lightbulb className="w-4 h-4" />
-                      <span>7. فرص السوق | Market Opportunities</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">الثغرات والفرص غير المستغلة</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        الـ Gaps الموجودة في السوق
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={compFormData.marketGaps || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, marketGaps: e.target.value })}
-                        placeholder="الفجوات التي يتركها المنافس في التغطية أو الخدمة أو الأسعار..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        احتياجات غير مستغلة للعملاء
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={compFormData.unexploitedNeeds || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, unexploitedNeeds: e.target.value })}
-                        placeholder="مطالب يبحث عنها العملاء ولم يجدوها عند المنافسين..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#5A5A40] block mb-1">
-                        فرص يمكن للبراند استغلالها
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={compFormData.opportunitiesToExploit || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, opportunitiesToExploit: e.target.value })}
-                        placeholder="كيف يمكن لبراندنا اقتناص حصة سوقية من هذا المنافس..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        أفكار يمكن اختبارها
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={compFormData.ideasToTest || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, ideasToTest: e.target.value })}
-                        placeholder="تجارب، عروض، أو زوايا محتوى جديدة مستوحاة من التحليل..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 8: COMPETITIVE THREATS */}
-              {compActiveModalTab === 8 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <h4 className="font-black text-sm text-rose-900 flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>8. التهديدات | Competitive Threats</span>
-                    </h4>
-                    <span className="text-[11px] text-[#78786E] font-bold">المخاطر التنافسية وعوامل الحذر</span>
-                  </div>
-
-                  <div className="space-y-3.5">
-                    <div>
-                      <label className="font-extrabold text-rose-800 block mb-1">
-                        أكبر تهديد من هذا المنافس
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.biggestThreat || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, biggestThreat: e.target.value })}
-                        placeholder="ما هو أخطر عامل يهدد مبيعات أو حصة براندنا من هذا المنافس..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        ما الذي يجعل العميل يختاره بدلًا من البراند؟
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.whyCustomerChoosesThem || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, whyCustomerChoosesThem: e.target.value })}
-                        placeholder="أسباب تفضيل الجمهور لهذا المنافس (سعر، ثقة، سرعة، شهرة)..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-extrabold text-[#2D2D2A] block mb-1">
-                        أي تحركات تستحق المتابعة
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.movementsToWatch || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, movementsToWatch: e.target.value })}
-                        placeholder="إطلاق منتجات جديدة، توسع جغرافي، شراكات مؤثرين، حملات موسمية..."
-                        className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] focus:bg-white focus:outline-none focus:border-[#5A5A40]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 9: STRATEGIC TAKEAWAYS & RECOMMENDED ACTION */}
-              {compActiveModalTab === 9 && (
-                <div className="space-y-4">
-                  <div className="border-b border-[#E5E5E0] pb-2 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-black text-sm text-[#5A5A40] flex items-center gap-1.5">
-                        <Flame className="w-4 h-4 text-amber-600" />
-                        <span>9. التوصيات الاستراتيجية والإجراء المقترح | Strategic Takeaways</span>
-                      </h4>
-                      <p className="text-[11px] text-amber-900 font-extrabold mt-0.5">
-                        ⭐ أهم قسم استراتيجي في التحليل — يحدد خطة العمل للبراند
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-200/60">
-                      <label className="font-extrabold text-blue-900 block mb-1">
-                        1. ماذا نتعلم من المنافس؟
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.whatToLearn || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, whatToLearn: e.target.value })}
-                        placeholder="الدروس والتكتيكات الناجحة التي يمكن الاستفادة منها..."
-                        className="w-full p-2 rounded-lg border border-blue-200 bg-white text-[#2D2D2A] text-xs focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-
-                    <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-200/60">
-                      <label className="font-extrabold text-rose-900 block mb-1">
-                        2. ماذا لا يجب أن ننسخه؟
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.whatNotToCopy || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, whatNotToCopy: e.target.value })}
-                        placeholder="الأخطاء والأنماط السلبية أو التي لا تناسب هوية براندنا..."
-                        className="w-full p-2 rounded-lg border border-rose-200 bg-white text-[#2D2D2A] text-xs focus:outline-none focus:border-rose-500"
-                      />
-                    </div>
-
-                    <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-200/60">
-                      <label className="font-extrabold text-purple-900 block mb-1">
-                        3. ما الذي يمكن اختباره؟
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.whatToTest || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, whatToTest: e.target.value })}
-                        placeholder="تجارب محتوى، هوك إعلاني، أو أوفر لاختباره فوراً..."
-                        className="w-full p-2 rounded-lg border border-purple-200 bg-white text-[#2D2D2A] text-xs focus:outline-none focus:border-purple-500"
-                      />
-                    </div>
-
-                    <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/60">
-                      <label className="font-extrabold text-emerald-900 block mb-1">
-                        4. ما الفرصة التي يجب استغلالها؟
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={compFormData.opportunityToExploit || ''}
-                        onChange={(e) => setCompFormData({ ...compFormData, opportunityToExploit: e.target.value })}
-                        placeholder="الفرصة الأكبر للتفوق السريع على هذا المنافس..."
-                        className="w-full p-2 rounded-lg border border-emerald-200 bg-white text-[#2D2D2A] text-xs focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Highlighted Recommended Action Field */}
-                  <div className="bg-[#5A5A40] text-white p-4 rounded-2xl border border-[#4a4a34] shadow-md space-y-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-300" />
-                      <label className="font-black text-xs text-amber-200">
-                        5. الإجراء المقترح للبراند | Recommended Action <span className="text-white">*</span>
-                      </label>
-                    </div>
-                    <textarea
-                      required
-                      rows={3}
-                      value={compFormData.recommendedAction || ''}
-                      onChange={(e) => setCompFormData({ ...compFormData, recommendedAction: e.target.value })}
-                      placeholder="القرار العملي الموصى به لفريق العمل والتسويق بخصوص هذا المنافس..."
-                      className="w-full p-3 rounded-xl border border-white/20 bg-white text-[#2D2D2A] font-bold text-xs focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    />
-                  </div>
-                </div>
-              )}
+                <ChecklistEditorSection
+                  title={COMPETITOR_SECTION_DEFINITIONS[compActiveModalTab]?.itemsTitle || 'بنود التحليل'}
+                  items={getCompetitorSectionItems(compFormData, compActiveModalTab)}
+                  defaultItems={(COMPETITOR_SECTION_DEFINITIONS[compActiveModalTab]?.fields || []).map(field => ({
+                    id: field.id,
+                    label: field.label,
+                    status: ''
+                  }))}
+                  fallbackToDefaultItemsWhenEmpty={false}
+                  placeholderAnswer="اكتب نتيجة التحليل أو الملاحظة..."
+                  columns={2}
+                  onUpdate={(items) =>
+                    setCompFormData(prev => updateCompetitorSectionItems(prev, compActiveModalTab, items))
+                  }
+                />
+              </div>
             </form>
 
             {/* Modal Footer with Step Navigation */}

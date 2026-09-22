@@ -9,6 +9,7 @@ interface ChecklistEditorSectionProps {
   onUpdate: (updatedItems: AuditCheckItem[]) => void;
   placeholderAnswer?: string;
   columns?: 1 | 2;
+  fallbackToDefaultItemsWhenEmpty?: boolean;
 }
 
 export const ChecklistEditorSection: React.FC<ChecklistEditorSectionProps> = ({
@@ -17,9 +18,10 @@ export const ChecklistEditorSection: React.FC<ChecklistEditorSectionProps> = ({
   defaultItems = [],
   onUpdate,
   placeholderAnswer = 'اكتب الإجابة التفصيلية...',
-  columns = 2
+  columns = 2,
+  fallbackToDefaultItemsWhenEmpty = true
 }) => {
-  const currentList = items && items.length > 0 ? items : defaultItems;
+  const currentList = fallbackToDefaultItemsWhenEmpty && items.length === 0 ? defaultItems : items;
 
   const [isAdding, setIsAdding] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
