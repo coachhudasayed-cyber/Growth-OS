@@ -4594,8 +4594,7 @@ const compData: CompetitorItem = {
                   </div>
 
                   {UNIT_ECONOMICS_SECTIONS.map(section => {
-                    const allItems = getUnitEconomicsChecklist(formData.unitEconomics);
-                    const sectionItems = allItems.filter(item => item.id.startsWith(`ue-${section.id}-`));
+                    const sectionItems = getUnitEconomicsSectionItems(formData.unitEconomics, section.id);
                     return (
                       <div key={section.id} className="space-y-2">
                         <ChecklistEditorSection
@@ -4605,27 +4604,12 @@ const compData: CompetitorItem = {
                           fallbackToDefaultItemsWhenEmpty={false}
                           placeholderAnswer="اكتب الرقم أو النسبة أو الإجابة المتاحة..."
                           columns={2}
-                          onUpdate={(items) => {
-                            const sectionItemIds = new Set(sectionItems.map(item => item.id));
-                            const normalizedItems = items.map(item => item.id.startsWith(`ue-${section.id}-`)
-                              ? item
-                              : { ...item, id: `ue-${section.id}-custom-${item.id}` });
-                            const nextChecklist = [
-                              ...allItems.filter(item => !sectionItemIds.has(item.id)),
-                              ...normalizedItems
-                            ];
-                            const actualSellingPrice = nextChecklist.find(item => item.id === 'ue-selling-actual-price');
-                            const grossMargin = nextChecklist.find(item => item.id === 'ue-selling-gross-margin');
-                            setFormData({
-                              ...formData,
-                              unitEconomics: {
-                                ...formData.unitEconomics,
-                                avgPriceRange: actualSellingPrice?.status || '',
-                                profitMargin: grossMargin?.status || '',
-                                checklist: nextChecklist
-                              }
-                            });
-                          }}
+                          onUpdate={(items) =>
+                            setFormData(prev => ({
+                              ...prev,
+                              unitEconomics: updateUnitEconomicsSection(prev.unitEconomics, section.id, items)
+                            }))
+                          }
                         />
                       </div>
                     );
@@ -5306,12 +5290,8 @@ const compData: CompetitorItem = {
 
                 <ChecklistEditorSection
                   title={COMPETITOR_SECTION_DEFINITIONS[compActiveModalTab]?.itemsTitle || 'بنود التحليل'}
-                  items={getCompetitorSectionItems(compFormData, compActiveModalTab)}
-                  defaultItems={(COMPETITOR_SECTION_DEFINITIONS[compActiveModalTab]?.fields || []).map(field => ({
-                    id: field.id,
-                    label: field.label,
-                    status: ''
-                  }))}
+                  items={compFormData.sectionChecklists?.[String(compActiveModalTab)] || []}
+                  defaultItems={(getCompetitorTemplate(currentAudit.competitorAnalysisTemplate)[String(compActiveModalTab)] || []).map(item => ({ ...item }))}
                   fallbackToDefaultItemsWhenEmpty={false}
                   placeholderAnswer="اكتب نتيجة التحليل أو الملاحظة..."
                   columns={2}
