@@ -209,6 +209,10 @@ export interface CompetitorItem {
   opportunityToExploit?: string; // ما الفرصة التي يجب استغلالها؟
   recommendedAction?: string; // الإجراء المقترح للبراند | Recommended Action
 
+  // Editable questions inside each competitor-analysis section.
+  // Keys are the 9 section numbers ("1".."9").
+  sectionChecklists?: Record<string, AuditCheckItem[]>;
+
   // للتوافق القديم
   priceDiffReason?: string;
 }
