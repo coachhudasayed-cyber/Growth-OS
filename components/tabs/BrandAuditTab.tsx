@@ -1834,6 +1834,22 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               </div>
             </div>
           </div>
+
+          {(currentAudit.overview?.checklist || []).length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+              {(currentAudit.overview?.checklist || []).map((item) => (
+                <div key={item.id} className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0]">
+                  <span className="text-[#8E8E85] font-bold block mb-1">{item.label}</span>
+                  <span className="font-extrabold text-[#2D2D2A] whitespace-pre-wrap">
+                    {item.status || 'غير محدد'}
+                  </span>
+                  {item.notes && (
+                    <p className="text-[11px] text-[#78786E] mt-1 whitespace-pre-wrap">{item.notes}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -4141,10 +4157,11 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     <div>
                       {renderOverviewFieldLabelEditor('brandStage')}
                       <select
-                        value={formData.overview?.brandStage || 'جديد'}
+                        value={formData.overview?.brandStage || ''}
                         onChange={(e) => setFormData({ ...formData, overview: { ...formData.overview, brandStage: e.target.value } })}
                         className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-white font-bold"
                       >
+                        <option value="" disabled>اختاري مرحلة البراند</option>
                         <option value="جديد">جديد</option>
                         <option value="شغال">شغال</option>
                         <option value="بيعمل Scale">بيعمل Scale</option>
