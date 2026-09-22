@@ -490,6 +490,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const [probPriority, setProbPriority] = useState<string>('عالية');
   const [probSolution, setProbSolution] = useState('');
   const [probStatus, setProbStatus] = useState<'قيد التنفيذ' | 'تم التنفيذ'>('قيد التنفيذ');
+  const [problemChecklist, setProblemChecklist] = useState<AuditCheckItem[]>(PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item })));
 
   // Modal State for Competitor (Add/Edit)
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
@@ -700,6 +701,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setProbPriority('عالية');
     setProbSolution('');
     setProbStatus('قيد التنفيذ');
+    setProblemChecklist(PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item })));
     setShowProblemModal(true);
   };
 
@@ -711,39 +713,30 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setProbPriority(prob.priorityLevel || 'عالية');
     setProbSolution(prob.solutionStrategy);
     setProbStatus(prob.status || 'قيد التنفيذ');
+    setProblemChecklist(getProblemChecklist(prob));
     setShowProblemModal(true);
   };
 
   const handleSaveProblem = (e: React.FormEvent) => {
     e.preventDefault();
     if (userRole === 'client') return;
-    const existing = currentAudit.problemsAndSolutions || [];
-    let updated: BrandAuditProblemSolution[] = [];
 
-    if (editingProblem) {
-      updated = existing.map((p) =>
-        p.id === editingProblem.id
-          ? {
-              ...p,
-              problem: probTitle.trim(),
-              impactOnSales: probImpact.trim(),
-              priorityLevel: probPriority,
-              solutionStrategy: probSolution.trim(),
-              status: probStatus
-            }
-          : p
-      );
-    } else {
-      const newProb: BrandAuditProblemSolution = {
-        id: `ps-${Date.now()}`,
-        problem: probTitle.trim(),
-        impactOnSales: probImpact.trim(),
-        priorityLevel: probPriority,
-        solutionStrategy: probSolution.trim(),
-        status: probStatus
-      };
-      updated = [...existing, newProb];
-    }
+    const existing = currentAudit.problemsAndSolutions || [];
+    const base: BrandAuditProblemSolution = editingProblem
+      ? { ...editingProblem }
+      : {
+          id: `ps-${Date.now()}`,
+          problem: 'مشكلة جديدة',
+          impactOnSales: '',
+          priorityLevel: 'عالية',
+          solutionStrategy: '',
+          status: 'قيد التنفيذ'
+        };
+
+    const savedProblem = syncProblemFieldsFromChecklist(base, problemChecklist);
+    const updated = editingProblem
+      ? existing.map((p) => (p.id === editingProblem.id ? savedProblem : p))
+      : [...existing, savedProblem];
 
     onUpdateAudit(clientId, { ...currentAudit, problemsAndSolutions: updated });
     setShowProblemModal(false);
