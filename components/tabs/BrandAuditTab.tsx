@@ -134,6 +134,12 @@ const UNIT_ECONOMICS_DEFAULT_ITEMS: AuditCheckItem[] = UNIT_ECONOMICS_SECTIONS.f
 );
 
 const getUnitEconomicsChecklist = (unitEconomics?: BrandAudit['unitEconomics']): AuditCheckItem[] => {
+  if (unitEconomics?.sectionChecklists) {
+    return UNIT_ECONOMICS_SECTIONS.flatMap(section =>
+      (unitEconomics.sectionChecklists?.[section.id] || []).map(item => ({ ...item }))
+    );
+  }
+
   const existing = unitEconomics?.checklist;
   const existingItems = existing || [];
   const byId = new Map(existingItems.map(item => [item.id, item]));
@@ -143,14 +149,9 @@ const getUnitEconomicsChecklist = (unitEconomics?: BrandAudit['unitEconomics']):
     'ue-selling-gross-margin': byId.get('ue-4')?.status || unitEconomics?.profitMargin
   };
 
-  // Once the editable checklist exists, it is the source of truth.
-  // This preserves edited labels, custom questions and intentional deletions.
-  // Only the old legacy four-item structure is migrated to the new defaults.
   if (existing !== undefined) {
     const isLegacyOnly = existing.length > 0 && existing.every(item => legacyIds.has(item.id));
-    if (!isLegacyOnly) {
-      return existing.map(item => ({ ...item }));
-    }
+    if (!isLegacyOnly) return existing.map(item => ({ ...item }));
   }
 
   return UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => ({
@@ -159,11 +160,51 @@ const getUnitEconomicsChecklist = (unitEconomics?: BrandAudit['unitEconomics']):
   }));
 };
 
+const getUnitEconomicsSections = (
+  unitEconomics?: BrandAudit['unitEconomics']
+): Record<string, AuditCheckItem[]> => {
+  if (unitEconomics?.sectionChecklists) {
+    return Object.fromEntries(
+      UNIT_ECONOMICS_SECTIONS.map(section => [
+        section.id,
+        (unitEconomics.sectionChecklists?.[section.id] || []).map(item => ({ ...item }))
+      ])
+    );
+  }
+
+  const flat = getUnitEconomicsChecklist(unitEconomics);
+  return Object.fromEntries(
+    UNIT_ECONOMICS_SECTIONS.map(section => [
+      section.id,
+      flat.filter(item => item.id.startsWith(`ue-${section.id}-`)).map(item => ({ ...item }))
+    ])
+  );
+};
+
 const getUnitEconomicsSectionItems = (
   unitEconomics: BrandAudit['unitEconomics'],
   sectionId: string
-) => getUnitEconomicsChecklist(unitEconomics).filter(item => item.id.startsWith(`ue-${sectionId}-`));
+) => getUnitEconomicsSections(unitEconomics)[sectionId] || [];
 
+const updateUnitEconomicsSection = (
+  unitEconomics: BrandAudit['unitEconomics'],
+  sectionId: string,
+  items: AuditCheckItem[]
+): BrandAudit['unitEconomics'] => {
+  const sections = getUnitEconomicsSections(unitEconomics);
+  sections[sectionId] = items.map(item => ({ ...item }));
+  const checklist = UNIT_ECONOMICS_SECTIONS.flatMap(section => sections[section.id] || []);
+  const actualSellingPrice = checklist.find(item => item.id === 'ue-selling-actual-price');
+  const grossMargin = checklist.find(item => item.id === 'ue-selling-gross-margin');
+
+  return {
+    ...unitEconomics,
+    avgPriceRange: actualSellingPrice?.status || '',
+    profitMargin: grossMargin?.status || '',
+    sectionChecklists: sections,
+    checklist
+  };
+};
 
 
 const PROBLEM_DEFAULT_ITEMS: AuditCheckItem[] = [
@@ -320,25 +361,60 @@ const COMPETITOR_SECTION_DEFINITIONS: Record<number, { title: string; itemsTitle
   }
 };
 
-const getCompetitorSectionItems = (competitor: CompetitorItem, sectionId: number): AuditCheckItem[] => {
-  const saved = competitor.sectionChecklists?.[String(sectionId)];
-  if (saved !== undefined) return saved.map(item => ({ ...item }));
+const getDefaultCompetitorTemplate = (): Record<string, AuditCheckItem[]> =>
+  Object.fromEntries(
+    Object.entries(COMPETITOR_SECTION_DEFINITIONS).map(([key, section]) => [
+      key,
+      section.fields.map(field => ({ id: field.id, label: field.label, status: '' }))
+    ])
+  );
 
-  return (COMPETITOR_SECTION_DEFINITIONS[sectionId]?.fields || []).map(field => ({
-    id: field.id,
-    label: field.label,
-    status: String(competitor[field.key] || '')
-  }));
+const getCompetitorTemplate = (
+  template?: Record<string, AuditCheckItem[]>
+): Record<string, AuditCheckItem[]> => {
+  const defaults = getDefaultCompetitorTemplate();
+  if (!template) return defaults;
+  return Object.fromEntries(
+    Object.keys(COMPETITOR_SECTION_DEFINITIONS).map(key => [
+      key,
+      (template[key] ?? defaults[key] ?? []).map(item => ({ ...item, status: '' }))
+    ])
+  );
 };
 
-const normalizeCompetitorChecklists = (competitor: CompetitorItem): CompetitorItem => {
-  const sectionChecklists = { ...(competitor.sectionChecklists || {}) };
-  Object.keys(COMPETITOR_SECTION_DEFINITIONS).forEach(key => {
-    const sectionId = Number(key);
-    if (sectionChecklists[key] === undefined) {
-      sectionChecklists[key] = getCompetitorSectionItems(competitor, sectionId);
-    }
+const getCompetitorSectionItems = (
+  competitor: CompetitorItem,
+  sectionId: number,
+  template?: Record<string, AuditCheckItem[]>
+): AuditCheckItem[] => {
+  const key = String(sectionId);
+  const structure = getCompetitorTemplate(template)[key] || [];
+  const saved = competitor.sectionChecklists?.[key] || [];
+  const savedById = new Map(saved.map(item => [item.id, item]));
+  const fields = COMPETITOR_SECTION_DEFINITIONS[sectionId]?.fields || [];
+
+  return structure.map(templateItem => {
+    const stored = savedById.get(templateItem.id);
+    const field = fields.find(candidate => candidate.id === templateItem.id);
+    const legacyValue = field ? String(competitor[field.key] || '') : '';
+    return {
+      ...templateItem,
+      status: stored?.status ?? legacyValue
+    };
   });
+};
+
+const normalizeCompetitorChecklists = (
+  competitor: CompetitorItem,
+  template?: Record<string, AuditCheckItem[]>
+): CompetitorItem => {
+  const structure = getCompetitorTemplate(template);
+  const sectionChecklists = Object.fromEntries(
+    Object.keys(COMPETITOR_SECTION_DEFINITIONS).map(key => [
+      key,
+      getCompetitorSectionItems(competitor, Number(key), structure)
+    ])
+  );
   return { ...competitor, sectionChecklists };
 };
 
@@ -351,7 +427,7 @@ const updateCompetitorSectionItems = (
     ...competitor,
     sectionChecklists: {
       ...(competitor.sectionChecklists || {}),
-      [String(sectionId)]: items
+      [String(sectionId)]: items.map(item => ({ ...item }))
     }
   } as CompetitorItem;
 
@@ -362,6 +438,18 @@ const updateCompetitorSectionItems = (
   });
 
   return next;
+};
+
+const competitorTemplateFromChecklists = (
+  sectionChecklists?: Record<string, AuditCheckItem[]>
+): Record<string, AuditCheckItem[]> => {
+  const source = sectionChecklists || getDefaultCompetitorTemplate();
+  return Object.fromEntries(
+    Object.keys(COMPETITOR_SECTION_DEFINITIONS).map(key => [
+      key,
+      (source[key] || []).map(item => ({ id: item.id, label: item.label, status: '' }))
+    ])
+  );
 };
 
 const BUILT_IN_AUDIT_SECTIONS = [
