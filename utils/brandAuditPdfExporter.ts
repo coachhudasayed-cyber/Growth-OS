@@ -183,7 +183,7 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
     checklistGroup('Website / Store | الموقع او المتجر', audit.digitalAssets?.websiteChecklist),
     checklistGroup('Landing Page | صفحة الهبوط', audit.digitalAssets?.landingPageChecklist),
     checklistGroup('Contacts | وسائل التواصل', audit.digitalAssets?.contactsChecklist)
-  ].filter((item): item is PdfGroup => Boolean(item));
+  ].filter(Boolean) as PdfGroup[];
   sections.push({ id: 'digitalAssets', title: getSectionTitle(audit, 'digitalAssets'), groups: digitalGroups });
 
   const trackingChecklist = mergeChecklistRows(audit.trackingAudit?.checklist, audit.trackingAudit?.eventsChecklist);
@@ -208,7 +208,7 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
     checklistGroup('Hooks', audit.creativeAudit?.hooksChecklist),
     checklistGroup('Value Proposition', audit.creativeAudit?.valuePropChecklist),
     checklistGroup('Offers | العروض', audit.creativeAudit?.offersChecklist)
-  ].filter((item): item is PdfGroup => Boolean(item));
+  ].filter(Boolean) as PdfGroup[];
   if (!creativeGroups.length) {
     const fallback = group(undefined, [
       row('Brand Identity', audit.creativeAudit?.brandIdentity),
@@ -313,7 +313,7 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
         const rows = checklistRows(items);
         return rows.length ? { title: `${index + 1}. ${competitor.name || 'Competitor'} — Section ${key}`, rows } : null;
       })
-      .filter((item): item is PdfGroup => Boolean(item));
+      .filter(Boolean) as PdfGroup[];
 
     if (templateGroups.length) {
       competitorGroups.push(...templateGroups);
@@ -335,7 +335,7 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
     group('Weaknesses | نقاط الضعف', (audit.swot?.weaknesses || []).map((value, index) => row(String(index + 1), value))),
     group('Opportunities | الفرص', (audit.swot?.opportunities || []).map((value, index) => row(String(index + 1), value))),
     group('Threats | التهديدات', (audit.swot?.threats || []).map((value, index) => row(String(index + 1), value)))
-  ].filter((item): item is PdfGroup => Boolean(item));
+  ].filter(Boolean) as PdfGroup[];
   sections.push({ id: 'swot', title: getSectionTitle(audit, 'swot'), groups: swotGroups });
 
   const personaGroups: PdfGroup[] = [];
