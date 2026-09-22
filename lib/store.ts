@@ -25,6 +25,11 @@ const CLIENT_WRITABLE_COLLECTIONS = new Set([
   'notes'
 ]);
 
+const EXPLICIT_DELETE_ONLY_COLLECTIONS = new Set([
+  'agreements',
+  'payments'
+]);
+
 const profileFromRow = (row: any): UserProfile => ({
   id: row.id,
   email: row.email,
@@ -235,7 +240,12 @@ export function useAppData() {
     const upserts = [...next.entries()]
       .filter(([key, value]) => before.get(key) !== value)
       .map(([, value]) => JSON.parse(value) as StoredRecord);
-    const deletes = [...before.keys()].filter(key => !next.has(key));
+    const deletes = [...before.keys()].filter(key => {
+      if (next.has(key)) return false;
+      const divider = key.indexOf(':');
+      const collection = divider >= 0 ? key.slice(0, divider) : key;
+      return !EXPLICIT_DELETE_ONLY_COLLECTIONS.has(collection);
+    });
     const optimisticRecords = writableCollections ? new Map(allBefore) : new Map<string, string>();
     before.forEach((_, key) => optimisticRecords.delete(key));
     next.forEach((value, key) => optimisticRecords.set(key, value));
@@ -609,9 +619,42 @@ export function useAppData() {
     }));
   };
 
-  const deleteAgreement = (id: string) => {
-    setAgreements(prev => prev.filter(a => a.id !== id));
-    setPayments(prev => prev.filter(p => p.agreementId !== id));
+  const deleteAgreement = async (id: string) => {
+    const linkedPaymentIds = payments
+      .filter(payment => payment.agreementId === id)
+      .map(payment => payment.id);
+
+    const previousRecords = new Map(savedRecords.current);
+
+    try {
+      await writeQueue.current.catch(() => undefined);
+
+      for (const paymentId of linkedPaymentIds) {
+        const paymentResult = await supabase.from('app_records').delete()
+          .eq('collection', 'payments')
+          .eq('record_id', paymentId);
+        if (paymentResult.error) throw paymentResult.error;
+      }
+
+      const agreementResult = await supabase.from('app_records').delete()
+        .eq('collection', 'agreements')
+        .eq('record_id', id);
+      if (agreementResult.error) throw agreementResult.error;
+
+      linkedPaymentIds.forEach(paymentId => {
+        savedRecords.current.delete(`payments:${paymentId}`);
+      });
+      savedRecords.current.delete(`agreements:${id}`);
+
+      setPayments(prev => prev.filter(payment => payment.agreementId !== id));
+      setAgreements(prev => prev.filter(agreement => agreement.id !== id));
+      setSyncError('');
+    } catch (err) {
+      savedRecords.current = previousRecords;
+      const message = err instanceof Error ? err.message : 'تعذر حذف الاتفاق من قاعدة البيانات.';
+      setSyncError(message);
+      throw err;
+    }
   };
 
   // Payment Methods
@@ -667,8 +710,26 @@ export function useAppData() {
     }));
   };
 
-  const deletePayment = (id: string) => {
-    setPayments(prev => prev.filter(p => p.id !== id));
+  const deletePayment = async (id: string) => {
+    const previousRecords = new Map(savedRecords.current);
+
+    try {
+      await writeQueue.current.catch(() => undefined);
+
+      const result = await supabase.from('app_records').delete()
+        .eq('collection', 'payments')
+        .eq('record_id', id);
+      if (result.error) throw result.error;
+
+      savedRecords.current.delete(`payments:${id}`);
+      setPayments(prev => prev.filter(payment => payment.id !== id));
+      setSyncError('');
+    } catch (err) {
+      savedRecords.current = previousRecords;
+      const message = err instanceof Error ? err.message : 'تعذر حذف الدفعة من قاعدة البيانات.';
+      setSyncError(message);
+      throw err;
+    }
   };
 
   // Daily Work Tracking Methods
