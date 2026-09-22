@@ -64,8 +64,7 @@ export const ChecklistEditorSection: React.FC<ChecklistEditorSectionProps> = ({
     setItemToDelete(null);
   };
 
-  const handleAddItem = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddItem = () => {
     if (!newQuestion.trim()) return;
     const newItem: AuditCheckItem = {
       id: `check-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -110,8 +109,7 @@ export const ChecklistEditorSection: React.FC<ChecklistEditorSectionProps> = ({
 
       {/* Inline Form to Add New Question */}
       {isAdding && (
-        <form
-          onSubmit={handleAddItem}
+        <div
           className="p-3.5 bg-white rounded-2xl border-2 border-dashed border-[#5A5A40]/40 space-y-2.5 animate-in fade-in duration-150"
         >
           <div className="flex items-center justify-between pb-1 border-b border-[#E5E5E0]">
@@ -139,6 +137,12 @@ export const ChecklistEditorSection: React.FC<ChecklistEditorSectionProps> = ({
                 required
                 value={newQuestion}
                 onChange={(e) => setNewQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddItem();
+                  }
+                }}
                 placeholder="مثال: هل الموقع يدعم الدفع بالتقسيط؟"
                 className="w-full p-2.5 text-xs rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold focus:bg-white focus:outline-none focus:border-[#5A5A40]"
                 autoFocus
@@ -171,14 +175,15 @@ export const ChecklistEditorSection: React.FC<ChecklistEditorSectionProps> = ({
               إلغاء
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleAddItem}
               className="px-4 py-1.5 bg-[#5A5A40] text-white hover:bg-[#4a4a34] font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />
               <span>إضافة السؤال</span>
             </button>
           </div>
-        </form>
+        </div>
       )}
 
       {/* Grid of Checklist items */}
