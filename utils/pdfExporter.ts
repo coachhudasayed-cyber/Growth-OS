@@ -130,6 +130,25 @@ const getSmartPageBreaks = (
     }
   });
 
+  // Add safe text line boundaries so exceptionally long answers can still
+  // flow to the next PDF page without slicing through the middle of a text line.
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let textNode = walker.nextNode();
+  while (textNode) {
+    const text = textNode.textContent || '';
+    if (text.trim()) {
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      Array.from(range.getClientRects()).forEach(rect => {
+        if (rect.height > 0) {
+          candidates.add(Math.round((rect.bottom - rootTop) * canvasScale));
+        }
+      });
+      range.detach();
+    }
+    textNode = walker.nextNode();
+  }
+
   const edgeTolerance = Math.round(6 * canvasScale);
   return Array.from(candidates)
     .filter(point => !protectedRanges.some(range => (
@@ -146,8 +165,13 @@ interface PdfSectionGuide {
 
 const getPdfSectionGuides = (root: HTMLElement, canvasScale: number): PdfSectionGuide[] => {
   const rootRect = root.getBoundingClientRect();
-  const sectionsWrapper = Array.from(root.children).find(child => (
-    child instanceof HTMLElement && child.classList.contains('space-y-6')
+  const explicitSectionsWrapper = root.querySelector<HTMLElement>('[data-pdf-sections]');
+  const sectionsWrapper = explicitSectionsWrapper || Array.from(root.children).find(child => (
+    child instanceof HTMLElement &&
+    (
+      child.classList.contains('space-y-6') ||
+      (child.classList.contains('flex') && child.classList.contains('flex-col'))
+    )
   ));
 
   if (!(sectionsWrapper instanceof HTMLElement)) return [];
@@ -253,37 +277,40 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
         : 0;
       const pageBottomGap = Math.round(12 * actualCanvasScale);
       const pageSliceLimit = maxSliceHeight - continuationHeaderHeight - continuationGap - pageBottomGap;
-      const minimumUsefulSlice = Math.floor(pageSliceLimit * 0.25);
+      const minimumUsefulSlice = Math.floor(pageSliceLimit * 0.22);
       const remaining = canvas.height - sourceY;
       let sliceHeight = Math.min(pageSliceLimit, remaining);
-      const naturalTail = remaining - pageSliceLimit;
-      const shouldMergeSmallTail = naturalTail > 0 && naturalTail < pageSliceLimit * 0.18;
 
-      if (shouldMergeSmallTail) {
-        sliceHeight = remaining;
-      } else if (remaining > pageSliceLimit) {
+      if (remaining > pageSliceLimit) {
         const targetEnd = sourceY + pageSliceLimit;
-        const smartEndBefore = smartBreaks
-          .filter(point => point <= targetEnd && point >= sourceY + minimumUsefulSlice)
-          .pop();
-        const smartEndAfter = smartBreaks.find(point => (
-          point > targetEnd && point <= sourceY + pageSliceLimit * 1.16
-        ));
-        let smartEnd = smartEndBefore || smartEndAfter;
 
-        if (smartEnd) {
-          const sectionStartingNearBreak = sectionGuides
-            .filter(section => (
-              section.start >= sourceY + minimumUsefulSlice &&
-              section.start < smartEnd! &&
-              smartEnd! - section.start < 150 * actualCanvasScale
-            ))
+        // Highest-priority rule: if a complete Brand Audit section would fit on
+        // a fresh page but would be split by the current page boundary, move the
+        // whole section to the next page instead of cutting it.
+        const crossingFittingSection = sectionGuides.find(section => {
+          const sectionHeight = section.end - section.start;
+          return (
+            section.start > sourceY + minimumUsefulSlice &&
+            section.start < targetEnd &&
+            section.end > targetEnd &&
+            sectionHeight <= pageSliceLimit
+          );
+        });
+
+        if (crossingFittingSection) {
+          sliceHeight = crossingFittingSection.start - sourceY;
+        } else {
+          // For genuinely tall sections, break only at safe card/heading/text-line
+          // boundaries that are inside the current A4 page. Never extend past the
+          // physical page height and shrink the whole page as a workaround.
+          const smartEnd = smartBreaks
+            .filter(point => point <= targetEnd && point >= sourceY + minimumUsefulSlice)
             .pop();
-          if (sectionStartingNearBreak) smartEnd = sectionStartingNearBreak.start;
-        }
 
-        const wouldLeaveTinyLastPage = smartEnd && canvas.height - smartEnd < pageSliceLimit * 0.25;
-        if (smartEnd && !wouldLeaveTinyLastPage) sliceHeight = smartEnd - sourceY;
+          if (smartEnd) {
+            sliceHeight = smartEnd - sourceY;
+          }
+        }
       }
 
       const pageCanvas = document.createElement('canvas');
