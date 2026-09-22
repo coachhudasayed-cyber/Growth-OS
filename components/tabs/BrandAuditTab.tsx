@@ -366,7 +366,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   // Open the Full Audit Modal
   const handleOpenFullModal = () => {
     if (userRole === 'client') return;
-    setFormData(JSON.parse(JSON.stringify(currentAudit)));
+    setFormData(JSON.parse(JSON.stringify(normalizePersonaEditableLists(currentAudit))));
     const firstVisibleEntry = orderedSectionEntries.find(entry =>
       entry.type === 'custom' || !currentAudit.builtInSectionSettings?.[entry.builtIn.id]?.hidden
     );
@@ -382,9 +382,10 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   // Save Full Audit Modal
   const handleSaveFullAudit = () => {
     if (userRole === 'client') return;
-    const updatedDate = formData.auditDate || formatLocalDate();
+    const normalizedFormData = normalizePersonaEditableLists(formData);
+    const updatedDate = normalizedFormData.auditDate || formatLocalDate();
     const updatedAudit: BrandAudit = {
-      ...formData,
+      ...normalizedFormData,
       builtInSectionSettings: currentAudit.builtInSectionSettings,
       overviewFieldLabels: currentAudit.overviewFieldLabels,
       customSections: currentAudit.customSections,
