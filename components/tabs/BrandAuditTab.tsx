@@ -164,6 +164,160 @@ const getUnitEconomicsSectionItems = (
   sectionId: string
 ) => getUnitEconomicsChecklist(unitEconomics).filter(item => item.id.startsWith(`ue-${sectionId}-`));
 
+
+type CompetitorSectionField = {
+  id: string;
+  key: keyof CompetitorItem;
+  label: string;
+};
+
+const COMPETITOR_SECTION_DEFINITIONS: Record<number, { title: string; itemsTitle: string; fields: CompetitorSectionField[] }> = {
+  1: {
+    title: '1. بيانات المنافس | Competitor Profile',
+    itemsTitle: 'بيانات وتحليل المنافس',
+    fields: [
+      { id: 'comp-profile-page-link', key: 'pageLink', label: 'رابط الحساب / الموقع | Page / Website Link' },
+      { id: 'comp-profile-products', key: 'products', label: 'المنتجات والخدمات | Products & Services' },
+      { id: 'comp-profile-target-audience', key: 'targetAudience', label: 'الجمهور المستهدف | Target Audience' },
+      { id: 'comp-profile-sales-channels', key: 'salesChannels', label: 'قنوات البيع | Sales Channels' }
+    ]
+  },
+  2: {
+    title: '2. التسعير والعروض | Pricing & Offers',
+    itemsTitle: 'بنود التسعير والعروض',
+    fields: [
+      { id: 'comp-pricing-price', key: 'price', label: 'متوسط الأسعار | Average Price' },
+      { id: 'comp-pricing-offers', key: 'offers', label: 'العروض الحالية | Current Offers' },
+      { id: 'comp-pricing-discounts', key: 'discounts', label: 'الخصومات | Discounts' },
+      { id: 'comp-pricing-bundles', key: 'bundles', label: 'الباقات والحزم | Bundles' },
+      { id: 'comp-pricing-gifts', key: 'giftsAndExtras', label: 'الهدايا والمزايا الإضافية | Gifts & Extras' },
+      { id: 'comp-pricing-returns', key: 'warrantyAndReturns', label: 'شروط الضمان والاسترجاع | Warranty & Returns' }
+    ]
+  },
+  3: {
+    title: '3. التسويق والمحتوى | Marketing & Content',
+    itemsTitle: 'بنود التسويق والمحتوى',
+    fields: [
+      { id: 'comp-marketing-channels', key: 'marketingChannels', label: 'قنوات التسويق | Marketing Channels' },
+      { id: 'comp-marketing-frequency', key: 'postingFrequency', label: 'تكرار النشر | Posting Frequency' },
+      { id: 'comp-marketing-content-type', key: 'contentType', label: 'أنواع المحتوى | Content Types' },
+      { id: 'comp-marketing-best-content', key: 'bestPerformingContent', label: 'أفضل المحتوى وسبب نجاحه | Best Performing Content' },
+      { id: 'comp-marketing-message', key: 'marketingMessage', label: 'الرسائل التسويقية الأساسية | Marketing Message' },
+      { id: 'comp-marketing-style', key: 'photographyStyle', label: 'أسلوب التصوير والكريتيف | Creative Style' },
+      { id: 'comp-marketing-cta', key: 'primaryCta', label: 'الـ CTA الأساسي | Primary CTA' }
+    ]
+  },
+  4: {
+    title: '4. الإعلانات | Advertising',
+    itemsTitle: 'بنود تحليل الإعلانات',
+    fields: [
+      { id: 'comp-ads-current', key: 'currentAds', label: 'الإعلانات الحالية النشطة | Current Ads' },
+      { id: 'comp-ads-copy', key: 'adCopy', label: 'النص الإعلاني | Ad Copy' },
+      { id: 'comp-ads-hook', key: 'adHook', label: 'الهوك الإعلاني | Ad Hook' },
+      { id: 'comp-ads-cta', key: 'adCta', label: 'الـ CTA في الإعلان | Ad CTA' },
+      { id: 'comp-ads-landing', key: 'landingPageOrPurchaseLink', label: 'صفحة الهبوط / رابط الشراء | Landing Page' },
+      { id: 'comp-ads-offer', key: 'offerTypeUsed', label: 'نوع العرض المستخدم | Offer Type' },
+      { id: 'comp-ads-strategy', key: 'adStrategyNotes', label: 'ملاحظات على استراتيجية الإعلان | Ad Strategy Notes' }
+    ]
+  },
+  5: {
+    title: '5. تجربة العميل | Customer Experience',
+    itemsTitle: 'بنود تجربة العميل',
+    fields: [
+      { id: 'comp-cx-landing', key: 'landingPageQuality', label: 'جودة صفحة الهبوط | Landing Page Quality' },
+      { id: 'comp-cx-purchase', key: 'easeOfPurchase', label: 'سهولة الشراء | Ease of Purchase' },
+      { id: 'comp-cx-after-sales', key: 'afterSalesService', label: 'خدمة ما بعد البيع | After-Sales Service' },
+      { id: 'comp-cx-reviews', key: 'reviewsAndFeedback', label: 'الريفيوز وملاحظات العملاء | Reviews & Feedback' },
+      { id: 'comp-cx-objections', key: 'recurringComplaintsOrObjections', label: 'الاعتراضات أو المشاكل المتكررة | Recurring Objections' }
+    ]
+  },
+  6: {
+    title: '6. أداء المنافس | Competitive Assessment',
+    itemsTitle: 'بنود تقييم أداء المنافس',
+    fields: [
+      { id: 'comp-assessment-strengths', key: 'strengths', label: 'نقاط القوة | Strengths' },
+      { id: 'comp-assessment-weaknesses', key: 'weaknesses', label: 'نقاط الضعف | Weaknesses' },
+      { id: 'comp-assessment-engagement', key: 'engagementLevel', label: 'مستوى التفاعل | Engagement Level' },
+      { id: 'comp-assessment-patterns', key: 'winningPatterns', label: 'أهم الأنماط الرابحة | Winning Patterns' },
+      { id: 'comp-assessment-differentiator', key: 'keyDifferentiator', label: 'الميزة الفارقة | Key Differentiator' }
+    ]
+  },
+  7: {
+    title: '7. فرص السوق | Market Opportunities',
+    itemsTitle: 'بنود فرص السوق',
+    fields: [
+      { id: 'comp-opps-gaps', key: 'marketGaps', label: 'الفجوات الموجودة في السوق | Market Gaps' },
+      { id: 'comp-opps-needs', key: 'unexploitedNeeds', label: 'احتياجات غير مستغلة | Unexploited Needs' },
+      { id: 'comp-opps-exploit', key: 'opportunitiesToExploit', label: 'فرص يمكن للبراند استغلالها | Opportunities to Exploit' },
+      { id: 'comp-opps-test', key: 'ideasToTest', label: 'أفكار يمكن اختبارها | Ideas to Test' }
+    ]
+  },
+  8: {
+    title: '8. التهديدات | Competitive Threats',
+    itemsTitle: 'بنود التهديدات التنافسية',
+    fields: [
+      { id: 'comp-threat-biggest', key: 'biggestThreat', label: 'أكبر تهديد من هذا المنافس | Biggest Threat' },
+      { id: 'comp-threat-choice', key: 'whyCustomerChoosesThem', label: 'لماذا قد يختاره العميل بدل البراند؟ | Why Customers Choose Them' },
+      { id: 'comp-threat-watch', key: 'movementsToWatch', label: 'تحركات تستحق المتابعة | Movements to Watch' }
+    ]
+  },
+  9: {
+    title: '9. التوصيات الاستراتيجية | Strategic Takeaways',
+    itemsTitle: 'بنود التوصيات الاستراتيجية',
+    fields: [
+      { id: 'comp-strategy-learn', key: 'whatToLearn', label: 'ماذا نتعلم من المنافس؟ | What to Learn' },
+      { id: 'comp-strategy-not-copy', key: 'whatNotToCopy', label: 'ماذا لا يجب أن ننسخه؟ | What Not to Copy' },
+      { id: 'comp-strategy-test', key: 'whatToTest', label: 'ما الذي يمكن اختباره؟ | What to Test' },
+      { id: 'comp-strategy-opportunity', key: 'opportunityToExploit', label: 'ما الفرصة التي يجب استغلالها؟ | Opportunity to Exploit' },
+      { id: 'comp-strategy-action', key: 'recommendedAction', label: 'الإجراء المقترح للبراند | Recommended Action' }
+    ]
+  }
+};
+
+const getCompetitorSectionItems = (competitor: CompetitorItem, sectionId: number): AuditCheckItem[] => {
+  const saved = competitor.sectionChecklists?.[String(sectionId)];
+  if (saved !== undefined) return saved.map(item => ({ ...item }));
+
+  return (COMPETITOR_SECTION_DEFINITIONS[sectionId]?.fields || []).map(field => ({
+    id: field.id,
+    label: field.label,
+    status: String(competitor[field.key] || '')
+  }));
+};
+
+const normalizeCompetitorChecklists = (competitor: CompetitorItem): CompetitorItem => {
+  const sectionChecklists = { ...(competitor.sectionChecklists || {}) };
+  Object.keys(COMPETITOR_SECTION_DEFINITIONS).forEach(key => {
+    const sectionId = Number(key);
+    if (sectionChecklists[key] === undefined) {
+      sectionChecklists[key] = getCompetitorSectionItems(competitor, sectionId);
+    }
+  });
+  return { ...competitor, sectionChecklists };
+};
+
+const updateCompetitorSectionItems = (
+  competitor: CompetitorItem,
+  sectionId: number,
+  items: AuditCheckItem[]
+): CompetitorItem => {
+  const next = {
+    ...competitor,
+    sectionChecklists: {
+      ...(competitor.sectionChecklists || {}),
+      [String(sectionId)]: items
+    }
+  } as CompetitorItem;
+
+  const fields = COMPETITOR_SECTION_DEFINITIONS[sectionId]?.fields || [];
+  fields.forEach(field => {
+    const item = items.find(entry => entry.id === field.id);
+    (next as unknown as Record<string, unknown>)[field.key as string] = item?.status || '';
+  });
+
+  return next;
+};
+
 const BUILT_IN_AUDIT_SECTIONS = [
   { id: 'overview', num: 1, title: '1. Brand Overview' },
   { id: 'digitalAssets', num: 2, title: '2. Digital Assets Audit' },
