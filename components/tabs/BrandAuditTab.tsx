@@ -580,6 +580,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const [editingCompetitor, setEditingCompetitor] = useState<CompetitorItem | null>(null);
   const [compActiveModalTab, setCompActiveModalTab] = useState<number>(1);
   const [expandedCompIds, setExpandedCompIds] = useState<Record<string, boolean>>({});
+  const [competitorSaveError, setCompetitorSaveError] = useState('');
 
   const defaultCompetitorData: CompetitorItem = {
     id: '',
@@ -839,6 +840,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenAddCompetitor = () => {
     if (userRole === 'client') return;
     setEditingCompetitor(null);
+    setCompetitorSaveError('');
     setCompActiveModalTab(1);
     setCompFormData(normalizeCompetitorChecklists({
       ...defaultCompetitorData,
@@ -850,6 +852,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenEditCompetitor = (comp: CompetitorItem) => {
     if (userRole === 'client') return;
     setEditingCompetitor(comp);
+    setCompetitorSaveError('');
     setCompActiveModalTab(1);
     setCompFormData(normalizeCompetitorChecklists({
       id: comp.id,
@@ -907,65 +910,71 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setShowCompetitorModal(true);
   };
 
-  const handleSaveCompetitor = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!compFormData.name?.trim()) return;
+  const handleSaveCompetitor = () => {
+    const competitorName = compFormData.name?.trim();
+    if (!competitorName) {
+      setCompetitorSaveError('اكتبي اسم المنافس الاول قبل الحفظ.');
+      setCompActiveModalTab(1);
+      return;
+    }
+
+    setCompetitorSaveError('');
 
     const existing = currentAudit.competitors || [];
-
-const compData: CompetitorItem = {
-          id: editingCompetitor ? editingCompetitor.id : `comp-${Date.now()}`,
-          name: compFormData.name.trim(),
-          competitorType: compFormData.competitorType || 'مباشر',
-          pageLink: compFormData.pageLink?.trim() || '',
-          products: compFormData.products?.trim() || '',
-          targetAudience: compFormData.targetAudience?.trim() || '',
-          salesChannels: compFormData.salesChannels?.trim() || '',
-          price: compFormData.price?.trim() || '',
-          offers: compFormData.offers?.trim() || '',
-          discounts: compFormData.discounts?.trim() || '',
-          bundles: compFormData.bundles?.trim() || '',
-          giftsAndExtras: compFormData.giftsAndExtras?.trim() || '',
-          warrantyAndReturns: compFormData.warrantyAndReturns?.trim() || '',
-          marketingChannels: compFormData.marketingChannels?.trim() || '',
-          postingFrequency: compFormData.postingFrequency?.trim() || '',
-          contentType: compFormData.contentType?.trim() || '',
-          bestPerformingContent: compFormData.bestPerformingContent?.trim() || '',
-          marketingMessage: compFormData.marketingMessage?.trim() || '',
-          photographyStyle: compFormData.photographyStyle?.trim() || '',
-          primaryCta: compFormData.primaryCta?.trim() || '',
-          currentAds: compFormData.currentAds?.trim() || '',
-          adCopy: compFormData.adCopy?.trim() || '',
-          adHook: compFormData.adHook?.trim() || '',
-          adCta: compFormData.adCta?.trim() || '',
-          landingPageOrPurchaseLink: compFormData.landingPageOrPurchaseLink?.trim() || '',
-          offerTypeUsed: compFormData.offerTypeUsed?.trim() || '',
-          adStrategyNotes: compFormData.adStrategyNotes?.trim() || '',
-          landingPageQuality: compFormData.landingPageQuality?.trim() || '',
-          easeOfPurchase: compFormData.easeOfPurchase?.trim() || '',
-          afterSalesService: compFormData.afterSalesService?.trim() || '',
-          reviewsAndFeedback: compFormData.reviewsAndFeedback?.trim() || '',
-          recurringComplaintsOrObjections: compFormData.recurringComplaintsOrObjections?.trim() || '',
-          strengths: compFormData.strengths?.trim() || '',
-          weaknesses: compFormData.weaknesses?.trim() || '',
-          engagementLevel: compFormData.engagementLevel?.trim() || '',
-          winningPatterns: compFormData.winningPatterns?.trim() || '',
-          keyDifferentiator: compFormData.keyDifferentiator?.trim() || '',
-          marketGaps: compFormData.marketGaps?.trim() || '',
-          unexploitedNeeds: compFormData.unexploitedNeeds?.trim() || '',
-          opportunitiesToExploit: compFormData.opportunitiesToExploit?.trim() || '',
-          ideasToTest: compFormData.ideasToTest?.trim() || '',
-          biggestThreat: compFormData.biggestThreat?.trim() || '',
-          whyCustomerChoosesThem: compFormData.whyCustomerChoosesThem?.trim() || '',
-          movementsToWatch: compFormData.movementsToWatch?.trim() || '',
-          whatToLearn: compFormData.whatToLearn?.trim() || '',
-          whatNotToCopy: compFormData.whatNotToCopy?.trim() || '',
-          whatToTest: compFormData.whatToTest?.trim() || '',
-          opportunityToExploit: compFormData.opportunityToExploit?.trim() || '',
-          recommendedAction: compFormData.recommendedAction?.trim() || '',
-          priceDiffReason: compFormData.priceDiffReason?.trim() || '',
-          sectionChecklists: JSON.parse(JSON.stringify(compFormData.sectionChecklists || {}))
-        };
+    const compData: CompetitorItem = {
+      ...compFormData,
+      id: editingCompetitor ? editingCompetitor.id : (compFormData.id || `comp-${Date.now()}`),
+      name: competitorName,
+      competitorType: compFormData.competitorType || 'مباشر',
+      pageLink: compFormData.pageLink?.trim() || '',
+      products: compFormData.products?.trim() || '',
+      targetAudience: compFormData.targetAudience?.trim() || '',
+      salesChannels: compFormData.salesChannels?.trim() || '',
+      price: compFormData.price?.trim() || '',
+      offers: compFormData.offers?.trim() || '',
+      discounts: compFormData.discounts?.trim() || '',
+      bundles: compFormData.bundles?.trim() || '',
+      giftsAndExtras: compFormData.giftsAndExtras?.trim() || '',
+      warrantyAndReturns: compFormData.warrantyAndReturns?.trim() || '',
+      marketingChannels: compFormData.marketingChannels?.trim() || '',
+      postingFrequency: compFormData.postingFrequency?.trim() || '',
+      contentType: compFormData.contentType?.trim() || '',
+      bestPerformingContent: compFormData.bestPerformingContent?.trim() || '',
+      marketingMessage: compFormData.marketingMessage?.trim() || '',
+      photographyStyle: compFormData.photographyStyle?.trim() || '',
+      primaryCta: compFormData.primaryCta?.trim() || '',
+      currentAds: compFormData.currentAds?.trim() || '',
+      adCopy: compFormData.adCopy?.trim() || '',
+      adHook: compFormData.adHook?.trim() || '',
+      adCta: compFormData.adCta?.trim() || '',
+      landingPageOrPurchaseLink: compFormData.landingPageOrPurchaseLink?.trim() || '',
+      offerTypeUsed: compFormData.offerTypeUsed?.trim() || '',
+      adStrategyNotes: compFormData.adStrategyNotes?.trim() || '',
+      landingPageQuality: compFormData.landingPageQuality?.trim() || '',
+      easeOfPurchase: compFormData.easeOfPurchase?.trim() || '',
+      afterSalesService: compFormData.afterSalesService?.trim() || '',
+      reviewsAndFeedback: compFormData.reviewsAndFeedback?.trim() || '',
+      recurringComplaintsOrObjections: compFormData.recurringComplaintsOrObjections?.trim() || '',
+      strengths: compFormData.strengths?.trim() || '',
+      weaknesses: compFormData.weaknesses?.trim() || '',
+      engagementLevel: compFormData.engagementLevel?.trim() || '',
+      winningPatterns: compFormData.winningPatterns?.trim() || '',
+      keyDifferentiator: compFormData.keyDifferentiator?.trim() || '',
+      marketGaps: compFormData.marketGaps?.trim() || '',
+      unexploitedNeeds: compFormData.unexploitedNeeds?.trim() || '',
+      opportunitiesToExploit: compFormData.opportunitiesToExploit?.trim() || '',
+      ideasToTest: compFormData.ideasToTest?.trim() || '',
+      biggestThreat: compFormData.biggestThreat?.trim() || '',
+      whyCustomerChoosesThem: compFormData.whyCustomerChoosesThem?.trim() || '',
+      movementsToWatch: compFormData.movementsToWatch?.trim() || '',
+      whatToLearn: compFormData.whatToLearn?.trim() || '',
+      whatNotToCopy: compFormData.whatNotToCopy?.trim() || '',
+      whatToTest: compFormData.whatToTest?.trim() || '',
+      opportunityToExploit: compFormData.opportunityToExploit?.trim() || '',
+      recommendedAction: compFormData.recommendedAction?.trim() || '',
+      priceDiffReason: compFormData.priceDiffReason?.trim() || '',
+      sectionChecklists: JSON.parse(JSON.stringify(compFormData.sectionChecklists || {}))
+    };
 
     const nextTemplate = competitorTemplateFromChecklists(compData.sectionChecklists);
     const normalizeWithTemplate = (competitor: CompetitorItem) =>
@@ -984,6 +993,13 @@ const compData: CompetitorItem = {
       competitorAnalysisTemplate: nextTemplate,
       competitors: updated
     });
+
+    setFormData(prev => ({
+      ...prev,
+      competitorAnalysisTemplate: nextTemplate,
+      competitors: updated
+    }));
+    setEditingCompetitor(null);
     setShowCompetitorModal(false);
   };
 
@@ -5113,9 +5129,7 @@ const compData: CompetitorItem = {
             </div>
 
             {/* Modal Form Content - Scrollable */}
-            <form
-              id="competitor-modal-form"
-              onSubmit={handleSaveCompetitor}
+            <div
               className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 text-xs"
             >
               {/* Competitor identity stays fixed; all analysis questions below are fully editable. */}
@@ -5173,7 +5187,7 @@ const compData: CompetitorItem = {
                   }
                 />
               </div>
-            </form>
+            </div>
 
             {/* Modal Footer with Step Navigation */}
             <div className="border-t border-[#E5E5E0] p-4 bg-[#F9F8F6] flex items-center justify-between gap-2 shrink-0 rounded-b-3xl">
@@ -5199,22 +5213,30 @@ const compData: CompetitorItem = {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCompetitorModal(false)}
-                  className="px-4 py-2 bg-white border border-[#E5E5E0] text-[#2D2D2A] font-extrabold rounded-xl text-xs hover:bg-[#E5E5E0] transition cursor-pointer"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  form="competitor-modal-form"
-                  className="px-5 py-2 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>حفظ بيانات المنافس</span>
-                </button>
+              <div className="flex flex-col items-end gap-1.5">
+                {competitorSaveError && (
+                  <p className="text-[11px] font-extrabold text-rose-600">{competitorSaveError}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompetitorSaveError('');
+                      setShowCompetitorModal(false);
+                    }}
+                    className="px-4 py-2 bg-white border border-[#E5E5E0] text-[#2D2D2A] font-extrabold rounded-xl text-xs hover:bg-[#E5E5E0] transition cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveCompetitor}
+                    className="px-5 py-2 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>حفظ بيانات المنافس</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
