@@ -727,10 +727,10 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (userRole === 'client') return;
     setEditingCompetitor(null);
     setCompActiveModalTab(1);
-    setCompFormData({
+    setCompFormData(normalizeCompetitorChecklists({
       ...defaultCompetitorData,
       id: `comp-${Date.now()}`
-    });
+    }));
     setShowCompetitorModal(true);
   };
 
@@ -738,7 +738,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     if (userRole === 'client') return;
     setEditingCompetitor(comp);
     setCompActiveModalTab(1);
-    setCompFormData({
+    setCompFormData(normalizeCompetitorChecklists({
       id: comp.id,
       name: comp.name || '',
       competitorType: comp.competitorType || 'مباشر',
@@ -788,8 +788,9 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       whatToTest: comp.whatToTest || '',
       opportunityToExploit: comp.opportunityToExploit || '',
       recommendedAction: comp.recommendedAction || '',
-      priceDiffReason: comp.priceDiffReason || ''
-    });
+      priceDiffReason: comp.priceDiffReason || '',
+      sectionChecklists: comp.sectionChecklists
+    }));
     setShowCompetitorModal(true);
   };
 
@@ -850,7 +851,8 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       whatToTest: compFormData.whatToTest?.trim() || '',
       opportunityToExploit: compFormData.opportunityToExploit?.trim() || '',
       recommendedAction: compFormData.recommendedAction?.trim() || '',
-      priceDiffReason: compFormData.priceDiffReason?.trim() || ''
+      priceDiffReason: compFormData.priceDiffReason?.trim() || '',
+      sectionChecklists: JSON.parse(JSON.stringify(compFormData.sectionChecklists || {}))
     };
 
     if (editingCompetitor) {
