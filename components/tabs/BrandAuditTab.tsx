@@ -708,22 +708,41 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     setShowFullAuditModal(false);
   };
 
-  // Download the full audit directly as a paginated PDF.
+  // PDF export is data-first: it reads the saved Brand Audit data directly
+  // instead of screenshotting the current UI. This keeps every stored question
+  // and answer (including extra overview checklist items) independent of screen layout.
   const handleDownloadPDF = async () => {
     if (isExportingPdf) return;
     try {
-      const printElement = document.getElementById('print-area');
-      if (!printElement) throw new Error('Brand Audit PDF content was not found.');
       const brandTitle = currentAudit.overview?.brandName || clientId || 'Brand Audit';
       setIsExportingPdf(true);
-      const { exportElementToPDF } = await import('../../utils/pdfExporter');
-      await exportElementToPDF(printElement, {
+      const { exportBrandAuditDataToPDF } = await import('../../utils/brandAuditPdfExporter');
+      await exportBrandAuditDataToPDF(currentAudit, {
         filename: `Brand_Audit_${brandTitle}.pdf`,
-        backgroundColor: '#ffffff'
+        sectionId: 'all'
       });
     } catch (err) {
       console.error('Brand Audit PDF export failed', err);
       window.alert('تعذر تحميل ملف PDF. حاولي مرة أخرى.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleDownloadSectionPDF = async (sectionId = activeSection) => {
+    if (isExportingPdf || sectionId === 'all') return;
+    try {
+      const brandTitle = currentAudit.overview?.brandName || clientId || 'Brand Audit';
+      const sectionTitle = sectionTabs.find(tab => tab.id === sectionId)?.label || sectionId;
+      setIsExportingPdf(true);
+      const { exportBrandAuditDataToPDF } = await import('../../utils/brandAuditPdfExporter');
+      await exportBrandAuditDataToPDF(currentAudit, {
+        filename: `Brand_Audit_${brandTitle}_${sectionTitle}.pdf`,
+        sectionId
+      });
+    } catch (err) {
+      console.error('Brand Audit section PDF export failed', err);
+      window.alert('تعذر تحميل السكشن PDF. حاولي مرة أخرى.');
     } finally {
       setIsExportingPdf(false);
     }
@@ -3629,7 +3648,20 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-[#E5E5E0] bg-[#F9F8F6] flex items-center justify-between shrink-0">
+            <div className="p-4 border-t border-[#E5E5E0] bg-[#F9F8F6] flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                {activeSection !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSectionPDF(activeSection)}
+                    disabled={isExportingPdf}
+                    title="تحميل السكشن الحالي PDF"
+                    className="px-4 py-2 bg-white border border-[#E5E5E0] hover:bg-[#E5E5E0] disabled:opacity-60 disabled:cursor-wait text-[#2D2D2A] font-extrabold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-[#5A5A40]" />}
+                    <span>{isExportingPdf ? 'جاري التحميل...' : 'تحميل السكشن PDF'}</span>
+                  </button>
+                )}
               {userRole !== 'client' ? (
                 <button
                   type="button"
@@ -3654,6 +3686,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                   <span>{isExportingPdf ? 'جاري التحميل...' : 'تحميل التقرير PDF'}</span>
                 </button>
               )}
+              </div>
               <button
                 type="button"
                 onClick={() => setShowViewDetailsModal(false)}
