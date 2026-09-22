@@ -165,6 +165,52 @@ const getUnitEconomicsSectionItems = (
 ) => getUnitEconomicsChecklist(unitEconomics).filter(item => item.id.startsWith(`ue-${sectionId}-`));
 
 
+
+const PROBLEM_DEFAULT_ITEMS: AuditCheckItem[] = [
+  { id: 'problem-main', label: 'Problem | المشكلة', status: '' },
+  { id: 'problem-impact', label: 'Impact on Sales | تأثيرها على المبيعات', status: '' },
+  { id: 'problem-priority', label: 'Priority | درجة الاولوية', status: '' },
+  { id: 'problem-solution', label: 'Solution | طريقة الحل', status: '' },
+  { id: 'problem-status', label: 'Status | حالة معالجة المشكلة', status: '' }
+];
+
+const getProblemChecklist = (problem?: BrandAuditProblemSolution | null): AuditCheckItem[] => {
+  if (!problem) return PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item }));
+  if (problem.checklist !== undefined) return problem.checklist.map(item => ({ ...item }));
+  return PROBLEM_DEFAULT_ITEMS.map(item => ({
+    ...item,
+    status:
+      item.id === 'problem-main' ? problem.problem || '' :
+      item.id === 'problem-impact' ? problem.impactOnSales || '' :
+      item.id === 'problem-priority' ? problem.priorityLevel || '' :
+      item.id === 'problem-solution' ? problem.solutionStrategy || '' :
+      item.id === 'problem-status' ? problem.status || '' :
+      ''
+  }));
+};
+
+const syncProblemFieldsFromChecklist = (
+  base: BrandAuditProblemSolution,
+  checklist: AuditCheckItem[]
+): BrandAuditProblemSolution => {
+  const answer = (id: string, fallback: string) =>
+    checklist.find(item => item.id === id)?.status?.trim() || fallback;
+
+  const statusAnswer = answer('problem-status', base.status || 'قيد التنفيذ');
+  const normalizedStatus: 'قيد التنفيذ' | 'تم التنفيذ' =
+    statusAnswer === 'تم التنفيذ' ? 'تم التنفيذ' : 'قيد التنفيذ';
+
+  return {
+    ...base,
+    problem: answer('problem-main', base.problem || 'مشكلة جديدة'),
+    impactOnSales: answer('problem-impact', base.impactOnSales || ''),
+    priorityLevel: answer('problem-priority', base.priorityLevel || 'عالية'),
+    solutionStrategy: answer('problem-solution', base.solutionStrategy || ''),
+    status: normalizedStatus,
+    checklist
+  };
+};
+
 type CompetitorSectionField = {
   id: string;
   key: keyof CompetitorItem;
