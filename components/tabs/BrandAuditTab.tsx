@@ -3585,11 +3585,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 </p>
               </div>
 
-              <div className="flex flex-col items-end gap-1.5">
-                {competitorSaveError && (
-                  <p className="text-[11px] font-extrabold text-rose-600">{competitorSaveError}</p>
-                )}
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleDownloadPDF}
@@ -5217,22 +5213,29 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCompetitorModal(false)}
-                  className="px-4 py-2 bg-white border border-[#E5E5E0] text-[#2D2D2A] font-extrabold rounded-xl text-xs hover:bg-[#E5E5E0] transition cursor-pointer"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveCompetitor}
-                  className="px-5 py-2 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>حفظ بيانات المنافس</span>
-                </button>
+              <div className="flex flex-col items-end gap-1.5">
+                {competitorSaveError && (
+                  <p className="text-[11px] font-extrabold text-rose-600">{competitorSaveError}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompetitorSaveError('');
+                      setShowCompetitorModal(false);
+                    }}
+                    className="px-4 py-2 bg-white border border-[#E5E5E0] text-[#2D2D2A] font-extrabold rounded-xl text-xs hover:bg-[#E5E5E0] transition cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveCompetitor}
+                    className="px-5 py-2 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>حفظ بيانات المنافس</span>
+                  </button>
                 </div>
               </div>
             </div>
