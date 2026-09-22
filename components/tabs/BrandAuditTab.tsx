@@ -134,22 +134,29 @@ const UNIT_ECONOMICS_DEFAULT_ITEMS: AuditCheckItem[] = UNIT_ECONOMICS_SECTIONS.f
 );
 
 const getUnitEconomicsChecklist = (unitEconomics?: BrandAudit['unitEconomics']): AuditCheckItem[] => {
-  const existing = unitEconomics?.checklist || [];
-  const byId = new Map(existing.map(item => [item.id, item]));
+  const existing = unitEconomics?.checklist;
+  const existingItems = existing || [];
+  const byId = new Map(existingItems.map(item => [item.id, item]));
+  const legacyIds = new Set(['ue-1', 'ue-2', 'ue-3', 'ue-4']);
   const legacyAnswers: Record<string, string | undefined> = {
     'ue-selling-actual-price': byId.get('ue-1')?.status || unitEconomics?.avgPriceRange,
     'ue-selling-gross-margin': byId.get('ue-4')?.status || unitEconomics?.profitMargin
   };
-  const knownIds = new Set(UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => item.id));
-  const legacyIds = new Set(['ue-1', 'ue-2', 'ue-3', 'ue-4']);
-  const defaults = UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => ({
+
+  // Once the editable checklist exists, it is the source of truth.
+  // This preserves edited labels, custom questions and intentional deletions.
+  // Only the old legacy four-item structure is migrated to the new defaults.
+  if (existing !== undefined) {
+    const isLegacyOnly = existing.length > 0 && existing.every(item => legacyIds.has(item.id));
+    if (!isLegacyOnly) {
+      return existing.map(item => ({ ...item }));
+    }
+  }
+
+  return UNIT_ECONOMICS_DEFAULT_ITEMS.map(item => ({
     ...item,
     status: byId.get(item.id)?.status || legacyAnswers[item.id] || ''
   }));
-  const customItems = existing
-    .filter(item => !knownIds.has(item.id) && !legacyIds.has(item.id))
-    .map(item => ({ ...item, id: item.id.startsWith('ue-selling-') ? item.id : `ue-selling-legacy-${item.id}` }));
-  return [...defaults, ...customItems];
 };
 
 const getUnitEconomicsSectionItems = (
@@ -4317,6 +4324,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                           title={`${section.icon} ${section.title} (${section.subtitle})`}
                           items={sectionItems}
                           defaultItems={section.items.map(item => ({ ...item }))}
+                          fallbackToDefaultItemsWhenEmpty={false}
                           placeholderAnswer="اكتب الرقم أو النسبة أو الإجابة المتاحة..."
                           columns={2}
                           onUpdate={(items) => {
