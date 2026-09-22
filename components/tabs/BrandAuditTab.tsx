@@ -393,9 +393,21 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
     const updatedDate = normalizedFormData.auditDate || formatLocalDate();
     const updatedAudit: BrandAudit = {
       ...normalizedFormData,
+
+      // These sections are edited through dedicated inline/nested modals that
+      // write directly to the live audit while the full-audit modal is open.
+      // Preserve their latest values here so the final "Save Full Report"
+      // action cannot overwrite them with the stale snapshot from formData.
+      competitors: currentAudit.competitors,
+      swot: currentAudit.swot,
+      problemsAndSolutions: currentAudit.problemsAndSolutions,
+      customSections: currentAudit.customSections,
+
+      // Global/template display settings are also managed outside formData.
       builtInSectionSettings: currentAudit.builtInSectionSettings,
       overviewFieldLabels: currentAudit.overviewFieldLabels,
-      customSections: currentAudit.customSections,
+      sectionOrder: currentAudit.sectionOrder,
+
       auditDate: updatedDate,
       updatedAt: formatLocalDate()
     };
