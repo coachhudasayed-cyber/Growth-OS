@@ -163,14 +163,15 @@ export const applyBrandAuditSchema = (
 
   Object.entries(schema.checklists || {}).forEach(([path, schemaItems]) => {
     const currentItems = getPath(audit, path);
-    const existingItems = Array.isArray(currentItems) ? currentItems as AuditCheckItem[] : [];
+    const hasExplicitChecklist = Array.isArray(currentItems);
+    const existingItems = hasExplicitChecklist ? currentItems as AuditCheckItem[] : [];
     const legacyPersonaItems = getLegacyPersonaChecklistAnswers(audit, path);
     setPath(
       next as unknown as Record<string, unknown>,
       path,
       mergeChecklistAnswers(
         schemaItems,
-        existingItems.length > 0 ? existingItems : legacyPersonaItems
+        hasExplicitChecklist ? existingItems : legacyPersonaItems
       )
     );
   });
