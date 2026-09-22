@@ -2530,171 +2530,44 @@ const compData: CompetitorItem = {
 
                     {/* Full 9 Sections Details */}
                     {isExpanded && (
-                      <div className="p-4 sm:p-5 space-y-4">
+                      <div className="p-4 sm:p-5">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                          {/* 1. Competitor Profile */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-[#5A5A40] text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <Building className="w-3.5 h-3.5" />
-                              <span>1. بيانات المنافس | Profile</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-[#8E8E85] font-bold">اسم المنافس: </span><span className="font-black text-[#2D2D2A]">{comp.name || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">نوع المنافس: </span><span className="font-bold text-[#2D2D2A]">{comp.competitorType || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">المنتجات والخدمات: </span><span className="font-bold text-[#2D2D2A]">{comp.products || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الجمهور المستهدف: </span><span className="font-bold text-[#2D2D2A]">{comp.targetAudience || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">قنوات البيع: </span><span className="font-bold text-[#2D2D2A]">{comp.salesChannels || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 2. Pricing & Offers */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-emerald-800 text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <Tag className="w-3.5 h-3.5" />
-                              <span>2. التسعير والعروض | Pricing & Offers</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-[#8E8E85] font-bold">متوسط الأسعار: </span><span className="font-black text-[#2D2D2A]">{comp.price || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">العروض الحالية: </span><span className="font-bold text-[#2D2D2A]">{comp.offers || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الخصومات: </span><span className="font-bold text-[#2D2D2A]">{comp.discounts || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الـBundles: </span><span className="font-bold text-[#2D2D2A]">{comp.bundles || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الهدايا والمزايا: </span><span className="font-bold text-[#2D2D2A]">{comp.giftsAndExtras || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الضمان والاسترجاع: </span><span className="font-bold text-[#2D2D2A]">{comp.warrantyAndReturns || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 3. Marketing & Content */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-blue-800 text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5" />
-                              <span>3. التسويق والمحتوى | Marketing & Content</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-[#8E8E85] font-bold">قنوات التسويق: </span><span className="font-bold text-[#2D2D2A]">{comp.marketingChannels || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">تكرار النشر: </span><span className="font-bold text-[#2D2D2A]">{comp.postingFrequency || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">أنواع المحتوى: </span><span className="font-bold text-[#2D2D2A]">{comp.contentType || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">أفضل محتوى + سبب النجاح: </span><span className="font-bold text-[#2D2D2A]">{comp.bestPerformingContent || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الرسائل الأساسية: </span><span className="font-bold text-[#2D2D2A]">{comp.marketingMessage || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">أسلوب التصوير (Style): </span><span className="font-bold text-[#2D2D2A]">{comp.photographyStyle || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الـCTA الأساسي: </span><span className="font-bold text-[#2D2D2A]">{comp.primaryCta || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 4. Advertising */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-indigo-800 text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <Megaphone className="w-3.5 h-3.5" />
-                              <span>4. الإعلانات | Advertising</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-[#8E8E85] font-bold">الإعلانات الحالية: </span><span className="font-bold text-[#2D2D2A]">{comp.currentAds || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">Ad Copy: </span><span className="font-bold text-[#2D2D2A]">{comp.adCopy || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">Hook: </span><span className="font-bold text-[#2D2D2A]">{comp.adHook || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">CTA الإعلاني: </span><span className="font-bold text-[#2D2D2A]">{comp.adCta || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">Landing Page / الشراء: </span><span className="font-bold text-[#2D2D2A]">{comp.landingPageOrPurchaseLink || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">نوع الـOffer المستخدم: </span><span className="font-bold text-[#2D2D2A]">{comp.offerTypeUsed || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">ملاحظات الاستراتيجية: </span><span className="font-bold text-[#2D2D2A]">{comp.adStrategyNotes || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 5. Customer Experience */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-amber-900 text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>5. تجربة العميل | Customer Experience</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-[#8E8E85] font-bold">جودة صفحة الهبوط: </span><span className="font-bold text-[#2D2D2A]">{comp.landingPageQuality || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">سهولة الشراء: </span><span className="font-bold text-[#2D2D2A]">{comp.easeOfPurchase || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">خدمة ما بعد البيع: </span><span className="font-bold text-[#2D2D2A]">{comp.afterSalesService || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">الريفيوز وملاحظات العملاء: </span><span className="font-bold text-[#2D2D2A]">{comp.reviewsAndFeedback || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">أكثر الاعتراضات المتكررة: </span><span className="font-bold text-rose-700">{comp.recurringComplaintsOrObjections || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 6. Competitive Assessment */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-purple-900 text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <Award className="w-3.5 h-3.5" />
-                              <span>6. أداء المنافس | Assessment</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-emerald-700 font-bold">نقاط القوة: </span><span className="font-bold text-[#2D2D2A]">{comp.strengths || '—'}</span></div>
-                              <div><span className="text-rose-700 font-bold">نقاط الضعف: </span><span className="font-bold text-[#2D2D2A]">{comp.weaknesses || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">مستوى التفاعل: </span><span className="font-bold text-[#2D2D2A]">{comp.engagementLevel || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">Winning Patterns: </span><span className="font-bold text-[#2D2D2A]">{comp.winningPatterns || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">ما يميزه عن الباقين: </span><span className="font-bold text-[#2D2D2A]">{comp.keyDifferentiator || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 7. Market Opportunities */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-cyan-900 text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <Lightbulb className="w-3.5 h-3.5" />
-                              <span>7. فرص السوق | Market Opportunities</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-[#8E8E85] font-bold">Gaps السوق: </span><span className="font-bold text-[#2D2D2A]">{comp.marketGaps || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">احتياجات غير مستغلة: </span><span className="font-bold text-[#2D2D2A]">{comp.unexploitedNeeds || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">فرص يمكن استغلالها: </span><span className="font-bold text-[#2D2D2A]">{comp.opportunitiesToExploit || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">أفكار يمكن اختبارها: </span><span className="font-bold text-[#2D2D2A]">{comp.ideasToTest || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 8. Competitive Threats */}
-                          <div className="bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
-                            <h5 className="font-extrabold text-rose-900 text-xs border-b border-[#E5E5E0] pb-1.5 flex items-center gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              <span>8. التهديدات | Competitive Threats</span>
-                            </h5>
-                            <div className="space-y-1.5 text-[11px]">
-                              <div><span className="text-rose-700 font-bold">أكبر تهديد من المنافس: </span><span className="font-bold text-[#2D2D2A]">{comp.biggestThreat || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">لماذا يختاره العميل بدلاً منا؟: </span><span className="font-bold text-[#2D2D2A]">{comp.whyCustomerChoosesThem || '—'}</span></div>
-                              <div><span className="text-[#8E8E85] font-bold">تحركات تستحق المتابعة: </span><span className="font-bold text-[#2D2D2A]">{comp.movementsToWatch || '—'}</span></div>
-                            </div>
-                          </div>
-
-                          {/* 9. Strategic Takeaways & Recommended Action (Featured Highlight Box) */}
-                          <div className="bg-linear-to-br from-amber-50 to-emerald-50/50 p-4 rounded-xl border-2 border-[#5A5A40]/30 space-y-2.5 sm:col-span-2 md:col-span-2 lg:col-span-3 shadow-xs">
-                            <div className="flex items-center justify-between border-b border-[#5A5A40]/20 pb-2">
-                              <h5 className="font-black text-[#5A5A40] text-xs flex items-center gap-1.5">
-                                <Flame className="w-4 h-4 text-amber-600" />
-                                <span>9. التوصيات الاستراتيجية والإجراء المقترح | Strategic Takeaways</span>
-                              </h5>
-                              <span className="bg-amber-200/60 text-amber-900 px-2 py-0.5 rounded-md text-[10px] font-black">
-                                أهم إضافة استراتيجية
-                              </span>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[11px]">
-                              <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200/60">
-                                <span className="font-extrabold text-blue-900 block mb-0.5">💡 ماذا نتعلم من المنافس؟</span>
-                                <p className="text-[#2D2D2A] font-bold leading-relaxed">{comp.whatToLearn || '—'}</p>
+                          {Object.keys(COMPETITOR_SECTION_DEFINITIONS).map(sectionKey => {
+                            const sectionId = Number(sectionKey);
+                            const section = COMPETITOR_SECTION_DEFINITIONS[sectionId];
+                            const items = getCompetitorSectionItems(
+                              comp,
+                              sectionId,
+                              currentAudit.competitorAnalysisTemplate
+                            );
+                            return (
+                              <div
+                                key={sectionKey}
+                                className={`bg-[#F9F8F6] p-3.5 rounded-xl border border-[#E5E5E0] space-y-2 ${sectionId === 9 ? 'lg:col-span-3' : ''}`}
+                              >
+                                <h5 className="font-extrabold text-[#5A5A40] text-xs border-b border-[#E5E5E0] pb-1.5">
+                                  {section.title}
+                                </h5>
+                                {sectionId === 1 && (
+                                  <div className="space-y-1.5 text-[11px] pb-1">
+                                    <div><span className="text-[#8E8E85] font-bold">اسم المنافس: </span><span className="font-black text-[#2D2D2A]">{comp.name || '—'}</span></div>
+                                    <div><span className="text-[#8E8E85] font-bold">نوع المنافس: </span><span className="font-bold text-[#2D2D2A]">{comp.competitorType || '—'}</span></div>
+                                  </div>
+                                )}
+                                <div className={sectionId === 9 ? 'grid grid-cols-1 sm:grid-cols-2 gap-2.5' : 'space-y-2'}>
+                                  {items.map(item => (
+                                    <div key={item.id} className="bg-white/80 p-2.5 rounded-lg border border-[#E5E5E0]">
+                                      <span className="text-[#78786E] font-extrabold text-[10px] block mb-1">{item.label}</span>
+                                      <p className="font-bold text-[#2D2D2A] text-[11px] leading-relaxed">{item.status || '—'}</p>
+                                    </div>
+                                  ))}
+                                  {items.length === 0 && (
+                                    <p className="text-[#8E8E85] text-[11px] italic">لا توجد اسئلة داخل هذا السكشن حاليا.</p>
+                                  )}
+                                </div>
                               </div>
-                              <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200/60">
-                                <span className="font-extrabold text-rose-900 block mb-0.5">🚫 ماذا لا يجب أن ننسخه؟</span>
-                                <p className="text-[#2D2D2A] font-bold leading-relaxed">{comp.whatNotToCopy || '—'}</p>
-                              </div>
-                              <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200/60">
-                                <span className="font-extrabold text-purple-900 block mb-0.5">🧪 ما الذي يمكن اختباره؟</span>
-                                <p className="text-[#2D2D2A] font-bold leading-relaxed">{comp.whatToTest || '—'}</p>
-                              </div>
-                              <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200/60">
-                                <span className="font-extrabold text-emerald-900 block mb-0.5">🎯 ما الفرصة المستغلة؟</span>
-                                <p className="text-[#2D2D2A] font-bold leading-relaxed">{comp.opportunityToExploit || '—'}</p>
-                              </div>
-                            </div>
-
-                            <div className="bg-[#5A5A40] text-white p-3 rounded-xl border border-[#4a4a34] mt-2 shadow-xs">
-                              <div className="flex items-center gap-2 mb-1">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                                <span className="font-black text-xs text-amber-200">الإجراء المقترح للبراند | Recommended Action:</span>
-                              </div>
-                              <p className="text-white font-extrabold text-xs leading-relaxed">
-                                {comp.recommendedAction || 'لم يتم تحديد إجراء مقترح بعد.'}
-                              </p>
-                            </div>
-                          </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
