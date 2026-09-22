@@ -2912,7 +2912,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
             <h3 className="text-sm font-extrabold text-[#2D2D2A] flex items-center gap-2">
               <Users className="w-4 h-4 text-[#5A5A40]" />
-              <span>{getBuiltInSectionTitle('persona', '12. Customer Persona (العميل المستهدف)')}</span>
+              <span>{getBuiltInSectionTitle('persona', '12. Customer Persona & Brand Positioning')}</span>
             </h3>
             {userRole !== 'client' && (
               <div className="flex items-center gap-1.5 no-print">
@@ -2925,7 +2925,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                 </button>
                 <button
                   onClick={handleOpenFullModal}
-                  title="تعديل بنود التقييم"
+                  title="تعديل البنود"
                   className="p-2 bg-white hover:bg-[#E5E5E0] border border-[#E5E5E0] rounded-xl text-xs font-bold text-[#2D2D2A] transition cursor-pointer flex items-center justify-center"
                 >
                   <Edit2 className="w-3.5 h-3.5 text-[#8E8E85]" />
@@ -2934,113 +2934,29 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             )}
           </div>
 
-          <div className="space-y-6 text-xs text-[#2D2D2A]">
-            {/* 1. Target Audience */}
-            <div className="bg-white p-5 rounded-2xl border border-[#E5E5E0] space-y-3">
-              <h4 className="text-base font-black text-[#2D2D2A]"> 1. Target Audience</h4>
-              <blockquote className="p-3 bg-[#F9F8F6] border-r-4 border-[#5A5A40] rounded-l-xl text-xs font-bold text-[#5A5A40]">
-                من هو العميل المثالي للبراند؟
-              </blockquote>
-              <ul className="space-y-2 pt-1 font-bold">
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>الفئة العمرية: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.targetAudienceDetails?.ageRange || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>الجنس: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.targetAudienceDetails?.gender || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>المستوى المادي: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.targetAudienceDetails?.incomeLevel || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>الاهتمامات: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.targetAudienceDetails?.interests || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>أسلوب الحياة: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.targetAudienceDetails?.lifestyle || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>مكان الإقامة: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.targetAudienceDetails?.location || 'غير محدد'}</span></span>
-                </li>
-              </ul>
-            </div>
-
-            <hr className="border-[#E5E5E0]" />
-
-            {/* 2. Customer Insights */}
-            <div className="bg-white p-5 rounded-2xl border border-[#E5E5E0] space-y-4">
-              <h4 className="text-base font-black text-[#2D2D2A]"> 2. Customer Insights</h4>
-              <blockquote className="p-3 bg-[#F9F8F6] border-r-4 border-[#5A5A40] rounded-l-xl text-xs font-bold text-[#5A5A40]">
-                فهم سلوك العميل ودوافعه.
-              </blockquote>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                <div className="p-3.5 bg-[#F9F8F6] rounded-xl border border-[#E5E5E0] space-y-1">
-                  <h5 className="font-black text-sm text-[#2D2D2A]"> Pain Points</h5>
-                  <p className="text-[11px] font-bold text-[#8E8E85]">المشاكل التي يعاني منها العميل ويحلها المنتج.</p>
-                  <p className="text-xs font-bold text-[#2D2D2A] pt-1">{currentAudit.customerPersona?.insights?.painPoints || 'غير محدد'}</p>
-                </div>
-
-                <div className="p-3.5 bg-[#F9F8F6] rounded-xl border border-[#E5E5E0] space-y-1">
-                  <h5 className="font-black text-sm text-[#2D2D2A]"> Buying Motivation</h5>
-                  <p className="text-[11px] font-bold text-[#8E8E85]">لماذا قد يشتري هذا المنتج؟</p>
-                  <p className="text-xs font-bold text-[#2D2D2A] pt-1">{currentAudit.customerPersona?.insights?.buyingMotivation || 'غير محدد'}</p>
-                </div>
-
-                <div className="p-3.5 bg-[#F9F8F6] rounded-xl border border-[#E5E5E0] space-y-1">
-                  <h5 className="font-black text-sm text-[#2D2D2A]"> Buying Triggers</h5>
-                  <p className="text-[11px] font-bold text-[#8E8E85]">ما الذي يدفعه لاتخاذ قرار الشراء بسرعة؟</p>
-                  <p className="text-xs font-bold text-[#2D2D2A] pt-1">{currentAudit.customerPersona?.insights?.buyingTriggers || 'غير محدد'}</p>
-                </div>
-
-                <div className="p-3.5 bg-[#F9F8F6] rounded-xl border border-[#E5E5E0] space-y-1">
-                  <h5 className="font-black text-sm text-[#2D2D2A]"> Objections</h5>
-                  <p className="text-[11px] font-bold text-[#8E8E85]">ما الاعتراضات أو المخاوف التي تمنعه من الشراء؟</p>
-                  <p className="text-xs font-bold text-[#2D2D2A] pt-1">{currentAudit.customerPersona?.insights?.objections || 'غير محدد'}</p>
-                </div>
+          <div className="space-y-5 text-xs text-[#2D2D2A]">
+            {[
+              { title: 'Target Audience | الجمهور المستهدف', items: getTargetAudienceItems(currentAudit.customerPersona) },
+              { title: 'Customer Insights | فهم العميل', items: getCustomerInsightItems(currentAudit.customerPersona) },
+              { title: 'Brand Positioning | تمركز البراند', items: getBrandPositioningItems(currentAudit.customerPersona) }
+            ].map(group => (
+              <div key={group.title} className="bg-white p-5 rounded-2xl border border-[#E5E5E0] space-y-3">
+                <h4 className="text-base font-black text-[#2D2D2A]">{group.title}</h4>
+                {group.items.length === 0 ? (
+                  <p className="text-[#8E8E85] font-bold">لا توجد بنود مضافة.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {group.items.map(item => (
+                      <div key={item.id} className="p-3.5 bg-[#F9F8F6] rounded-xl border border-[#E5E5E0] space-y-1.5">
+                        <h5 className="font-extrabold text-xs text-[#5A5A40]">{item.label}</h5>
+                        <p className="text-xs font-bold text-[#2D2D2A] leading-relaxed">{item.status || 'غير محدد'}</p>
+                        {item.notes && <p className="text-[11px] text-[#8E8E85] leading-relaxed">{item.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-
-            <hr className="border-[#E5E5E0]" />
-
-            {/* 3. Brand Positioning */}
-            <div className="bg-white p-5 rounded-2xl border border-[#E5E5E0] space-y-3">
-              <h4 className="text-base font-black text-[#2D2D2A]"> 3. Brand Positioning</h4>
-              <ul className="space-y-2 pt-1 font-bold">
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>القيمة الأساسية التي يقدمها البراند: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.positioning?.coreValue || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>الميزة التنافسية (USP): <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.positioning?.usp || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>الرسالة الأساسية للبراند: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.positioning?.coreMessage || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>الانطباع الأول: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.positioning?.firstImpression || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>مكانة البراند في السوق (اقتصادي - متوسط - Premium): <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.positioning?.marketTier || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>مدى وضوح الهوية: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.positioning?.identityClarity || 'غير محدد'}</span></span>
-                </li>
-                <li className="flex items-start gap-1.5">
-                  <span className="text-[#5A5A40]">•</span>
-                  <span>تقييم جاهزية البراند للنمو: <span className="font-normal text-[#2D2D2A]">{currentAudit.customerPersona?.positioning?.growthReadiness || 'غير محدد'}</span></span>
-                </li>
-              </ul>
-            </div>
+            ))}
           </div>
         </div>
       )}
