@@ -185,6 +185,59 @@ const OVERVIEW_FIELD_DEFAULT_LABELS: Record<string, string> = {
   brandStage: 'مرحلة البراند'
 };
 
+
+const mergeEditablePersonaItems = (
+  existing: AuditCheckItem[] | undefined,
+  legacyItems: AuditCheckItem[]
+): AuditCheckItem[] => {
+  const existingItems = existing || [];
+  const existingById = new Map(existingItems.map(item => [item.id, item]));
+  const legacyIds = new Set(legacyItems.map(item => item.id));
+  return [
+    ...legacyItems.map(item => existingById.get(item.id) || item),
+    ...existingItems.filter(item => !legacyIds.has(item.id))
+  ];
+};
+
+const getTargetAudienceItems = (persona?: BrandAudit['customerPersona']): AuditCheckItem[] =>
+  mergeEditablePersonaItems(persona?.targetAudienceChecklist, [
+    { id: 'persona-ta-age', label: 'الفئة العمرية', status: persona?.targetAudienceDetails?.ageRange || '' },
+    { id: 'persona-ta-gender', label: 'الجنس', status: persona?.targetAudienceDetails?.gender || '' },
+    { id: 'persona-ta-income', label: 'المستوى المادي', status: persona?.targetAudienceDetails?.incomeLevel || '' },
+    { id: 'persona-ta-interests', label: 'الاهتمامات', status: persona?.targetAudienceDetails?.interests || '' },
+    { id: 'persona-ta-lifestyle', label: 'أسلوب الحياة', status: persona?.targetAudienceDetails?.lifestyle || '' },
+    { id: 'persona-ta-location', label: 'مكان الإقامة', status: persona?.targetAudienceDetails?.location || '' }
+  ]);
+
+const getCustomerInsightItems = (persona?: BrandAudit['customerPersona']): AuditCheckItem[] =>
+  mergeEditablePersonaItems(persona?.insightsChecklist, [
+    { id: 'persona-insight-pain-points', label: 'Pain Points | المشاكل التي يعاني منها العميل ويحلها المنتج', status: persona?.insights?.painPoints || '' },
+    { id: 'persona-insight-motivation', label: 'Buying Motivation | لماذا قد يشتري هذا المنتج؟', status: persona?.insights?.buyingMotivation || '' },
+    { id: 'persona-insight-triggers', label: 'Buying Triggers | ما الذي يدفعه لاتخاذ قرار الشراء بسرعة؟', status: persona?.insights?.buyingTriggers || '' },
+    { id: 'persona-insight-objections', label: 'Objections | ما الاعتراضات أو المخاوف التي تمنعه من الشراء؟', status: persona?.insights?.objections || '' }
+  ]);
+
+const getBrandPositioningItems = (persona?: BrandAudit['customerPersona']): AuditCheckItem[] =>
+  mergeEditablePersonaItems(persona?.positioningChecklist, [
+    { id: 'persona-pos-core-value', label: 'القيمة الأساسية التي يقدمها البراند', status: persona?.positioning?.coreValue || '' },
+    { id: 'persona-pos-usp', label: 'الميزة التنافسية (USP)', status: persona?.positioning?.usp || '' },
+    { id: 'persona-pos-core-message', label: 'الرسالة الأساسية للبراند', status: persona?.positioning?.coreMessage || '' },
+    { id: 'persona-pos-first-impression', label: 'الانطباع الأول', status: persona?.positioning?.firstImpression || '' },
+    { id: 'persona-pos-market-tier', label: 'مكانة البراند في السوق (اقتصادي - متوسط - Premium)', status: persona?.positioning?.marketTier || '' },
+    { id: 'persona-pos-identity-clarity', label: 'مدى وضوح الهوية', status: persona?.positioning?.identityClarity || '' },
+    { id: 'persona-pos-growth-readiness', label: 'تقييم جاهزية البراند للنمو', status: persona?.positioning?.growthReadiness || '' }
+  ]);
+
+const normalizePersonaEditableLists = (audit: BrandAudit): BrandAudit => ({
+  ...audit,
+  customerPersona: {
+    ...audit.customerPersona,
+    targetAudienceChecklist: getTargetAudienceItems(audit.customerPersona),
+    insightsChecklist: getCustomerInsightItems(audit.customerPersona),
+    positioningChecklist: getBrandPositioningItems(audit.customerPersona)
+  }
+});
+
 export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   audit,
   schema,
