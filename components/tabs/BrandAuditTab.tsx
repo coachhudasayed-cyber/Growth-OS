@@ -5077,85 +5077,19 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
             </div>
 
             <form onSubmit={handleSaveProblem} className="space-y-3 text-xs">
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">1. المشكلة</label>
-                <input
-                  type="text"
-                  required
-                  value={probTitle}
-                  onChange={(e) => setProbTitle(e.target.value)}
-                  placeholder="مثلاً: عدم وجود فيديوهات Reels للمنتجات..."
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A] font-bold"
-                />
-              </div>
+              <ChecklistEditorSection
+                title="Main Problems & Solutions | المشاكل والحلول"
+                items={problemChecklist}
+                defaultItems={PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item }))}
+                fallbackToDefaultItemsWhenEmpty={false}
+                onUpdate={setProblemChecklist}
+                placeholderAnswer="اكتب الاجابة أو الملاحظة..."
+                columns={1}
+              />
 
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">2. تأثيرها على المبيعات</label>
-                <textarea
-                  required
-                  rows={2}
-                  value={probImpact}
-                  onChange={(e) => setProbImpact(e.target.value)}
-                  placeholder="مثلاً: ضعف ثقة العملاء المترددين وتراجع معدل التحويل..."
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A]"
-                />
-              </div>
-
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">3. درجة الأولوية</label>
-                <select
-                  value={probPriority}
-                  onChange={(e) => setProbPriority(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] font-bold text-[#2D2D2A]"
-                >
-                  <option value="عالية جداً">عالية جداً</option>
-                  <option value="عالية">عالية</option>
-                  <option value="متوسطة">متوسطة</option>
-                  <option value="منخفضة">منخفضة</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">4. طريقة حلها (الاستراتيجية والخدمة)</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={probSolution}
-                  onChange={(e) => setProbSolution(e.target.value)}
-                  placeholder="مثلاً: تصوير 6 فيديوهات Reels واقعية وتجهيز حملة Reels جديدة..."
-                  className="w-full p-2.5 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] text-[#2D2D2A]"
-                />
-              </div>
-
-              <div>
-                <label className="font-extrabold text-[#2D2D2A] block mb-1">5. حالة معالجة المشكلة</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setProbStatus('قيد التنفيذ')}
-                    className={`p-2.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                      probStatus === 'قيد التنفيذ'
-                        ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
-                        : 'bg-[#F9F8F6] border-[#E5E5E0] text-[#78786E] hover:bg-[#E5E5E0]'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
-                    <span>قيد التنفيذ</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProbStatus('تم التنفيذ')}
-                    className={`p-2.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                      probStatus === 'تم التنفيذ'
-                        ? 'bg-emerald-100 border-emerald-300 text-emerald-900 shadow-2xs'
-                        : 'bg-[#F9F8F6] border-[#E5E5E0] text-[#78786E] hover:bg-[#E5E5E0]'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>تم التنفيذ</span>
-                  </button>
-                </div>
-              </div>
+              <p className="text-[11px] text-[#8E8E85] leading-relaxed">
+                تقدري تعدلي اسم اي سؤال، تمسحيه، أو تضيفي سؤال جديد. الاسئلة الاساسية المعروفة بتفضل مرتبطة ببيانات المشكلة في التقرير.
+              </p>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
