@@ -20,7 +20,6 @@ type StoredRecord = {
 };
 
 const CLIENT_WRITABLE_COLLECTIONS = new Set([
-  'payments',
   'clientDailyReports',
   'notes'
 ]);
@@ -756,6 +755,18 @@ export function useAppData() {
   const updateBrandAudit = (clientId: string, audit: BrandAudit) => {
     if (currentUser?.role === 'client') {
       setBrandAudits(prev => ({ ...prev, [clientId]: audit }));
+      return;
+    }
+
+    // Datra is the structural source of truth for Brand Audit templates.
+    // Editing another client's answers must never overwrite the global schema.
+    if (clientId !== MASTER_TEMPLATE_CLIENT_ID) {
+      setBrandAudits(prev => ({
+        ...prev,
+        [clientId]: brandAuditSchema
+          ? applyBrandAuditSchema(brandAuditSchema, audit)
+          : audit
+      }));
       return;
     }
 
