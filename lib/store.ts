@@ -356,6 +356,28 @@ export function useAppData() {
       body: { action: 'delete', clientId: id }
     });
     if (result.error) throw new Error('تعذر حذف الحساب.');
+
+    // Agreements and payments are protected from implicit sync deletion.
+    // Remove them explicitly when the whole client account is intentionally deleted.
+    const accountingDelete = await supabase.from('app_records').delete()
+      .eq('client_id', id)
+      .in('collection', ['agreements', 'payments']);
+    if (accountingDelete.error) {
+      throw new Error('تم حذف حساب الدخول، لكن تعذر تنظيف السجلات المالية المرتبطة به. راجعي المزامنة قبل المتابعة.');
+    }
+    [...savedRecords.current.keys()]
+      .filter(key => key.startsWith('agreements:') || key.startsWith('payments:'))
+      .forEach(key => {
+        const raw = savedRecords.current.get(key);
+        if (!raw) return;
+        try {
+          const stored = JSON.parse(raw) as StoredRecord;
+          if (stored.client_id === id) savedRecords.current.delete(key);
+        } catch {
+          // Database cleanup above is authoritative.
+        }
+      });
+
     setClients(prev => prev.filter(client => client.id !== id));
     setUsers(prev => prev.filter(user => user.clientId !== id));
     setBudgetAlarms(prev => prev.filter(item => item.clientId !== id));
