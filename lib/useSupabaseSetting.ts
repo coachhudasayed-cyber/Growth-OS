@@ -13,6 +13,8 @@ export function useSupabaseSetting<T>(
   const [loadedKey, setLoadedKey] = useState('');
   const loadedValue = useRef('');
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
+  const retryTimer = useRef<number | null>(null);
+  const retryCount = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -70,24 +72,62 @@ export function useSupabaseSetting<T>(
         console.error('Failed to load setting', key, error);
       }
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (retryTimer.current !== null) {
+        window.clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
+    };
   }, [key, writable, JSON.stringify(legacyKeys)]);
 
   useEffect(() => {
     if (!writable || loadedKey !== key) return;
+
     const serialized = JSON.stringify(value);
     if (serialized === loadedValue.current) return;
-    loadedValue.current = serialized;
-    writeQueue.current = writeQueue.current.catch(() => undefined).then(async () => {
+
+    let cancelled = false;
+    const save = async () => {
       const result = await supabase.from('app_settings').upsert({
         key, client_id: clientId, data: value
       }, { onConflict: 'key' });
       if (result.error) throw result.error;
+
+      if (cancelled) return;
+      loadedValue.current = serialized;
+      retryCount.current = 0;
+      if (retryTimer.current !== null) {
+        window.clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
       try { window.localStorage.removeItem(key); } catch { /* Supabase save succeeded. */ }
-    }).catch(error => {
-      console.error('Failed to save setting', key, error);
-      window.alert('تعذر حفظ الإعدادات في Supabase. أعيدي المحاولة بعد التحقق من الاتصال.');
-    });
+    };
+
+    writeQueue.current = writeQueue.current
+      .catch(() => undefined)
+      .then(save)
+      .catch(error => {
+        if (cancelled) return;
+        console.error('Failed to save setting', key, error);
+
+        // Settings are background-synced. A brief network hiccup should not
+        // interrupt the user with a browser alert. Keep the last confirmed
+        // value untouched and retry a few times automatically instead.
+        if (retryCount.current < 3) {
+          const delay = 1200 * (retryCount.current + 1);
+          retryCount.current += 1;
+          retryTimer.current = window.setTimeout(() => {
+            retryTimer.current = null;
+            setLoadedKey(current => current === key ? '' : current);
+            window.setTimeout(() => setLoadedKey(key), 0);
+          }, delay);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [value, key, clientId, writable, loadedKey]);
 
   return [value, setValue];
