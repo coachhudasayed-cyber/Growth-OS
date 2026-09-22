@@ -485,11 +485,6 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   // Modal State for Problem & Solution (Add/Edit)
   const [showProblemModal, setShowProblemModal] = useState(false);
   const [editingProblem, setEditingProblem] = useState<BrandAuditProblemSolution | null>(null);
-  const [probTitle, setProbTitle] = useState('');
-  const [probImpact, setProbImpact] = useState('');
-  const [probPriority, setProbPriority] = useState<string>('عالية');
-  const [probSolution, setProbSolution] = useState('');
-  const [probStatus, setProbStatus] = useState<'قيد التنفيذ' | 'تم التنفيذ'>('قيد التنفيذ');
   const [problemChecklist, setProblemChecklist] = useState<AuditCheckItem[]>(PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item })));
 
   // Modal State for Competitor (Add/Edit)
@@ -696,11 +691,6 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenAddProblem = () => {
     if (userRole === 'client') return;
     setEditingProblem(null);
-    setProbTitle('');
-    setProbImpact('');
-    setProbPriority('عالية');
-    setProbSolution('');
-    setProbStatus('قيد التنفيذ');
     setProblemChecklist(PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item })));
     setShowProblemModal(true);
   };
@@ -708,11 +698,6 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenEditProblem = (prob: BrandAuditProblemSolution) => {
     if (userRole === 'client') return;
     setEditingProblem(prob);
-    setProbTitle(prob.problem);
-    setProbImpact(prob.impactOnSales);
-    setProbPriority(prob.priorityLevel || 'عالية');
-    setProbSolution(prob.solutionStrategy);
-    setProbStatus(prob.status || 'قيد التنفيذ');
     setProblemChecklist(getProblemChecklist(prob));
     setShowProblemModal(true);
   };
