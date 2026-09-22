@@ -190,13 +190,20 @@ const mergeEditablePersonaItems = (
   existing: AuditCheckItem[] | undefined,
   legacyItems: AuditCheckItem[]
 ): AuditCheckItem[] => {
-  const existingItems = existing || [];
-  const existingById = new Map(existingItems.map(item => [item.id, item]));
-  const legacyIds = new Set(legacyItems.map(item => item.id));
-  return [
-    ...legacyItems.map(item => existingById.get(item.id) || item),
-    ...existingItems.filter(item => !legacyIds.has(item.id))
-  ];
+  // Once an editable persona list has been initialized, it becomes authoritative
+  // even when it is intentionally empty. This prevents deleted default items
+  // from being regenerated from the legacy fixed fields.
+  if (existing !== undefined) {
+    const legacyIds = new Set(legacyItems.map(item => item.id));
+    const alreadyMigrated = existing.length === 0 || existing.some(item => legacyIds.has(item.id));
+    if (alreadyMigrated) return existing;
+
+    // One-time migration for older audits that already had checklist-only items:
+    // add the former fixed fields once, then keep the editable list as the source of truth.
+    return [...legacyItems, ...existing];
+  }
+
+  return legacyItems;
 };
 
 const getTargetAudienceItems = (persona?: BrandAudit['customerPersona']): AuditCheckItem[] =>
