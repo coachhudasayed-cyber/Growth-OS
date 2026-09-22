@@ -201,39 +201,97 @@ const getPdfSectionGuides = (root: HTMLElement, canvasScale: number): PdfSection
 export async function exportElementToPDF(element: HTMLElement, options: ElementPdfOptions) {
   const host = createPdfStagingHost();
   const backgroundColor = options.backgroundColor || '#ffffff';
-  const marginMm = options.marginMm ?? 10;
 
-  const renderNode = async (node: HTMLElement) => {
-    await waitForImages(node);
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    return html2canvas(node, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      backgroundColor,
-      imageTimeout: 15000,
-      windowWidth: 1200,
-      scrollX: 0,
-      scrollY: 0
+  const PAGE_WIDTH_PX = 794;
+  const PAGE_HEIGHT_PX = 1123;
+  const PAGE_PADDING_X = 32;
+  const PAGE_PADDING_TOP = 28;
+  const PAGE_PADDING_BOTTOM = 44;
+  const PAGE_BODY_HEIGHT = PAGE_HEIGHT_PX - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM;
+  const PAGE_CONTENT_WIDTH = PAGE_WIDTH_PX - PAGE_PADDING_X * 2;
+
+  const sanitizeClone = (node: HTMLElement) => {
+    node.removeAttribute('id');
+    node.querySelectorAll('[id]').forEach(child => child.removeAttribute('id'));
+    node.querySelectorAll('[data-pdf-hide], .no-print').forEach(child => child.remove());
+    node.querySelectorAll<HTMLElement>('*').forEach(child => {
+      child.style.maxHeight = 'none';
+      child.style.overflow = 'visible';
+      child.style.overflowY = 'visible';
     });
+    node.style.maxHeight = 'none';
+    node.style.overflow = 'visible';
+    node.style.overflowY = 'visible';
+    return node;
   };
 
-  try {
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.removeAttribute('id');
-    clone.classList.remove('hidden', 'print:block');
-    clone.querySelectorAll('[data-pdf-hide], .no-print').forEach(node => node.remove());
-    clone.querySelectorAll<HTMLElement>('*').forEach(node => {
-      node.style.maxHeight = 'none';
-      node.style.overflow = 'visible';
-      node.style.overflowY = 'visible';
+  const cloneDeep = (node: HTMLElement) => sanitizeClone(node.cloneNode(true) as HTMLElement);
+  const cloneShallow = (node: HTMLElement) => {
+    const clone = sanitizeClone(node.cloneNode(false) as HTMLElement);
+    clone.style.order = '';
+    return clone;
+  };
+
+  const pages: HTMLElement[] = [];
+
+  const createPage = () => {
+    const page = document.createElement('div');
+    page.dir = 'rtl';
+    Object.assign(page.style, {
+      width: `${PAGE_WIDTH_PX}px`,
+      height: `${PAGE_HEIGHT_PX}px`,
+      boxSizing: 'border-box',
+      padding: `${PAGE_PADDING_TOP}px ${PAGE_PADDING_X}px ${PAGE_PADDING_BOTTOM}px`,
+      backgroundColor,
+      color: '#2D2D2A',
+      overflow: 'hidden',
+      position: 'relative',
+      fontFamily: "Cairo, 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
     });
 
-    Object.assign(clone.style, {
+    const body = document.createElement('div');
+    Object.assign(body.style, {
+      width: `${PAGE_CONTENT_WIDTH}px`,
+      height: `${PAGE_BODY_HEIGHT}px`,
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '14px'
+    });
+    page.appendChild(body);
+
+    const pageNumber = document.createElement('div');
+    pageNumber.className = 'brand-audit-page-number';
+    Object.assign(pageNumber.style, {
+      position: 'absolute',
+      bottom: '12px',
+      left: '0',
+      right: '0',
+      textAlign: 'center',
+      fontSize: '10px',
+      color: '#8E8E85',
+      fontWeight: '700'
+    });
+    page.appendChild(pageNumber);
+
+    host.appendChild(page);
+    pages.push(page);
+    return { page, body };
+  };
+
+  const bodyFits = (body: HTMLElement) => body.scrollHeight <= body.clientHeight + 1;
+
+  try {
+    const sourceClone = element.cloneNode(true) as HTMLElement;
+    sourceClone.removeAttribute('id');
+    sourceClone.classList.remove('hidden', 'print:block');
+    sanitizeClone(sourceClone);
+
+    Object.assign(sourceClone.style, {
       display: 'block',
-      width: '730px',
-      maxWidth: '730px',
+      width: `${PAGE_CONTENT_WIDTH}px`,
+      maxWidth: `${PAGE_CONTENT_WIDTH}px`,
       maxHeight: 'none',
       overflow: 'visible',
       boxSizing: 'border-box',
@@ -243,222 +301,292 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
       direction: 'rtl'
     });
 
-    host.style.width = '730px';
-    host.style.backgroundColor = backgroundColor;
-    host.appendChild(clone);
+    // Keep a measurable source DOM in the staging host. We paginate from DOM
+    // geometry first; canvases are created only after every A4 page is final.
+    const measurementRoot = document.createElement('div');
+    Object.assign(measurementRoot.style, {
+      width: `${PAGE_CONTENT_WIDTH}px`,
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      visibility: 'hidden',
+      pointerEvents: 'none'
+    });
+    measurementRoot.appendChild(sourceClone);
+    host.appendChild(measurementRoot);
 
     if (document.fonts) await document.fonts.ready;
-    await waitForImages(clone);
+    await waitForImages(sourceClone);
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-    const sectionsWrapper = clone.querySelector<HTMLElement>('[data-pdf-sections]');
+    const sectionsWrapper = sourceClone.querySelector<HTMLElement>('[data-pdf-sections]');
     if (!sectionsWrapper) {
       throw new Error('Brand Audit PDF sections container was not found.');
     }
 
-    const topLevelBlocks = Array.from(clone.children)
-      .filter((child): child is HTMLElement => child instanceof HTMLElement && child !== sectionsWrapper);
+    const reportHeader = Array.from(sourceClone.children).find(
+      (child): child is HTMLElement => child instanceof HTMLElement && child !== sectionsWrapper
+    ) || null;
+
     const sections = Array.from(sectionsWrapper.children)
       .filter((child): child is HTMLElement => child instanceof HTMLElement);
 
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageWidthMm = 210;
-    const pageHeightMm = 297;
-    const contentWidthMm = pageWidthMm - marginMm * 2;
-    const contentHeightMm = pageHeightMm - marginMm * 2;
-    const blockGapMm = 4;
-    let pageIndex = 0;
-    let cursorY = marginMm;
+    // Cover/header page. Sections intentionally start on a fresh page so their
+    // pagination never depends on the height of the report title above them.
+    if (reportHeader) {
+      const { body } = createPage();
+      const cover = cloneDeep(reportHeader);
+      body.appendChild(cover);
+    }
 
-    const addPage = () => {
-      pdf.addPage();
-      pageIndex += 1;
-      cursorY = marginMm;
+    type SectionPageState = {
+      body: HTMLElement;
+      sectionShell: HTMLElement;
+      pathMap: Map<HTMLElement, HTMLElement>;
+      contentUnits: number;
     };
 
-    const remainingHeightMm = () => pageHeightMm - marginMm - cursorY;
+    const createSectionPage = (sectionSource: HTMLElement, continued: boolean): SectionPageState => {
+      const { body } = createPage();
+      const shell = cloneShallow(sectionSource);
+      shell.style.order = '';
+      body.appendChild(shell);
 
-    const drawCanvasSlice = (
-      canvas: HTMLCanvasElement,
-      sourceY: number,
-      sourceHeight: number,
-      topMm: number
-    ) => {
-      const mmPerPixel = contentWidthMm / canvas.width;
-      const sliceHeightMm = sourceHeight * mmPerPixel;
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = Math.max(1, Math.round(sourceHeight));
-      const context = sliceCanvas.getContext('2d');
-      if (!context) throw new Error('تعذر تجهيز صفحة ملف PDF.');
+      const headerSource = sectionSource.firstElementChild instanceof HTMLElement
+        ? sectionSource.firstElementChild
+        : null;
 
-      context.fillStyle = backgroundColor;
-      context.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-      context.drawImage(
-        canvas,
-        0,
-        sourceY,
-        canvas.width,
-        sourceHeight,
-        0,
-        0,
-        canvas.width,
-        sourceHeight
-      );
+      if (headerSource) {
+        const header = cloneDeep(headerSource);
+        shell.appendChild(header);
 
+        if (continued) {
+          const badge = document.createElement('div');
+          badge.textContent = 'Continued | تابع';
+          Object.assign(badge.style, {
+            fontSize: '10px',
+            fontWeight: '800',
+            color: '#78786E',
+            marginTop: '-4px',
+            marginBottom: '4px'
+          });
+          shell.appendChild(badge);
+        }
+      }
+
+      return {
+        body,
+        sectionShell: shell,
+        pathMap: new Map<HTMLElement, HTMLElement>(),
+        contentUnits: 0
+      };
+    };
+
+    for (const sectionSource of sections) {
+      let state = createSectionPage(sectionSource, false);
+      const headerSource = sectionSource.firstElementChild instanceof HTMLElement
+        ? sectionSource.firstElementChild
+        : null;
+
+      const directContent = Array.from(sectionSource.children)
+        .filter((child): child is HTMLElement => (
+          child instanceof HTMLElement && child !== headerSource
+        ));
+
+      const startContinuationPage = () => {
+        state = createSectionPage(sectionSource, true);
+      };
+
+      const ensurePath = (templates: HTMLElement[]) => {
+        let parent = state.sectionShell;
+
+        for (const template of templates) {
+          const existing = state.pathMap.get(template);
+          if (existing && existing.isConnected) {
+            parent = existing;
+            continue;
+          }
+
+          const wrapper = cloneShallow(template);
+          parent.appendChild(wrapper);
+          state.pathMap.set(template, wrapper);
+          parent = wrapper;
+        }
+
+        return parent;
+      };
+
+      const tryAppendWhole = (node: HTMLElement, path: HTMLElement[]) => {
+        const parent = ensurePath(path);
+        const clone = cloneDeep(node);
+        parent.appendChild(clone);
+
+        if (bodyFits(state.body)) {
+          state.contentUnits += 1;
+          return true;
+        }
+
+        clone.remove();
+        return false;
+      };
+
+      const appendTextLeaf = (node: HTMLElement, path: HTMLElement[]) => {
+        const rawText = node.textContent || '';
+
+        if (!rawText.trim()) {
+          const parent = ensurePath(path);
+          parent.appendChild(cloneDeep(node));
+          return;
+        }
+
+        const words = rawText.split(/(\s+)/).filter(Boolean);
+        let cursor = 0;
+
+        while (cursor < words.length) {
+          let parent = ensurePath(path);
+          const textClone = cloneShallow(node);
+          parent.appendChild(textClone);
+
+          let low = cursor + 1;
+          let high = words.length;
+          let best = cursor;
+
+          while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            textClone.textContent = words.slice(cursor, mid).join('');
+
+            if (bodyFits(state.body)) {
+              best = mid;
+              low = mid + 1;
+            } else {
+              high = mid - 1;
+            }
+          }
+
+          if (best === cursor) {
+            textClone.remove();
+
+            if (state.contentUnits > 0) {
+              startContinuationPage();
+              parent = ensurePath(path);
+              const retry = cloneShallow(node);
+              retry.textContent = words[cursor];
+              parent.appendChild(retry);
+              state.contentUnits += 1;
+              cursor += 1;
+              continue;
+            }
+
+            // A single token cannot be wrapped any further. Force it so export
+            // always completes instead of entering a pagination loop.
+            const forced = cloneShallow(node);
+            forced.style.overflowWrap = 'anywhere';
+            forced.style.wordBreak = 'break-word';
+            forced.textContent = words[cursor];
+            parent = ensurePath(path);
+            parent.appendChild(forced);
+            state.contentUnits += 1;
+            cursor += 1;
+            continue;
+          }
+
+          textClone.textContent = words.slice(cursor, best).join('');
+          state.contentUnits += 1;
+          cursor = best;
+
+          if (cursor < words.length) {
+            startContinuationPage();
+          }
+        }
+      };
+
+      const paginateNode = (node: HTMLElement, path: HTMLElement[]) => {
+        if (tryAppendWhole(node, path)) return;
+
+        // If the node does not fit the remaining space, first retry it intact
+        // on a clean continuation page. This keeps normal cards/questions whole.
+        if (state.contentUnits > 0) {
+          startContinuationPage();
+          if (tryAppendWhole(node, path)) return;
+        }
+
+        const elementChildren = Array.from(node.children)
+          .filter((child): child is HTMLElement => child instanceof HTMLElement);
+
+        if (elementChildren.length === 0) {
+          appendTextLeaf(node, path);
+          return;
+        }
+
+        // Oversized container: recreate its wrapper on every continuation page,
+        // then paginate its real child DOM nodes one by one. This is the root
+        // change from the old implementation: no image is being cut here.
+        const nextPath = [...path, node];
+
+        for (const child of elementChildren) {
+          paginateNode(child, nextPath);
+        }
+      };
+
+      for (const child of directContent) {
+        paginateNode(child, []);
+      }
+    }
+
+    measurementRoot.remove();
+
+    pages.forEach((page, index) => {
+      const number = page.querySelector<HTMLElement>('.brand-audit-page-number');
+      if (number) number.textContent = `${index + 1} / ${pages.length}`;
+    });
+
+    if (pages.length === 0) {
+      throw new Error('No Brand Audit PDF pages were generated.');
+    }
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    for (let index = 0; index < pages.length; index += 1) {
+      const page = pages[index];
+
+      await waitForImages(page);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const canvas = await html2canvas(page, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        backgroundColor,
+        imageTimeout: 15000,
+        windowWidth: PAGE_WIDTH_PX,
+        width: PAGE_WIDTH_PX,
+        height: PAGE_HEIGHT_PX,
+        scrollX: 0,
+        scrollY: 0
+      });
+
+      if (index > 0) pdf.addPage();
       pdf.addImage(
-        sliceCanvas.toDataURL('image/png'),
-        'PNG',
-        marginMm,
-        topMm,
-        contentWidthMm,
-        sliceHeightMm,
+        canvas.toDataURL('image/jpeg', 0.95),
+        'JPEG',
+        0,
+        0,
+        210,
+        297,
         undefined,
         'FAST'
       );
-
-      return sliceHeightMm;
-    };
-
-    const placeWholeBlock = async (node: HTMLElement) => {
-      const canvas = await renderNode(node);
-      const mmPerPixel = contentWidthMm / canvas.width;
-      const blockHeightMm = canvas.height * mmPerPixel;
-
-      if (blockHeightMm > remainingHeightMm() && cursorY > marginMm + 0.5) {
-        addPage();
-      }
-
-      if (blockHeightMm <= contentHeightMm) {
-        const used = drawCanvasSlice(canvas, 0, canvas.height, cursorY);
-        cursorY += used + blockGapMm;
-        return;
-      }
-
-      // Oversized top-level blocks are rare; split them using their own safe
-      // DOM boundaries rather than slicing the entire report canvas.
-      const canvasScale = canvas.width / node.scrollWidth;
-      const fullPagePx = Math.floor(contentHeightMm / mmPerPixel);
-      const safeBreaks = getSmartPageBreaks(node, canvasScale, fullPagePx);
-      let sourceY = 0;
-
-      while (sourceY < canvas.height) {
-        if (cursorY > marginMm + 0.5) addPage();
-
-        const capacityPx = Math.floor(remainingHeightMm() / mmPerPixel);
-        const targetEnd = Math.min(canvas.height, sourceY + capacityPx);
-        let end = targetEnd;
-
-        if (targetEnd < canvas.height) {
-          const minUseful = sourceY + Math.floor(capacityPx * 0.2);
-          const safeEnd = safeBreaks
-            .filter(point => point > sourceY && point <= targetEnd && point >= minUseful)
-            .pop();
-          if (safeEnd) end = safeEnd;
-        }
-
-        if (end <= sourceY) end = targetEnd;
-        const used = drawCanvasSlice(canvas, sourceY, end - sourceY, cursorY);
-        cursorY += used;
-        sourceY = end;
-
-        if (sourceY < canvas.height) addPage();
-      }
-
-      cursorY += blockGapMm;
-    };
-
-    for (const block of topLevelBlocks) {
-      await placeWholeBlock(block);
-    }
-
-    for (const section of sections) {
-      const canvas = await renderNode(section);
-      const mmPerPixel = contentWidthMm / canvas.width;
-      const sectionHeightMm = canvas.height * mmPerPixel;
-
-      // A section that fits on one A4 content area is never split. If there is
-      // not enough room on the current page, move the complete section forward.
-      if (sectionHeightMm <= contentHeightMm) {
-        if (sectionHeightMm > remainingHeightMm() && cursorY > marginMm + 0.5) {
-          addPage();
-        }
-        const used = drawCanvasSlice(canvas, 0, canvas.height, cursorY);
-        cursorY += used + blockGapMm;
-        continue;
-      }
-
-      // Truly oversized sections are paginated independently. This is the key
-      // difference from the old exporter: we never create one giant report
-      // canvas, so page boundaries cannot randomly cut across neighboring
-      // sections.
-      if (cursorY > marginMm + 0.5) addPage();
-
-      const canvasScale = canvas.width / section.scrollWidth;
-      const sectionHeader = section.firstElementChild instanceof HTMLElement
-        ? section.firstElementChild
-        : null;
-      const sectionRect = section.getBoundingClientRect();
-      const headerRect = sectionHeader?.getBoundingClientRect();
-      const headerHeightPx = headerRect
-        ? Math.max(0, Math.round((headerRect.bottom - sectionRect.top) * canvasScale))
-        : 0;
-      const safeBreaks = getSmartPageBreaks(
-        section,
-        canvasScale,
-        Math.floor(contentHeightMm / mmPerPixel)
-      );
-
-      let sourceY = 0;
-      let continuation = false;
-
-      while (sourceY < canvas.height) {
-        if (continuation) addPage();
-
-        let continuationHeaderMm = 0;
-        if (continuation && headerHeightPx > 0) {
-          const maxHeaderPx = Math.floor((contentHeightMm * 0.14) / mmPerPixel);
-          const repeatedHeaderPx = Math.min(headerHeightPx, maxHeaderPx);
-          continuationHeaderMm = drawCanvasSlice(canvas, 0, repeatedHeaderPx, cursorY);
-          cursorY += continuationHeaderMm + 2;
-        }
-
-        const capacityPx = Math.max(1, Math.floor(remainingHeightMm() / mmPerPixel));
-        const targetEnd = Math.min(canvas.height, sourceY + capacityPx);
-        let end = targetEnd;
-
-        if (targetEnd < canvas.height) {
-          const minUseful = sourceY + Math.floor(capacityPx * 0.2);
-          const safeEnd = safeBreaks
-            .filter(point => point > sourceY && point <= targetEnd && point >= minUseful)
-            .pop();
-          if (safeEnd) end = safeEnd;
-        }
-
-        if (end <= sourceY) end = targetEnd;
-
-        const used = drawCanvasSlice(canvas, sourceY, end - sourceY, cursorY);
-        cursorY += used;
-        sourceY = end;
-        continuation = sourceY < canvas.height;
-      }
-
-      cursorY += blockGapMm;
-    }
-
-    // Add a subtle page number after the full layout is known. Numeric-only
-    // footer avoids Arabic font embedding issues in jsPDF itself.
-    const totalPages = pdf.getNumberOfPages();
-    for (let page = 1; page <= totalPages; page += 1) {
-      pdf.setPage(page);
-      pdf.setFontSize(8);
-      pdf.setTextColor(120);
-      pdf.text(`${page} / ${totalPages}`, pageWidthMm / 2, pageHeightMm - 4, { align: 'center' });
     }
 
     const filename = options.filename.toLowerCase().endsWith('.pdf')
       ? options.filename
       : `${options.filename}.pdf`;
+
     pdf.save(filename.replace(/[\\/:*?\"<>|]+/g, '_'));
   } finally {
     host.remove();
