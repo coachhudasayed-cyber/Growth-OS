@@ -1803,7 +1803,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                       )}
                     </div>
                   )}
-                  {item.value && (
+                  {item.value && userRole !== 'client' && !readOnly && (
                     <button
                       onClick={() =>
                         setDeleteConfirmation({
