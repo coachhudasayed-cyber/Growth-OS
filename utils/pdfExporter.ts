@@ -203,6 +203,22 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
   const backgroundColor = options.backgroundColor || '#ffffff';
   const marginMm = options.marginMm ?? 10;
 
+  const renderNode = async (node: HTMLElement) => {
+    await waitForImages(node);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return html2canvas(node, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor,
+      imageTimeout: 15000,
+      windowWidth: 1200,
+      scrollX: 0,
+      scrollY: 0
+    });
+  };
+
   try {
     const clone = element.cloneNode(true) as HTMLElement;
     clone.removeAttribute('id');
@@ -222,7 +238,7 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
       overflow: 'visible',
       boxSizing: 'border-box',
       backgroundColor,
-      padding: '24px',
+      padding: '0',
       margin: '0',
       direction: 'rtl'
     });
@@ -235,137 +251,209 @@ export async function exportElementToPDF(element: HTMLElement, options: ElementP
     await waitForImages(clone);
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-    const renderScale = 2;
-    const canvas = await html2canvas(clone, {
-      scale: renderScale,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      backgroundColor,
-      imageTimeout: 15000,
-      windowWidth: 1200,
-      scrollX: 0,
-      scrollY: 0
-    });
+    const sectionsWrapper = clone.querySelector<HTMLElement>('[data-pdf-sections]');
+    if (!sectionsWrapper) {
+      throw new Error('Brand Audit PDF sections container was not found.');
+    }
+
+    const topLevelBlocks = Array.from(clone.children)
+      .filter((child): child is HTMLElement => child instanceof HTMLElement && child !== sectionsWrapper);
+    const sections = Array.from(sectionsWrapper.children)
+      .filter((child): child is HTMLElement => child instanceof HTMLElement);
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidthMm = 210;
     const pageHeightMm = 297;
     const contentWidthMm = pageWidthMm - marginMm * 2;
     const contentHeightMm = pageHeightMm - marginMm * 2;
-    const mmPerCanvasPixel = contentWidthMm / canvas.width;
-    const maxSliceHeight = Math.floor(contentHeightMm / mmPerCanvasPixel);
-    const actualCanvasScale = canvas.width / clone.scrollWidth;
-    const smartBreaks = getSmartPageBreaks(clone, actualCanvasScale, maxSliceHeight);
-    const sectionGuides = getPdfSectionGuides(clone, actualCanvasScale);
-    let sourceY = 0;
+    const blockGapMm = 4;
     let pageIndex = 0;
+    let cursorY = marginMm;
 
-    while (sourceY < canvas.height) {
-      const continuationSection = sectionGuides.find(section => (
-        sourceY > section.headerEnd + 6 * actualCanvasScale &&
-        sourceY < section.end - 6 * actualCanvasScale
-      ));
-      const continuationHeaderHeight = continuationSection
-        ? Math.min(
-          continuationSection.headerEnd - continuationSection.start + Math.round(8 * actualCanvasScale),
-          Math.floor(maxSliceHeight * 0.14)
-        )
-        : 0;
-      const continuationGap = continuationHeaderHeight > 0
-        ? Math.round(8 * actualCanvasScale)
-        : 0;
-      const pageBottomGap = Math.round(12 * actualCanvasScale);
-      const pageSliceLimit = maxSliceHeight - continuationHeaderHeight - continuationGap - pageBottomGap;
-      const minimumUsefulSlice = Math.floor(pageSliceLimit * 0.22);
-      const remaining = canvas.height - sourceY;
-      let sliceHeight = Math.min(pageSliceLimit, remaining);
+    const addPage = () => {
+      pdf.addPage();
+      pageIndex += 1;
+      cursorY = marginMm;
+    };
 
-      if (remaining > pageSliceLimit) {
-        const targetEnd = sourceY + pageSliceLimit;
+    const remainingHeightMm = () => pageHeightMm - marginMm - cursorY;
 
-        // Highest-priority rule: if a complete Brand Audit section would fit on
-        // a fresh page but would be split by the current page boundary, move the
-        // whole section to the next page instead of cutting it.
-        const crossingFittingSection = sectionGuides.find(section => {
-          const sectionHeight = section.end - section.start;
-          return (
-            section.start > sourceY + minimumUsefulSlice &&
-            section.start < targetEnd &&
-            section.end > targetEnd &&
-            sectionHeight <= pageSliceLimit
-          );
-        });
-
-        if (crossingFittingSection) {
-          sliceHeight = crossingFittingSection.start - sourceY;
-        } else {
-          // For genuinely tall sections, break only at safe card/heading/text-line
-          // boundaries that are inside the current A4 page. Never extend past the
-          // physical page height and shrink the whole page as a workaround.
-          const smartEnd = smartBreaks
-            .filter(point => point <= targetEnd && point >= sourceY + minimumUsefulSlice)
-            .pop();
-
-          if (smartEnd) {
-            sliceHeight = smartEnd - sourceY;
-          }
-        }
-      }
-
-      const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = canvas.width;
-      pageCanvas.height = continuationHeaderHeight + continuationGap + sliceHeight + pageBottomGap;
-      const context = pageCanvas.getContext('2d');
+    const drawCanvasSlice = (
+      canvas: HTMLCanvasElement,
+      sourceY: number,
+      sourceHeight: number,
+      topMm: number
+    ) => {
+      const mmPerPixel = contentWidthMm / canvas.width;
+      const sliceHeightMm = sourceHeight * mmPerPixel;
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = Math.max(1, Math.round(sourceHeight));
+      const context = sliceCanvas.getContext('2d');
       if (!context) throw new Error('تعذر تجهيز صفحة ملف PDF.');
+
       context.fillStyle = backgroundColor;
-      context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-
-      if (continuationSection && continuationHeaderHeight > 0) {
-        context.drawImage(
-          canvas,
-          0,
-          continuationSection.start,
-          canvas.width,
-          continuationHeaderHeight,
-          0,
-          0,
-          canvas.width,
-          continuationHeaderHeight
-        );
-      }
-
+      context.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
       context.drawImage(
         canvas,
         0,
         sourceY,
         canvas.width,
-        sliceHeight,
+        sourceHeight,
         0,
-        continuationHeaderHeight + continuationGap,
+        0,
         canvas.width,
-        sliceHeight
+        sourceHeight
       );
 
-      if (pageIndex > 0) pdf.addPage();
-      const naturalImageHeightMm = pageCanvas.height * mmPerCanvasPixel;
-      const fitScale = Math.min(1, contentHeightMm / naturalImageHeightMm);
-      const imageWidthMm = contentWidthMm * fitScale;
-      const imageHeightMm = naturalImageHeightMm * fitScale;
-      const imageX = marginMm + (contentWidthMm - imageWidthMm) / 2;
       pdf.addImage(
-        pageCanvas.toDataURL('image/png'),
+        sliceCanvas.toDataURL('image/png'),
         'PNG',
-        imageX,
         marginMm,
-        imageWidthMm,
-        imageHeightMm,
+        topMm,
+        contentWidthMm,
+        sliceHeightMm,
         undefined,
         'FAST'
       );
 
-      sourceY += sliceHeight;
-      pageIndex += 1;
+      return sliceHeightMm;
+    };
+
+    const placeWholeBlock = async (node: HTMLElement) => {
+      const canvas = await renderNode(node);
+      const mmPerPixel = contentWidthMm / canvas.width;
+      const blockHeightMm = canvas.height * mmPerPixel;
+
+      if (blockHeightMm > remainingHeightMm() && cursorY > marginMm + 0.5) {
+        addPage();
+      }
+
+      if (blockHeightMm <= contentHeightMm) {
+        const used = drawCanvasSlice(canvas, 0, canvas.height, cursorY);
+        cursorY += used + blockGapMm;
+        return;
+      }
+
+      // Oversized top-level blocks are rare; split them using their own safe
+      // DOM boundaries rather than slicing the entire report canvas.
+      const canvasScale = canvas.width / node.scrollWidth;
+      const fullPagePx = Math.floor(contentHeightMm / mmPerPixel);
+      const safeBreaks = getSmartPageBreaks(node, canvasScale, fullPagePx);
+      let sourceY = 0;
+
+      while (sourceY < canvas.height) {
+        if (cursorY > marginMm + 0.5) addPage();
+
+        const capacityPx = Math.floor(remainingHeightMm() / mmPerPixel);
+        const targetEnd = Math.min(canvas.height, sourceY + capacityPx);
+        let end = targetEnd;
+
+        if (targetEnd < canvas.height) {
+          const minUseful = sourceY + Math.floor(capacityPx * 0.2);
+          const safeEnd = safeBreaks
+            .filter(point => point > sourceY && point <= targetEnd && point >= minUseful)
+            .pop();
+          if (safeEnd) end = safeEnd;
+        }
+
+        if (end <= sourceY) end = targetEnd;
+        const used = drawCanvasSlice(canvas, sourceY, end - sourceY, cursorY);
+        cursorY += used;
+        sourceY = end;
+
+        if (sourceY < canvas.height) addPage();
+      }
+
+      cursorY += blockGapMm;
+    };
+
+    for (const block of topLevelBlocks) {
+      await placeWholeBlock(block);
+    }
+
+    for (const section of sections) {
+      const canvas = await renderNode(section);
+      const mmPerPixel = contentWidthMm / canvas.width;
+      const sectionHeightMm = canvas.height * mmPerPixel;
+
+      // A section that fits on one A4 content area is never split. If there is
+      // not enough room on the current page, move the complete section forward.
+      if (sectionHeightMm <= contentHeightMm) {
+        if (sectionHeightMm > remainingHeightMm() && cursorY > marginMm + 0.5) {
+          addPage();
+        }
+        const used = drawCanvasSlice(canvas, 0, canvas.height, cursorY);
+        cursorY += used + blockGapMm;
+        continue;
+      }
+
+      // Truly oversized sections are paginated independently. This is the key
+      // difference from the old exporter: we never create one giant report
+      // canvas, so page boundaries cannot randomly cut across neighboring
+      // sections.
+      if (cursorY > marginMm + 0.5) addPage();
+
+      const canvasScale = canvas.width / section.scrollWidth;
+      const sectionHeader = section.firstElementChild instanceof HTMLElement
+        ? section.firstElementChild
+        : null;
+      const sectionRect = section.getBoundingClientRect();
+      const headerRect = sectionHeader?.getBoundingClientRect();
+      const headerHeightPx = headerRect
+        ? Math.max(0, Math.round((headerRect.bottom - sectionRect.top) * canvasScale))
+        : 0;
+      const safeBreaks = getSmartPageBreaks(
+        section,
+        canvasScale,
+        Math.floor(contentHeightMm / mmPerPixel)
+      );
+
+      let sourceY = 0;
+      let continuation = false;
+
+      while (sourceY < canvas.height) {
+        if (continuation) addPage();
+
+        let continuationHeaderMm = 0;
+        if (continuation && headerHeightPx > 0) {
+          const maxHeaderPx = Math.floor((contentHeightMm * 0.14) / mmPerPixel);
+          const repeatedHeaderPx = Math.min(headerHeightPx, maxHeaderPx);
+          continuationHeaderMm = drawCanvasSlice(canvas, 0, repeatedHeaderPx, cursorY);
+          cursorY += continuationHeaderMm + 2;
+        }
+
+        const capacityPx = Math.max(1, Math.floor(remainingHeightMm() / mmPerPixel));
+        const targetEnd = Math.min(canvas.height, sourceY + capacityPx);
+        let end = targetEnd;
+
+        if (targetEnd < canvas.height) {
+          const minUseful = sourceY + Math.floor(capacityPx * 0.2);
+          const safeEnd = safeBreaks
+            .filter(point => point > sourceY && point <= targetEnd && point >= minUseful)
+            .pop();
+          if (safeEnd) end = safeEnd;
+        }
+
+        if (end <= sourceY) end = targetEnd;
+
+        const used = drawCanvasSlice(canvas, sourceY, end - sourceY, cursorY);
+        cursorY += used;
+        sourceY = end;
+        continuation = sourceY < canvas.height;
+      }
+
+      cursorY += blockGapMm;
+    }
+
+    // Add a subtle page number after the full layout is known. Numeric-only
+    // footer avoids Arabic font embedding issues in jsPDF itself.
+    const totalPages = pdf.getNumberOfPages();
+    for (let page = 1; page <= totalPages; page += 1) {
+      pdf.setPage(page);
+      pdf.setFontSize(8);
+      pdf.setTextColor(120);
+      pdf.text(`${page} / ${totalPages}`, pageWidthMm / 2, pageHeightMm - 4, { align: 'center' });
     }
 
     const filename = options.filename.toLowerCase().endsWith('.pdf')
