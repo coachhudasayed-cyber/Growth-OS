@@ -74,6 +74,46 @@ const mergeChecklistAnswers = (
   });
 };
 
+
+const getLegacyPersonaChecklistAnswers = (audit: BrandAudit, path: string): AuditCheckItem[] => {
+  const persona = audit.customerPersona;
+  if (!persona) return [];
+
+  if (path === 'customerPersona.targetAudienceChecklist') {
+    return [
+      { id: 'persona-ta-age', label: 'الفئة العمرية', status: persona.targetAudienceDetails?.ageRange || '' },
+      { id: 'persona-ta-gender', label: 'الجنس', status: persona.targetAudienceDetails?.gender || '' },
+      { id: 'persona-ta-income', label: 'المستوى المادي', status: persona.targetAudienceDetails?.incomeLevel || '' },
+      { id: 'persona-ta-interests', label: 'الاهتمامات', status: persona.targetAudienceDetails?.interests || '' },
+      { id: 'persona-ta-lifestyle', label: 'أسلوب الحياة', status: persona.targetAudienceDetails?.lifestyle || '' },
+      { id: 'persona-ta-location', label: 'مكان الإقامة', status: persona.targetAudienceDetails?.location || '' }
+    ];
+  }
+
+  if (path === 'customerPersona.insightsChecklist') {
+    return [
+      { id: 'persona-insight-pain-points', label: 'Pain Points | المشاكل التي يعاني منها العميل ويحلها المنتج', status: persona.insights?.painPoints || '' },
+      { id: 'persona-insight-motivation', label: 'Buying Motivation | لماذا قد يشتري هذا المنتج؟', status: persona.insights?.buyingMotivation || '' },
+      { id: 'persona-insight-triggers', label: 'Buying Triggers | ما الذي يدفعه لاتخاذ قرار الشراء بسرعة؟', status: persona.insights?.buyingTriggers || '' },
+      { id: 'persona-insight-objections', label: 'Objections | ما الاعتراضات أو المخاوف التي تمنعه من الشراء؟', status: persona.insights?.objections || '' }
+    ];
+  }
+
+  if (path === 'customerPersona.positioningChecklist') {
+    return [
+      { id: 'persona-pos-core-value', label: 'القيمة الأساسية التي يقدمها البراند', status: persona.positioning?.coreValue || '' },
+      { id: 'persona-pos-usp', label: 'الميزة التنافسية (USP)', status: persona.positioning?.usp || '' },
+      { id: 'persona-pos-core-message', label: 'الرسالة الأساسية للبراند', status: persona.positioning?.coreMessage || '' },
+      { id: 'persona-pos-first-impression', label: 'الانطباع الأول', status: persona.positioning?.firstImpression || '' },
+      { id: 'persona-pos-market-tier', label: 'مكانة البراند في السوق (اقتصادي - متوسط - Premium)', status: persona.positioning?.marketTier || '' },
+      { id: 'persona-pos-identity-clarity', label: 'مدى وضوح الهوية', status: persona.positioning?.identityClarity || '' },
+      { id: 'persona-pos-growth-readiness', label: 'تقييم جاهزية البراند للنمو', status: persona.positioning?.growthReadiness || '' }
+    ];
+  }
+
+  return [];
+};
+
 export const extractBrandAuditSchema = (audit: BrandAudit): BrandAuditSchema => ({
   builtInSectionSettings: audit.builtInSectionSettings
     ? JSON.parse(JSON.stringify(audit.builtInSectionSettings))
@@ -123,12 +163,14 @@ export const applyBrandAuditSchema = (
 
   Object.entries(schema.checklists || {}).forEach(([path, schemaItems]) => {
     const currentItems = getPath(audit, path);
+    const existingItems = Array.isArray(currentItems) ? currentItems as AuditCheckItem[] : [];
+    const legacyPersonaItems = getLegacyPersonaChecklistAnswers(audit, path);
     setPath(
       next as unknown as Record<string, unknown>,
       path,
       mergeChecklistAnswers(
         schemaItems,
-        Array.isArray(currentItems) ? currentItems as AuditCheckItem[] : []
+        existingItems.length > 0 ? existingItems : legacyPersonaItems
       )
     );
   });
