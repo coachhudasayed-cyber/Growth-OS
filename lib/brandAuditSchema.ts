@@ -6,6 +6,8 @@ export interface BrandAuditSchema {
   sectionOrder?: string[];
   customSections?: Array<Pick<CustomBrandAuditSection, 'id' | 'title' | 'itemsTitle' | 'items'>>;
   checklists?: Record<string, AuditCheckItem[]>;
+  unitEconomicsSections?: Record<string, AuditCheckItem[]>;
+  competitorAnalysisTemplate?: Record<string, AuditCheckItem[]>;
 }
 
 const cloneChecklistStructure = (items: AuditCheckItem[] = []): AuditCheckItem[] =>
@@ -15,6 +17,28 @@ const cloneChecklistStructure = (items: AuditCheckItem[] = []): AuditCheckItem[]
     status: '',
     notes: undefined
   }));
+
+const cloneSectionStructure = (sections?: Record<string, AuditCheckItem[]>): Record<string, AuditCheckItem[]> | undefined => {
+  if (!sections) return undefined;
+  return Object.fromEntries(
+    Object.entries(sections).map(([key, items]) => [key, cloneChecklistStructure(items || [])])
+  );
+};
+
+const deriveUnitEconomicsSections = (audit: BrandAudit): Record<string, AuditCheckItem[]> | undefined => {
+  if (audit.unitEconomics?.sectionChecklists) {
+    return audit.unitEconomics.sectionChecklists;
+  }
+  const items = audit.unitEconomics?.checklist || [];
+  if (items.length === 0) return undefined;
+  const groups: Record<string, AuditCheckItem[]> = {};
+  items.forEach(item => {
+    const match = item.id.match(/^ue-([^-]+)-/);
+    const key = match?.[1] || 'other';
+    groups[key] = [...(groups[key] || []), item];
+  });
+  return groups;
+};
 
 const collectChecklistSchema = (
   value: unknown,
@@ -128,7 +152,9 @@ export const extractBrandAuditSchema = (audit: BrandAudit): BrandAuditSchema => 
     itemsTitle: section.itemsTitle,
     items: cloneChecklistStructure(section.items || [])
   })),
-  checklists: collectChecklistSchema(audit)
+  checklists: collectChecklistSchema(audit),
+  unitEconomicsSections: cloneSectionStructure(deriveUnitEconomicsSections(audit)),
+  competitorAnalysisTemplate: cloneSectionStructure(audit.competitorAnalysisTemplate)
 });
 
 export const applyBrandAuditSchema = (
@@ -160,6 +186,25 @@ export const applyBrandAuditSchema = (
       items: mergeChecklistAnswers(section.items || [], current?.items || [])
     };
   });
+
+  if (schema.unitEconomicsSections) {
+    const currentSections = audit.unitEconomics?.sectionChecklists || deriveUnitEconomicsSections(audit) || {};
+    const mergedSections = Object.fromEntries(
+      Object.entries(schema.unitEconomicsSections).map(([key, schemaItems]) => [
+        key,
+        mergeChecklistAnswers(schemaItems || [], currentSections[key] || [])
+      ])
+    );
+    next.unitEconomics = {
+      ...next.unitEconomics,
+      sectionChecklists: mergedSections,
+      checklist: Object.values(mergedSections).flat()
+    };
+  }
+
+  if (schema.competitorAnalysisTemplate) {
+    next.competitorAnalysisTemplate = cloneSectionStructure(schema.competitorAnalysisTemplate);
+  }
 
   Object.entries(schema.checklists || {}).forEach(([path, schemaItems]) => {
     const currentItems = getPath(audit, path);
