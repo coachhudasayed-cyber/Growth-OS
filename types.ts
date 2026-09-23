@@ -391,6 +391,9 @@ export interface BrandAudit {
 
   // 13. Main Problems & Solutions (أهم المشاكل وحلها)
   problemsAndSolutions?: BrandAuditProblemSolution[];
+  // Per-brand question structure for the Problems & Solutions section.
+  // This is intentionally local to each brand and is NOT part of the shared Brand Audit schema.
+  problemSolutionTemplate?: AuditCheckItem[];
 
   // Custom audit sections created by the admin
   customSections?: CustomBrandAuditSection[];
