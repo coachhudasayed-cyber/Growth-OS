@@ -267,12 +267,19 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
   });
 
   const unitGroups: PdfGroup[] = [];
-  const unitRows = checklistRows(audit.unitEconomics?.checklist);
-  if (unitRows.length) unitGroups.push({ rows: unitRows });
-  Object.entries(audit.unitEconomics?.sectionChecklists || {}).forEach(([key, items]) => {
-    const rows = checklistRows(items);
-    if (rows.length) unitGroups.push({ title: key, rows });
-  });
+  const unitSectionEntries = Object.entries(audit.unitEconomics?.sectionChecklists || {});
+  if (unitSectionEntries.length) {
+    // sectionChecklists is the structured source of truth when present.
+    // The UI also keeps a flattened checklist in sync for backwards compatibility,
+    // so exporting both would duplicate every Unit Economics / Pricing question.
+    unitSectionEntries.forEach(([key, items]) => {
+      const rows = checklistRows(items);
+      if (rows.length) unitGroups.push({ title: key, rows });
+    });
+  } else {
+    const unitRows = checklistRows(audit.unitEconomics?.checklist);
+    if (unitRows.length) unitGroups.push({ rows: unitRows });
+  }
   if (!unitGroups.length) {
     const fallback = group(undefined, [
       row('Average Price Range | متوسط السعر', audit.unitEconomics?.avgPriceRange),
