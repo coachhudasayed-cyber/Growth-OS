@@ -96,7 +96,7 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
 
   // Open Add Modal
   const handleOpenAdd = () => {
-    if (userRole !== 'admin') return;
+    if (userRole === 'employee') return;
     setEditingPayment(null);
     setFormTitle('مستحقات ميديا بايينج');
     setFormAmount('');
@@ -114,7 +114,7 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
 
   // Open Edit Modal
   const handleOpenEdit = (pay: PaymentRecord) => {
-    if (userRole !== 'admin') return;
+    if (userRole === 'employee') return;
     setEditingPayment(pay);
     setFormTitle(pay.title || 'مستحقات ميديا بايينج');
     setFormAmount(pay.amount || '');
@@ -216,7 +216,7 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
 
   // Confirm Delete
   const handleConfirmDelete = () => {
-    if (userRole !== 'admin') return;
+    if (userRole === 'employee') return;
     if (deletingPayment && onDeletePayment) {
       onDeletePayment(deletingPayment.id);
       setDeletingPayment(null);
@@ -251,7 +251,7 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
           </span>
         </div>
 
-        {userRole === 'admin' && (
+        {userRole !== 'employee' && (
           <button
             onClick={handleOpenAdd}
             className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 bg-[#5A5A40] hover:bg-[#4a4a34] text-white font-extrabold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
@@ -420,10 +420,10 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleCycleStatus(pay)}
-                      disabled={userRole !== 'admin'}
-                      title={userRole === 'admin' ? 'اضغط لتغيير الحالة' : undefined}
+                      disabled={userRole === 'employee'}
+                      title={userRole !== 'employee' ? 'اضغط لتغيير الحالة' : undefined}
                       className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition ${
-                        userRole === 'admin' ? 'cursor-pointer hover:opacity-85' : 'cursor-default'
+                        userRole !== 'employee' ? 'cursor-pointer hover:opacity-85' : 'cursor-default'
                       } ${
                         isPaid
                           ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
@@ -444,8 +444,8 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
                       </span>
                     </button>
 
-                    {/* Edit & Delete for Admin only */}
-                    {userRole === 'admin' && (
+                    {/* Edit & Delete for Admin / Client */}
+                    {userRole !== 'employee' && (
                       <div className="flex items-center gap-0.5 bg-[#F9F8F6] p-0.5 rounded-xl border border-[#E5E5E0]">
                         <button
                           onClick={() => handleOpenEdit(pay)}
