@@ -37,7 +37,12 @@ with check (
   or (client_id is not null and (select app_private.is_assigned_client(client_id)))
   or (
     client_id = (select app_private.own_client_id())
-    and collection in ('clientDailyReports', 'notes')
+    and (
+      (collection = 'payments' and coalesce(data->>'category', 'media_buying_fees') = 'media_buying_fees')
+      or (collection = 'notes' and data->>'authorRole' = 'client'
+        and (data->>'authorId' is null or data->>'authorId' = (select auth.uid())::text))
+      or collection = 'clientDailyReports'
+    )
     and data->>'clientId' = client_id
   )
   or (collection = 'todos' and client_id is null and (select app_private.is_staff()))
@@ -49,7 +54,12 @@ using (
   or (client_id is not null and (select app_private.is_assigned_client(client_id)))
   or (
     client_id = (select app_private.own_client_id())
-    and collection in ('clientDailyReports', 'notes')
+    and (
+      (collection = 'payments' and coalesce(data->>'category', 'media_buying_fees') = 'media_buying_fees')
+      or (collection = 'notes' and data->>'authorRole' = 'client'
+        and (data->>'authorId' is null or data->>'authorId' = (select auth.uid())::text))
+      or collection = 'clientDailyReports'
+    )
     and data->>'clientId' = client_id
   )
   or (collection = 'todos' and client_id is null and (select app_private.is_staff()))
@@ -59,7 +69,12 @@ with check (
   or (client_id is not null and (select app_private.is_assigned_client(client_id)))
   or (
     client_id = (select app_private.own_client_id())
-    and collection in ('clientDailyReports', 'notes')
+    and (
+      (collection = 'payments' and coalesce(data->>'category', 'media_buying_fees') = 'media_buying_fees')
+      or (collection = 'notes' and data->>'authorRole' = 'client'
+        and (data->>'authorId' is null or data->>'authorId' = (select auth.uid())::text))
+      or collection = 'clientDailyReports'
+    )
     and data->>'clientId' = client_id
   )
   or (collection = 'todos' and client_id is null and (select app_private.is_staff()))
@@ -71,7 +86,12 @@ using (
   or (client_id is not null and (select app_private.is_assigned_client(client_id)))
   or (
     client_id = (select app_private.own_client_id())
-    and collection in ('clientDailyReports', 'notes')
+    and (
+      (collection = 'payments' and coalesce(data->>'category', 'media_buying_fees') = 'media_buying_fees')
+      or (collection = 'notes' and data->>'authorRole' = 'client'
+        and (data->>'authorId' is null or data->>'authorId' = (select auth.uid())::text))
+      or collection = 'clientDailyReports'
+    )
     and data->>'clientId' = client_id
   )
   or (collection = 'todos' and client_id is null and (select app_private.is_staff()))
