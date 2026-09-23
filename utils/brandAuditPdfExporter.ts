@@ -77,6 +77,45 @@ const checklistRows = (items?: AuditCheckItem[]) =>
     value: [clean(item.status), clean(item.notes)].filter(Boolean).join('\n')
   })).filter(item => item.value);
 
+const checklistRowsWithEmpty = (items?: AuditCheckItem[]) =>
+  (items || []).map(item => ({
+    label: item.label || 'Question',
+    value: [clean(item.status), clean(item.notes)].filter(Boolean).join('\n') || '—'
+  }));
+
+const COMPETITOR_AXIS_TITLES: Record<string, string> = {
+  '1': '1. Competitor Profile | بيانات المنافس',
+  '2': '2. Pricing & Offers | التسعير والعروض',
+  '3': '3. Marketing & Content | التسويق والمحتوى',
+  '4': '4. Advertising | الإعلانات',
+  '5': '5. Customer Experience | تجربة العميل',
+  '6': '6. Competitive Assessment | أداء المنافس',
+  '7': '7. Market Opportunities | فرص السوق',
+  '8': '8. Competitive Threats | التهديدات',
+  '9': '9. Strategic Takeaways | التوصيات الاستراتيجية'
+};
+
+const getCompetitorAxisRows = (
+  competitor: CompetitorItem,
+  axisKey: string,
+  template?: Record<string, AuditCheckItem[]>
+): PdfRow[] => {
+  const savedItems = competitor.sectionChecklists?.[axisKey] || [];
+  const structure = template?.[axisKey]?.length ? template[axisKey] : savedItems;
+  const savedById = new Map(savedItems.map(item => [item.id, item]));
+
+  const merged = structure.map(item => {
+    const saved = savedById.get(item.id);
+    return {
+      ...item,
+      status: saved?.status ?? item.status ?? '',
+      notes: saved?.notes ?? item.notes
+    };
+  });
+
+  return checklistRowsWithEmpty(merged);
+};
+
 const mergeChecklistRows = (...lists: Array<AuditCheckItem[] | undefined>) => {
   const seen = new Set<string>();
   const merged: AuditCheckItem[] = [];
@@ -335,28 +374,51 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
   });
 
   const competitorGroups: PdfGroup[] = [];
-  (audit.competitors || []).forEach((competitor, index) => {
-    const templateGroups = Object.entries(competitor.sectionChecklists || {})
-      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-      .map(([key, items]) => {
-        const rows = checklistRows(items);
-        return rows.length ? { title: `${index + 1}. ${competitor.name || 'Competitor'} — Section ${key}`, rows } : null;
-      })
-      .filter(Boolean) as PdfGroup[];
+  const competitorTemplate = audit.competitorAnalysisTemplate || {};
 
-    if (templateGroups.length) {
-      competitorGroups.push(...templateGroups);
+  (audit.competitors || []).forEach((competitor, index) => {
+    const competitorLabel = `${index + 1}. ${competitor.name || 'Competitor'}`;
+    const hasStructuredAnalysis =
+      Object.keys(competitorTemplate).length > 0 ||
+      Object.keys(competitor.sectionChecklists || {}).length > 0;
+
+    if (hasStructuredAnalysis) {
+      // Always render the 9 analysis axes in their intended order.
+      for (let axis = 1; axis <= 9; axis += 1) {
+        const key = String(axis);
+        const rows = getCompetitorAxisRows(competitor, key, competitorTemplate);
+
+        // Competitor identity belongs to axis 1 and must always be visible in the PDF.
+        if (axis === 1) {
+          rows.unshift(
+            { label: 'Competitor Name | اسم المنافس', value: clean(competitor.name) || '—' },
+            { label: 'Competitor Type | نوع المنافس', value: clean(competitor.competitorType) || '—' }
+          );
+        }
+
+        competitorGroups.push({
+          title: `${competitorLabel} — ${COMPETITOR_AXIS_TITLES[key]}`,
+          rows
+        });
+      }
     } else {
+      // Backwards compatibility for legacy competitors saved before the 9-axis structure.
       const rows = knownCompetitorRows(competitor);
-      if (rows.length) competitorGroups.push({ title: `${index + 1}. ${competitor.name || 'Competitor'}`, rows });
+      if (rows.length) competitorGroups.push({ title: competitorLabel, rows });
     }
   });
-  if (!competitorGroups.length) {
-    Object.entries(audit.competitorAnalysisTemplate || {}).forEach(([key, items]) => {
-      const rows = checklistRows(items);
-      if (rows.length) competitorGroups.push({ title: `Template Section ${key}`, rows });
-    });
+
+  // If there are no competitors yet, still expose the 9-axis template in the section export.
+  if (!competitorGroups.length && Object.keys(competitorTemplate).length) {
+    for (let axis = 1; axis <= 9; axis += 1) {
+      const key = String(axis);
+      competitorGroups.push({
+        title: COMPETITOR_AXIS_TITLES[key],
+        rows: checklistRowsWithEmpty(competitorTemplate[key] || [])
+      });
+    }
   }
+
   sections.push({ id: 'competitors', title: getSectionTitle(audit, 'competitors'), groups: competitorGroups });
 
   const swotGroups = [
