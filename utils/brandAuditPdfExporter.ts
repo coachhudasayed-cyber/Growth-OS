@@ -267,15 +267,37 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
   });
 
   const unitGroups: PdfGroup[] = [];
-  const unitSectionEntries = Object.entries(audit.unitEconomics?.sectionChecklists || {});
-  if (unitSectionEntries.length) {
-    // sectionChecklists is the structured source of truth when present.
-    // The UI also keeps a flattened checklist in sync for backwards compatibility,
-    // so exporting both would duplicate every Unit Economics / Pricing question.
-    unitSectionEntries.forEach(([key, items]) => {
-      const rows = checklistRows(items);
-      if (rows.length) unitGroups.push({ title: key, rows });
+  const unitSectionChecklists = audit.unitEconomics?.sectionChecklists || {};
+  const unitSectionKeys = Object.keys(unitSectionChecklists);
+
+  if (unitSectionKeys.length) {
+    // Render the standard Unit Economics groups in the same fixed order as the UI.
+    // Object insertion order can differ in saved data, which previously produced
+    // PDFs starting with ads/order before product/selling.
+    const orderedUnitSections = [
+      { key: 'product', title: 'Product Costs | تكلفة المنتج' },
+      { key: 'selling', title: 'Selling Economics | اقتصاديات البيع' },
+      { key: 'order', title: 'Order Costs | تكلفة الاوردر' },
+      { key: 'ads', title: 'Advertising Profitability | ربحية الاعلانات' }
+    ];
+
+    const renderedKeys = new Set<string>();
+    orderedUnitSections.forEach(({ key, title }) => {
+      const rows = checklistRows(unitSectionChecklists[key]);
+      if (rows.length) {
+        unitGroups.push({ title, rows });
+        renderedKeys.add(key);
+      }
     });
+
+    // Keep future/custom groups too, but only after the standard groups.
+    unitSectionKeys
+      .filter(key => !renderedKeys.has(key))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .forEach(key => {
+        const rows = checklistRows(unitSectionChecklists[key]);
+        if (rows.length) unitGroups.push({ title: key, rows });
+      });
   } else {
     const unitRows = checklistRows(audit.unitEconomics?.checklist);
     if (unitRows.length) unitGroups.push({ rows: unitRows });
