@@ -545,6 +545,7 @@ export const BrandPageView: React.FC<BrandPageViewProps> = ({
                 clientId={client.id}
                 currentUserRole={userRole}
                 currentUserName={currentUserName}
+                currentUserId={currentUser.id}
                 onAddNote={onAddNote}
                 onUpdateNote={onUpdateNote}
                 onToggleNotePin={onToggleNotePin}
