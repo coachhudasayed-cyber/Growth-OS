@@ -203,7 +203,7 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
 
   // Quick Status Cycle (paid -> partial -> pending)
   const handleCycleStatus = (pay: PaymentRecord) => {
-    if (userRole === 'employee' || !onUpdatePaymentStatus) return;
+    if (userRole !== 'admin' || !onUpdatePaymentStatus) return;
     const nextMap: Record<string, PaymentStatus> = {
       paid: 'partial',
       partial: 'pending',
@@ -216,6 +216,7 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
 
   // Confirm Delete
   const handleConfirmDelete = () => {
+    if (userRole === 'employee') return;
     if (deletingPayment && onDeletePayment) {
       onDeletePayment(deletingPayment.id);
       setDeletingPayment(null);

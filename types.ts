@@ -1017,6 +1017,7 @@ export interface NoteItem {
   content: string;
   author: string;
   authorRole: UserRole;
+  authorId?: string;
   isPinned: boolean;
   status?: 'قيد المتابعة' | 'تم التنفيذ';
   date: string;

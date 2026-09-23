@@ -8,6 +8,7 @@ interface NotesTabProps {
   clientId: string;
   currentUserRole: UserRole;
   currentUserName: string;
+  currentUserId: string;
   onAddNote: (note: Omit<NoteItem, 'id'>) => void;
   onUpdateNote?: (id: string, fields: Partial<NoteItem>) => void;
   onToggleNotePin: (id: string) => void;
@@ -19,12 +20,16 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   clientId,
   currentUserRole,
   currentUserName,
+  currentUserId,
   onAddNote,
   onUpdateNote,
   onToggleNotePin,
   onDeleteNote
 }) => {
   const clientNotes = notes.filter((n) => n.clientId === clientId);
+  const canManageNote = (note: NoteItem) =>
+    currentUserRole === 'admin'
+    || (note.authorRole === 'client' && (!note.authorId || note.authorId === currentUserId));
 
   const [showModal, setShowModal] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -44,6 +49,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   };
 
   const handleOpenEditModal = (note: NoteItem) => {
+    if (!canManageNote(note)) return;
     setEditingNoteId(note.id);
     setTitle(note.title);
     setContent(note.content);
@@ -53,7 +59,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   };
 
   const handleToggleNoteStatus = (note: NoteItem) => {
-    if (!onUpdateNote) return;
+    if (!onUpdateNote || !canManageNote(note)) return;
     const nextStatus: 'قيد المتابعة' | 'تم التنفيذ' =
       note.status === 'تم التنفيذ' ? 'قيد المتابعة' : 'تم التنفيذ';
     onUpdateNote(note.id, { status: nextStatus });
@@ -64,6 +70,8 @@ export const NotesTab: React.FC<NotesTabProps> = ({
     if (!title.trim() || !content.trim()) return;
 
     if (editingNoteId && onUpdateNote) {
+      const original = clientNotes.find(item => item.id === editingNoteId);
+      if (!original || !canManageNote(original)) return;
       onUpdateNote(editingNoteId, {
         title,
         content,
@@ -84,6 +92,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
 
       onAddNote({
         clientId,
+        authorId: currentUserId,
         title,
         content,
         author: formattedAuthor,
@@ -248,7 +257,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                     </div>
                   </div>
 
-                  <button
+                  {canManageNote(note) && <button
                     onClick={() => onToggleNotePin(note.id)}
                     className={`p-1.5 rounded-xl transition cursor-pointer ${
                       note.isPinned
@@ -258,7 +267,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                     title={note.isPinned ? 'إلغاء التثبيت' : 'تثبيت الملاحظة'}
                   >
                     <Pin className="w-4 h-4" />
-                  </button>
+                  </button>}
                 </div>
 
                 <p className="text-xs text-[#2D2D2A] leading-relaxed bg-white p-3 rounded-2xl border border-[#E5E5E0] mb-4 whitespace-pre-wrap">
@@ -272,13 +281,14 @@ export const NotesTab: React.FC<NotesTabProps> = ({
 
                   <button
                     type="button"
+                    disabled={!canManageNote(note)}
                     onClick={() => handleToggleNoteStatus(note)}
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1 transition cursor-pointer hover:scale-105 active:scale-95 shadow-2xs ${
                       note.status === 'تم التنفيذ'
                         ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300'
                         : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
                     }`}
-                    title="اضغط لتغيير حالة الملاحظة"
+                    title={canManageNote(note) ? 'اضغط لتغيير حالة الملاحظة' : 'الحالة للعرض فقط'}
                   >
                     {note.status === 'تم التنفيذ' ? (
                       <>
@@ -294,7 +304,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                   </button>
                 </div>
 
-                {(currentUserRole === 'admin' || note.authorRole === 'client') && (
+                {canManageNote(note) && (
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenEditModal(note)}

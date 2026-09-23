@@ -25,6 +25,11 @@ const CLIENT_WRITABLE_COLLECTIONS = new Set([
   'notes'
 ]);
 
+const EXPLICIT_DELETE_ONLY_COLLECTIONS = new Set([
+  'agreements',
+  'payments'
+]);
+
 const profileFromRow = (row: any): UserProfile => ({
   id: row.id,
   email: row.email,
@@ -124,7 +129,12 @@ export function useAppData() {
     const asMap = <T,>(name: string): Record<string, T> =>
       Object.fromEntries(rows.filter(row => row.collection === name).map(row => [row.record_id, row.data as T]));
     savedRecords.current = new Map(rows
-      .filter(row => profileResult.data.role !== 'client' || row.collection === 'clientDailyReports' || row.collection === 'notes')
+      .filter(row => profileResult.data.role !== 'client'
+        || row.collection === 'clientDailyReports'
+        || (row.collection === 'payments' && (row.data as PaymentRecord).category !== 'ad_spend')
+        || (row.collection === 'notes'
+          && (row.data as NoteItem).authorRole === 'client'
+          && (!(row.data as NoteItem).authorId || (row.data as NoteItem).authorId === userId)))
       .map(row => [`${row.collection}:${row.record_id}`, JSON.stringify(row)]));
     setUsers((userResult.data || []).map(profileFromRow));
     setEmployees((userResult.data || []).filter(row => row.role === 'employee').map(row => ({
@@ -207,6 +217,13 @@ export function useAppData() {
     const next = new Map<string, string>();
     const add = (collection: string, recordId: string, clientId: string | null, data: unknown) => {
       if (writableCollections && !writableCollections.has(collection)) return;
+      if (currentUser?.role === 'client') {
+        if (collection === 'payments' && (data as PaymentRecord).category === 'ad_spend') return;
+        if (collection === 'notes') {
+          const note = data as NoteItem;
+          if (note.authorRole !== 'client' || (note.authorId && note.authorId !== currentUser.id)) return;
+        }
+      }
       const row: StoredRecord = { collection, record_id: recordId, client_id: clientId, data };
       next.set(`${collection}:${recordId}`, JSON.stringify(row));
     };
@@ -235,7 +252,12 @@ export function useAppData() {
     const upserts = [...next.entries()]
       .filter(([key, value]) => before.get(key) !== value)
       .map(([, value]) => JSON.parse(value) as StoredRecord);
-    const deletes = [...before.keys()].filter(key => !next.has(key));
+    const deletes = [...before.keys()].filter(key => {
+      if (next.has(key)) return false;
+      const divider = key.indexOf(':');
+      const collection = divider >= 0 ? key.slice(0, divider) : key;
+      return !EXPLICIT_DELETE_ONLY_COLLECTIONS.has(collection);
+    });
     const optimisticRecords = writableCollections ? new Map(allBefore) : new Map<string, string>();
     before.forEach((_, key) => optimisticRecords.delete(key));
     next.forEach((value, key) => optimisticRecords.set(key, value));
@@ -347,6 +369,28 @@ export function useAppData() {
       body: { action: 'delete', clientId: id }
     });
     if (result.error) throw new Error('تعذر حذف الحساب.');
+
+    // Agreements and payments are protected from implicit sync deletion.
+    // Remove them explicitly when the whole client account is intentionally deleted.
+    const accountingDelete = await supabase.from('app_records').delete()
+      .eq('client_id', id)
+      .in('collection', ['agreements', 'payments']);
+    if (accountingDelete.error) {
+      throw new Error('تم حذف حساب الدخول، لكن تعذر تنظيف السجلات المالية المرتبطة به. راجعي المزامنة قبل المتابعة.');
+    }
+    [...savedRecords.current.keys()]
+      .filter(key => key.startsWith('agreements:') || key.startsWith('payments:'))
+      .forEach(key => {
+        const raw = savedRecords.current.get(key);
+        if (!raw) return;
+        try {
+          const stored = JSON.parse(raw) as StoredRecord;
+          if (stored.client_id === id) savedRecords.current.delete(key);
+        } catch {
+          // Database cleanup above is authoritative.
+        }
+      });
+
     setClients(prev => prev.filter(client => client.id !== id));
     setUsers(prev => prev.filter(user => user.clientId !== id));
     setBudgetAlarms(prev => prev.filter(item => item.clientId !== id));
@@ -609,9 +653,42 @@ export function useAppData() {
     }));
   };
 
-  const deleteAgreement = (id: string) => {
-    setAgreements(prev => prev.filter(a => a.id !== id));
-    setPayments(prev => prev.filter(p => p.agreementId !== id));
+  const deleteAgreement = async (id: string) => {
+    const linkedPaymentIds = payments
+      .filter(payment => payment.agreementId === id)
+      .map(payment => payment.id);
+
+    const previousRecords = new Map(savedRecords.current);
+
+    try {
+      await writeQueue.current.catch(() => undefined);
+
+      for (const paymentId of linkedPaymentIds) {
+        const paymentResult = await supabase.from('app_records').delete()
+          .eq('collection', 'payments')
+          .eq('record_id', paymentId);
+        if (paymentResult.error) throw paymentResult.error;
+      }
+
+      const agreementResult = await supabase.from('app_records').delete()
+        .eq('collection', 'agreements')
+        .eq('record_id', id);
+      if (agreementResult.error) throw agreementResult.error;
+
+      linkedPaymentIds.forEach(paymentId => {
+        savedRecords.current.delete(`payments:${paymentId}`);
+      });
+      savedRecords.current.delete(`agreements:${id}`);
+
+      setPayments(prev => prev.filter(payment => payment.agreementId !== id));
+      setAgreements(prev => prev.filter(agreement => agreement.id !== id));
+      setSyncError('');
+    } catch (err) {
+      savedRecords.current = previousRecords;
+      const message = err instanceof Error ? err.message : 'تعذر حذف الاتفاق من قاعدة البيانات.';
+      setSyncError(message);
+      throw err;
+    }
   };
 
   // Payment Methods
@@ -667,8 +744,26 @@ export function useAppData() {
     }));
   };
 
-  const deletePayment = (id: string) => {
-    setPayments(prev => prev.filter(p => p.id !== id));
+  const deletePayment = async (id: string) => {
+    const previousRecords = new Map(savedRecords.current);
+
+    try {
+      await writeQueue.current.catch(() => undefined);
+
+      const result = await supabase.from('app_records').delete()
+        .eq('collection', 'payments')
+        .eq('record_id', id);
+      if (result.error) throw result.error;
+
+      savedRecords.current.delete(`payments:${id}`);
+      setPayments(prev => prev.filter(payment => payment.id !== id));
+      setSyncError('');
+    } catch (err) {
+      savedRecords.current = previousRecords;
+      const message = err instanceof Error ? err.message : 'تعذر حذف الدفعة من قاعدة البيانات.';
+      setSyncError(message);
+      throw err;
+    }
   };
 
   // Daily Work Tracking Methods
@@ -695,6 +790,18 @@ export function useAppData() {
   const updateBrandAudit = (clientId: string, audit: BrandAudit) => {
     if (currentUser?.role === 'client') {
       setBrandAudits(prev => ({ ...prev, [clientId]: audit }));
+      return;
+    }
+
+    // Datra is the structural source of truth for Brand Audit templates.
+    // Editing another client's answers must never overwrite the global schema.
+    if (clientId !== MASTER_TEMPLATE_CLIENT_ID) {
+      setBrandAudits(prev => ({
+        ...prev,
+        [clientId]: brandAuditSchema
+          ? applyBrandAuditSchema(brandAuditSchema, audit)
+          : audit
+      }));
       return;
     }
 
@@ -834,20 +941,36 @@ export function useAppData() {
 
   // Notes CRUD
   const addNote = (note: Omit<NoteItem, 'id'>) => {
-    const newNote = { ...note, id: `note-${crypto.randomUUID()}` };
+    const newNote = {
+      ...note,
+      id: `note-${crypto.randomUUID()}`,
+      authorRole: currentUser?.role === 'client' ? 'client' as const : note.authorRole,
+      authorId: currentUser?.id
+    };
     setNotes(prev => [newNote, ...prev]);
   };
 
+  const canManageNote = (note: NoteItem) =>
+    currentUser?.role !== 'client'
+    || (note.authorRole === 'client' && (!note.authorId || note.authorId === currentUser.id));
+
   const updateNote = (id: string, fields: Partial<NoteItem>) => {
-    setNotes(prev => prev.map(n => (n.id === id ? { ...n, ...fields } : n)));
+    setNotes(prev => prev.map(note => {
+      if (note.id !== id || !canManageNote(note)) return note;
+      // Neither client nor admin edits should silently change the original author.
+      const { author, authorRole, authorId, clientId, id: ignoredId, ...editableFields } = fields;
+      return { ...note, ...editableFields };
+    }));
   };
 
   const toggleNotePin = (id: string) => {
-    setNotes(prev => prev.map(n => (n.id === id ? { ...n, isPinned: !n.isPinned } : n)));
+    setNotes(prev => prev.map(note =>
+      note.id === id && canManageNote(note) ? { ...note, isPinned: !note.isPinned } : note
+    ));
   };
 
   const deleteNote = (id: string) => {
-    setNotes(prev => prev.filter(n => n.id !== id));
+    setNotes(prev => prev.filter(note => note.id !== id || !canManageNote(note)));
   };
 
   return {
