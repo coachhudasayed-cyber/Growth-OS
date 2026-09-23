@@ -20,6 +20,7 @@ type StoredRecord = {
 };
 
 const CLIENT_WRITABLE_COLLECTIONS = new Set([
+  'payments',
   'clientDailyReports',
   'notes'
 ]);
@@ -128,7 +129,12 @@ export function useAppData() {
     const asMap = <T,>(name: string): Record<string, T> =>
       Object.fromEntries(rows.filter(row => row.collection === name).map(row => [row.record_id, row.data as T]));
     savedRecords.current = new Map(rows
-      .filter(row => profileResult.data.role !== 'client' || row.collection === 'clientDailyReports' || row.collection === 'notes')
+      .filter(row => profileResult.data.role !== 'client'
+        || row.collection === 'clientDailyReports'
+        || (row.collection === 'payments' && (row.data as PaymentRecord).category !== 'ad_spend')
+        || (row.collection === 'notes'
+          && (row.data as NoteItem).authorRole === 'client'
+          && (!(row.data as NoteItem).authorId || (row.data as NoteItem).authorId === userId)))
       .map(row => [`${row.collection}:${row.record_id}`, JSON.stringify(row)]));
     setUsers((userResult.data || []).map(profileFromRow));
     setEmployees((userResult.data || []).filter(row => row.role === 'employee').map(row => ({
@@ -211,6 +217,13 @@ export function useAppData() {
     const next = new Map<string, string>();
     const add = (collection: string, recordId: string, clientId: string | null, data: unknown) => {
       if (writableCollections && !writableCollections.has(collection)) return;
+      if (currentUser?.role === 'client') {
+        if (collection === 'payments' && (data as PaymentRecord).category === 'ad_spend') return;
+        if (collection === 'notes') {
+          const note = data as NoteItem;
+          if (note.authorRole !== 'client' || (note.authorId && note.authorId !== currentUser.id)) return;
+        }
+      }
       const row: StoredRecord = { collection, record_id: recordId, client_id: clientId, data };
       next.set(`${collection}:${recordId}`, JSON.stringify(row));
     };
@@ -928,20 +941,36 @@ export function useAppData() {
 
   // Notes CRUD
   const addNote = (note: Omit<NoteItem, 'id'>) => {
-    const newNote = { ...note, id: `note-${crypto.randomUUID()}` };
+    const newNote = {
+      ...note,
+      id: `note-${crypto.randomUUID()}`,
+      authorRole: currentUser?.role === 'client' ? 'client' as const : note.authorRole,
+      authorId: currentUser?.id
+    };
     setNotes(prev => [newNote, ...prev]);
   };
 
+  const canManageNote = (note: NoteItem) =>
+    currentUser?.role !== 'client'
+    || (note.authorRole === 'client' && (!note.authorId || note.authorId === currentUser.id));
+
   const updateNote = (id: string, fields: Partial<NoteItem>) => {
-    setNotes(prev => prev.map(n => (n.id === id ? { ...n, ...fields } : n)));
+    setNotes(prev => prev.map(note => {
+      if (note.id !== id || !canManageNote(note)) return note;
+      // Neither client nor admin edits should silently change the original author.
+      const { author, authorRole, authorId, clientId, id: ignoredId, ...editableFields } = fields;
+      return { ...note, ...editableFields };
+    }));
   };
 
   const toggleNotePin = (id: string) => {
-    setNotes(prev => prev.map(n => (n.id === id ? { ...n, isPinned: !n.isPinned } : n)));
+    setNotes(prev => prev.map(note =>
+      note.id === id && canManageNote(note) ? { ...note, isPinned: !note.isPinned } : note
+    ));
   };
 
   const deleteNote = (id: string) => {
-    setNotes(prev => prev.filter(n => n.id !== id));
+    setNotes(prev => prev.filter(note => note.id !== id || !canManageNote(note)));
   };
 
   return {
