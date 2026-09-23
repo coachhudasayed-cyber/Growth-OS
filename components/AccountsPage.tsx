@@ -27,6 +27,7 @@ import {
 import {
   getInstallmentAmount,
   getPaymentCollectedAmount as calculateCollectedAmount,
+  getPaymentOutstandingAmount,
   normalizePaymentAmounts
 } from '../lib/financialLogic';
 
@@ -211,13 +212,18 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     })
     .reduce((acc, curr) => acc + getPaymentCollectedAmount(curr), 0);
 
-  // 2. Unpaid Clients Count (عدد العملاء الذين لم يدفعوا بعد)
-  const unpaidClientIds = new Set(
-    payments
-      .filter((payment) => payment.status === 'pending' || payment.status === 'overdue' || payment.status === 'partial')
-      .map((payment) => payment.clientId)
+  // 2. Outstanding media-buying fees across all dates (not limited by the collection date range).
+  // Legacy payments without a category are fee payments; ad spend isn't income owed to us.
+  const outstandingPayments = payments.filter((payment) =>
+    (filterClientId === 'all' || payment.clientId === filterClientId) &&
+    (!payment.category || payment.category === 'media_buying_fees') &&
+    getPaymentOutstandingAmount(payment) > 0
   );
-  const unpaidClientsCount = unpaidClientIds.size;
+  const totalOutstandingFees = outstandingPayments.reduce(
+    (sum, payment) => sum + getPaymentOutstandingAmount(payment),
+    0
+  );
+  const outstandingClientsCount = new Set(outstandingPayments.map((payment) => payment.clientId)).size;
 
   // 3. Filtered Payments Logic (By Brand AND Date Range)
   const filteredPayments = payments.filter((p) => {
@@ -663,19 +669,21 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
           </div>
         </div>
 
-        {/* Card 3: Unpaid Clients Count */}
+        {/* Card 3: Outstanding media-buying fees (all dates, brand filter only) */}
         <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 shadow-xs relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#8E8E85]">عملاء لم يدفعوا بعد</span>
+            <span className="text-xs font-bold text-[#8E8E85]">إجمالي المستحقات المعلقة</span>
             <div className="p-2.5 bg-rose-500/10 text-rose-700 rounded-2xl border border-rose-500/20">
               <AlertCircle className="w-5 h-5" />
             </div>
           </div>
           <div className="text-3xl sm:text-4xl font-black text-rose-700 tracking-tight">
-            {unpaidClientsCount} <span className="text-xs font-semibold text-[#8E8E85]">عملاء</span>
+            {totalOutstandingFees.toLocaleString('en-US', { maximumFractionDigits: 2 })} <span className="text-xs font-semibold text-[#8E8E85]">EGP</span>
           </div>
           <div className="text-[11px] text-rose-700 font-bold mt-2">
-            لديهم مستحقات معلقة أو متأخرة الدفع
+            {outstandingClientsCount > 0
+              ? `أتعاب غير محصلة من ${outstandingClientsCount} ${outstandingClientsCount === 1 ? 'عميل' : 'عملاء'} (حتى الآن، جميع الفترات)`
+              : 'لا توجد أتعاب معلقة حتى الآن'}
           </div>
         </div>
       </div>
