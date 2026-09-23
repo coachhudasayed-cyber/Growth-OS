@@ -230,6 +230,31 @@ const getProblemChecklist = (problem?: BrandAuditProblemSolution | null): AuditC
   }));
 };
 
+const cloneProblemTemplate = (items: AuditCheckItem[]): AuditCheckItem[] =>
+  items.map(item => ({ id: item.id, label: item.label, status: '', notes: undefined }));
+
+const getProblemTemplate = (audit: BrandAudit): AuditCheckItem[] =>
+  (audit.problemSolutionTemplate?.length
+    ? audit.problemSolutionTemplate
+    : PROBLEM_DEFAULT_ITEMS
+  ).map(item => ({ ...item }));
+
+const mergeProblemAnswersIntoTemplate = (
+  template: AuditCheckItem[],
+  problem: BrandAuditProblemSolution
+): AuditCheckItem[] => {
+  const current = getProblemChecklist(problem);
+  const byId = new Map(current.map(item => [item.id, item]));
+  return template.map(item => {
+    const saved = byId.get(item.id);
+    return {
+      ...item,
+      status: saved?.status ?? '',
+      notes: saved?.notes
+    };
+  });
+};
+
 const syncProblemFieldsFromChecklist = (
   base: BrandAuditProblemSolution,
   checklist: AuditCheckItem[]
@@ -694,6 +719,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       competitorAnalysisTemplate: currentAudit.competitorAnalysisTemplate,
       swot: currentAudit.swot,
       problemsAndSolutions: currentAudit.problemsAndSolutions,
+      problemSolutionTemplate: currentAudit.problemSolutionTemplate,
       customSections: currentAudit.customSections,
 
       // Global/template display settings are also managed outside formData.
@@ -800,14 +826,18 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
   const handleOpenAddProblem = () => {
     if (userRole === 'client') return;
     setEditingProblem(null);
-    setProblemChecklist(PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item })));
+    setProblemChecklist(getProblemTemplate(currentAudit));
     setShowProblemModal(true);
   };
 
   const handleOpenEditProblem = (prob: BrandAuditProblemSolution) => {
     if (userRole === 'client') return;
     setEditingProblem(prob);
-    setProblemChecklist(getProblemChecklist(prob));
+    setProblemChecklist(
+      currentAudit.problemSolutionTemplate?.length
+        ? mergeProblemAnswersIntoTemplate(getProblemTemplate(currentAudit), prob)
+        : getProblemChecklist(prob)
+    );
     setShowProblemModal(true);
   };
 
@@ -827,12 +857,25 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           status: 'قيد التنفيذ'
         };
 
+    // The structure edited here becomes this brand's local Problems template only.
+    const nextTemplate = cloneProblemTemplate(problemChecklist);
     const savedProblem = syncProblemFieldsFromChecklist(base, problemChecklist);
-    const updated = editingProblem
+    const rawUpdated = editingProblem
       ? existing.map((p) => (p.id === editingProblem.id ? savedProblem : p))
       : [...existing, savedProblem];
 
-    onUpdateAudit(clientId, { ...currentAudit, problemsAndSolutions: updated });
+    const updated = rawUpdated.map(problem =>
+      syncProblemFieldsFromChecklist(
+        problem,
+        mergeProblemAnswersIntoTemplate(nextTemplate, problem)
+      )
+    );
+
+    onUpdateAudit(clientId, {
+      ...currentAudit,
+      problemSolutionTemplate: nextTemplate,
+      problemsAndSolutions: updated
+    });
     setShowProblemModal(false);
   };
 
@@ -842,7 +885,13 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
       if (p.id === probId) {
         const nextStatus: 'قيد التنفيذ' | 'تم التنفيذ' =
           p.status === 'تم التنفيذ' ? 'قيد التنفيذ' : 'تم التنفيذ';
-        return { ...p, status: nextStatus };
+        return {
+          ...p,
+          status: nextStatus,
+          checklist: p.checklist?.map(item =>
+            item.id === 'problem-status' ? { ...item, status: nextStatus } : item
+          )
+        };
       }
       return p;
     });
@@ -3310,15 +3359,14 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                    <div className="bg-[#F9F8F6] p-3 rounded-xl border border-[#E5E5E0]">
-                      <span className="font-bold text-[#8E8E85] block mb-0.5">تأثيرها على المبيعات:</span>
-                      <p className="text-[#2D2D2A] leading-relaxed">{prob.impactOnSales}</p>
-                    </div>
-
-                    <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200">
-                      <span className="font-bold text-emerald-900 block mb-0.5">طريقة الحل والخدمة المطلوبة:</span>
-                      <p className="text-emerald-950 font-bold leading-relaxed">{prob.solutionStrategy}</p>
-                    </div>
+                    {getProblemChecklist(prob)
+                      .filter(item => item.id !== 'problem-main')
+                      .map(item => (
+                        <div key={item.id} className="bg-[#F9F8F6] p-3 rounded-xl border border-[#E5E5E0]">
+                          <span className="font-bold text-[#8E8E85] block mb-0.5">{item.label}</span>
+                          <p className="text-[#2D2D2A] leading-relaxed whitespace-pre-wrap">{item.status || '—'}</p>
+                        </div>
+                      ))}
                   </div>
                 </div>
               ))
@@ -5075,7 +5123,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-[#E5E5E0]">
             <div className="flex justify-between items-center border-b border-[#E5E5E0] pb-3">
               <h3 className="font-extrabold text-base text-[#2D2D2A]">
-                {editingProblem ? 'تعديل بيانات المشكلة والحل' : 'إضافة مشكلة وحل بالـ 4 محاور'}
+                {editingProblem ? 'تعديل بيانات المشكلة والحل' : 'إضافة مشكلة وحل'}
               </h3>
               <button onClick={() => setShowProblemModal(false)} className="text-[#8E8E85] hover:text-[#2D2D2A]">
                 <X className="w-5 h-5" />
@@ -5086,7 +5134,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               <ChecklistEditorSection
                 title="Main Problems & Solutions | المشاكل والحلول"
                 items={problemChecklist}
-                defaultItems={PROBLEM_DEFAULT_ITEMS.map(item => ({ ...item }))}
+                defaultItems={getProblemTemplate(currentAudit)}
                 fallbackToDefaultItemsWhenEmpty={false}
                 onUpdate={setProblemChecklist}
                 placeholderAnswer="اكتب الاجابة أو الملاحظة..."
@@ -5094,7 +5142,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
               />
 
               <p className="text-[11px] text-[#8E8E85] leading-relaxed">
-                تقدري تعدلي اسم اي سؤال، تمسحيه، أو تضيفي سؤال جديد. الاسئلة الاساسية المعروفة بتفضل مرتبطة ببيانات المشكلة في التقرير.
+                تقدري تعدلي أو تمسحي أو تضيفي أي سؤال. شكل الأسئلة اللي تحفظيه هنا يبقى خاص بالبراند ده فقط، ومش يغيّر أي براند تاني.
               </p>
 
               <div className="flex justify-end gap-2 pt-2">

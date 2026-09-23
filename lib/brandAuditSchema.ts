@@ -25,6 +25,18 @@ const cloneSectionStructure = (sections?: Record<string, AuditCheckItem[]>): Rec
   );
 };
 
+const LOCAL_CUSTOM_SECTION_IDS = new Set([
+  // Datra's current 90-Day Direction section. The title fallback below also covers
+  // future recreated versions with a new ID.
+  'custom-audit-1789987320123-rl1x'
+]);
+
+const isPerClientCustomSection = (section: Pick<CustomBrandAuditSection, 'id' | 'title'>): boolean => {
+  if (LOCAL_CUSTOM_SECTION_IDS.has(section.id)) return true;
+  const title = (section.title || '').trim().toLowerCase();
+  return /90\s*[-–—]?\s*day\s*direction/.test(title) || /90.*يوم/.test(title);
+};
+
 const deriveUnitEconomicsSections = (audit: BrandAudit): Record<string, AuditCheckItem[]> | undefined => {
   if (audit.unitEconomics?.sectionChecklists) {
     return audit.unitEconomics.sectionChecklists;
@@ -178,6 +190,14 @@ export const applyBrandAuditSchema = (
   );
   next.customSections = (schema.customSections || []).map(section => {
     const current = existingCustomSections.get(section.id);
+
+    // 90-Day Direction is a shared starter template only.
+    // Once a brand has its own copy, preserve that brand's title, question order,
+    // additions/deletions/renames and answers without pushing them to other brands.
+    if (isPerClientCustomSection(section) && current) {
+      return JSON.parse(JSON.stringify(current)) as CustomBrandAuditSection;
+    }
+
     return {
       id: section.id,
       title: section.title,
