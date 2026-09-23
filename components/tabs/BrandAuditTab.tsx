@@ -429,6 +429,29 @@ const getCompetitorSectionItems = (
   });
 };
 
+const getCompetitorChecklistAnswer = (
+  competitor: CompetitorItem,
+  ids: string[],
+  labelMatchers: RegExp[] = []
+): string => {
+  const allItems = Object.values(competitor.sectionChecklists || {}).flat();
+
+  for (const id of ids) {
+    const match = allItems.find(item => item.id === id && item.status?.trim());
+    if (match?.status?.trim()) return match.status.trim();
+  }
+
+  if (labelMatchers.length) {
+    const byLabel = allItems.find(item =>
+      item.status?.trim() &&
+      labelMatchers.some(pattern => pattern.test(item.label || ''))
+    );
+    if (byLabel?.status?.trim()) return byLabel.status.trim();
+  }
+
+  return '';
+};
+
 const normalizeCompetitorChecklists = (
   competitor: CompetitorItem,
   template?: Record<string, AuditCheckItem[]>
@@ -2548,7 +2571,7 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                             </span>
                           </div>
                           {comp.products && (
-                            <p className="text-[11px] text-[#78786E] font-semibold mt-0.5">
+                            <p className="text-[11px] text-[#78786E] font-semibold mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
                               {comp.products}
                             </p>
                           )}
@@ -2609,24 +2632,50 @@ export const BrandAuditTab: React.FC<BrandAuditTabProps> = ({
                     </div>
 
                     {/* Quick Strategic Highlight Banner */}
-                    <div className="p-4 bg-amber-50/40 border-b border-amber-100/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
-                        <span className="text-[10px] font-extrabold text-[#78786E] block mb-0.5">💰 متوسط السعر:</span>
-                        <span className="font-black text-[#2D2D2A] text-xs">{comp.price || '—'}</span>
-                      </div>
-                      <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
-                        <span className="text-[10px] font-extrabold text-[#78786E] block mb-0.5">💪 نقطة القوة الأبرز:</span>
-                        <span className="font-bold text-emerald-800 text-xs line-clamp-1">{comp.strengths || '—'}</span>
-                      </div>
-                      <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
-                        <span className="text-[10px] font-extrabold text-[#78786E] block mb-0.5">⚠️ أكبر تهديد:</span>
-                        <span className="font-bold text-rose-800 text-xs line-clamp-1">{comp.biggestThreat || '—'}</span>
-                      </div>
-                      <div className="bg-[#5A5A40] text-white p-2.5 rounded-xl border border-[#4a4a34] shadow-2xs">
-                        <span className="text-[10px] font-extrabold text-amber-200 block mb-0.5">🎯 الإجراء المقترح للبراند:</span>
-                        <span className="font-black text-xs line-clamp-1">{comp.recommendedAction || '—'}</span>
-                      </div>
-                    </div>
+                    {(() => {
+                      const averagePrice =
+                        getCompetitorChecklistAnswer(comp, ['comp-pricing-price']) ||
+                        comp.price ||
+                        '';
+                      const strongestPoint =
+                        getCompetitorChecklistAnswer(comp, ['comp-assessment-strengths']) ||
+                        comp.strengths ||
+                        '';
+                      const biggestThreat =
+                        getCompetitorChecklistAnswer(comp, ['comp-threat-biggest']) ||
+                        comp.biggestThreat ||
+                        '';
+                      const recommendedAction =
+                        getCompetitorChecklistAnswer(
+                          comp,
+                          ['comp-strategy-action', 'comp-strategy-opportunity'],
+                          [/recommended\s*action/i, /الإجراء\s*المقترح/i, /الخطوة\s*المقترحة/i]
+                        ) ||
+                        comp.recommendedAction ||
+                        comp.opportunityToExploit ||
+                        '';
+
+                      return (
+                        <div className="p-4 bg-amber-50/40 border-b border-amber-100/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                          <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
+                            <span className="text-[10px] font-extrabold text-[#78786E] block mb-0.5">💰 متوسط السعر:</span>
+                            <p className="font-black text-[#2D2D2A] text-xs whitespace-pre-wrap break-words leading-relaxed">{averagePrice || '—'}</p>
+                          </div>
+                          <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
+                            <span className="text-[10px] font-extrabold text-[#78786E] block mb-0.5">💪 نقطة القوة الأبرز:</span>
+                            <p className="font-bold text-emerald-800 text-xs whitespace-pre-wrap break-words leading-relaxed">{strongestPoint || '—'}</p>
+                          </div>
+                          <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
+                            <span className="text-[10px] font-extrabold text-[#78786E] block mb-0.5">⚠️ أكبر تهديد:</span>
+                            <p className="font-bold text-rose-800 text-xs whitespace-pre-wrap break-words leading-relaxed">{biggestThreat || '—'}</p>
+                          </div>
+                          <div className="bg-[#5A5A40] text-white p-2.5 rounded-xl border border-[#4a4a34] shadow-2xs">
+                            <span className="text-[10px] font-extrabold text-amber-200 block mb-0.5">🎯 الإجراء المقترح للبراند:</span>
+                            <p className="font-black text-xs whitespace-pre-wrap break-words leading-relaxed">{recommendedAction || '—'}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Full 9 Sections Details */}
                     {isExpanded && (
