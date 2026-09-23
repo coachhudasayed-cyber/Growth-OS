@@ -203,7 +203,26 @@ export const applyBrandAuditSchema = (
   }
 
   if (schema.competitorAnalysisTemplate) {
-    next.competitorAnalysisTemplate = cloneSectionStructure(schema.competitorAnalysisTemplate);
+    const competitorTemplate = cloneSectionStructure(schema.competitorAnalysisTemplate) || {};
+    next.competitorAnalysisTemplate = competitorTemplate;
+
+    // Keep every brand's saved competitor answers, while applying Datra's shared
+    // question structure (rename/add/delete) to existing structured competitors.
+    next.competitors = (audit.competitors || []).map(competitor => {
+      if (!competitor.sectionChecklists) return competitor;
+
+      const mergedSections = Object.fromEntries(
+        Object.entries(competitorTemplate).map(([key, schemaItems]) => [
+          key,
+          mergeChecklistAnswers(schemaItems || [], competitor.sectionChecklists?.[key] || [])
+        ])
+      );
+
+      return {
+        ...competitor,
+        sectionChecklists: mergedSections
+      };
+    });
   }
 
   Object.entries(schema.checklists || {}).forEach(([path, schemaItems]) => {
