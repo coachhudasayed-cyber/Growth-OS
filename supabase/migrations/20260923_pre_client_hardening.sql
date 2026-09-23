@@ -25,8 +25,8 @@ alter table public.app_records
     'notes'
   ));
 
--- Clients may read their financial records but must not create, alter or delete them.
--- Client-authored Daily Reports and shared Notes remain writable.
+-- Clients may manage their own media-buying fee payments but can only view ad spend.
+-- Clients can manage their own notes and daily reports, not admin-authored notes.
 drop policy if exists records_insert on public.app_records;
 drop policy if exists records_update on public.app_records;
 drop policy if exists records_delete on public.app_records;
@@ -40,7 +40,7 @@ with check (
     and (
       (collection = 'payments' and coalesce(data->>'category', 'media_buying_fees') = 'media_buying_fees')
       or (collection = 'notes' and data->>'authorRole' = 'client'
-        and (data->>'authorId' is null or data->>'authorId' = (select auth.uid())::text))
+        and data->>'authorId' = (select auth.uid())::text)
       or collection = 'clientDailyReports'
     )
     and data->>'clientId' = client_id
