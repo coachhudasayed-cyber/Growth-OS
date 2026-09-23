@@ -475,14 +475,16 @@ const buildSections = (audit: BrandAudit): PdfSection[] => {
 
   const problemGroups: PdfGroup[] = [];
   (audit.problemsAndSolutions || []).forEach((problem, index) => {
-    const rows = compactRows([
-      row('Problem | المشكلة', problem.problem),
-      row('Impact on Sales | التأثير على المبيعات', problem.impactOnSales),
-      row('Priority | الاولوية', problem.priorityLevel),
-      row('Solution Strategy | الحل', problem.solutionStrategy),
-      row('Status | الحالة', problem.status)
-    ]);
-    rows.push(...checklistRows(problem.checklist));
+    const checklist = problem.checklist || [];
+    const rows = checklist.length
+      ? checklistRows(checklist)
+      : compactRows([
+          row('Problem | المشكلة', problem.problem),
+          row('Impact on Sales | التأثير على المبيعات', problem.impactOnSales),
+          row('Priority | الاولوية', problem.priorityLevel),
+          row('Solution Strategy | الحل', problem.solutionStrategy),
+          row('Status | الحالة', problem.status)
+        ]);
     if (rows.length) problemGroups.push({ title: `Problem ${index + 1}`, rows });
   });
   sections.push({ id: 'problems', title: getSectionTitle(audit, 'problems'), groups: problemGroups });
