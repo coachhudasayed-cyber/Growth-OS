@@ -1380,13 +1380,23 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                   </div>
                 )}
 
-                {/* Auto-filled Idea Description */}
-                {ideaDescriptionText && (
-                  <div className="bg-white p-3 rounded-xl border border-[#E5E5E0] space-y-0.5">
-                    <span className="font-extrabold text-[#2D2D2A] block">وصف وتنفيذ الفكرة:</span>
-                    <p className="text-[#78786E] text-[11px] leading-relaxed">{ideaDescriptionText}</p>
-                  </div>
-                )}
+                {/* This is the scheduled post's own editable copy, never the library source. */}
+                <div className="bg-white p-3 rounded-xl border border-[#E5E5E0] space-y-1.5">
+                  <label htmlFor="scheduled-idea-description" className="font-extrabold text-[#2D2D2A] block">
+                    وصف وتنفيذ الفكرة (قابل للتعديل للمحتوى المجدول):
+                  </label>
+                  <textarea
+                    id="scheduled-idea-description"
+                    value={ideaDescriptionText}
+                    onChange={(e) => setIdeaDescriptionText(e.target.value)}
+                    rows={5}
+                    placeholder="اكتبي وصف وتنفيذ الفكرة المناسب للبراند والمنتج..."
+                    className="w-full resize-y min-h-28 rounded-xl border border-[#E5E5E0] bg-[#F9F8F6] p-3 text-[#2D2D2A] text-xs leading-relaxed outline-none focus:border-[#5A5A40]"
+                  />
+                  <p className="text-[10px] text-[#78786E]">
+                    التعديل هنا يتحفظ في المحتوى المجدول فقط، ومش بيغير وصف الفكرة الأصلي في المكتبة.
+                  </p>
+                </div>
               </div>
 
               {/* Status (Execution State) */}
@@ -1548,7 +1558,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                         <span>الفكرة: {previewItem.idea}</span>
                       </div>
                       {previewItem.ideaDescription && (
-                        <p className="text-[#78786E] text-[11px] leading-relaxed pt-1 border-t border-[#E5E5E0]/60">
+                        <p className="text-[#78786E] text-[11px] leading-relaxed whitespace-pre-wrap pt-1 border-t border-[#E5E5E0]/60">
                           {previewItem.ideaDescription}
                         </p>
                       )}
@@ -1823,7 +1833,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                             </div>
                           )}
                           {item.ideaDescription && (
-                            <p className="text-[11px] text-[#78786E] leading-relaxed pr-5">
+                            <p className="text-[11px] text-[#78786E] leading-relaxed whitespace-pre-wrap pr-5">
                               {item.ideaDescription}
                             </p>
                           )}
