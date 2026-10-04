@@ -934,7 +934,10 @@ export async function exportSelectedCalendarDaysToPDF(
             ` : ''}
             ${item.ideaDescription ? `
               <tr>
-                <td colspan="2" style="padding: 6px 6px 4px 6px; vertical-align: top; border-top: 1px dashed #E5E7EB;"><strong style="color: #5A5A40;">📝 شرح الفكرة:</strong> <span>${item.ideaDescription}</span></td>
+                <td colspan="2" style="padding: 6px 6px 4px 6px; vertical-align: top; border-top: 1px dashed #E5E7EB;">
+                  <strong style="color: #5A5A40; display: block; margin-bottom: 3px;">📝 شرح الفكرة:</strong>
+                  <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.5;">${item.ideaDescription}</div>
+                </td>
               </tr>
             ` : ''}
           </table>
@@ -952,7 +955,8 @@ export async function exportSelectedCalendarDaysToPDF(
           <!-- Notes -->
           ${item.notes ? `
             <div style="font-size: 10px; color: #92400E; background-color: #FEF3C7; padding: 6px 10px; border-radius: 6px; border: 1px solid #FDE68A;">
-              <strong>💡 ملاحظات وتنفيذ:</strong> ${item.notes}
+              <strong style="display: block; margin-bottom: 3px;">💡 ملاحظات وتنفيذ:</strong>
+              <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.5;">${item.notes}</div>
             </div>
           ` : ''}
         `;
