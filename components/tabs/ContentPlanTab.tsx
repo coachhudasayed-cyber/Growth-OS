@@ -58,6 +58,39 @@ const getTodayDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
+const CONTENT_URL_PATTERN = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+const TRAILING_URL_PUNCTUATION = /[.,!?;:،؛)\]]+$/;
+
+const linkifyContentText = (text?: string) => {
+  if (!text) return null;
+
+  return text.split(CONTENT_URL_PATTERN).map((part, index) => {
+    if (!part) return null;
+    if (!/^(https?:\/\/|www\.)/i.test(part)) {
+      return <React.Fragment key={index}>{part}</React.Fragment>;
+    }
+
+    const trailing = part.match(TRAILING_URL_PUNCTUATION)?.[0] || '';
+    const urlText = trailing ? part.slice(0, -trailing.length) : part;
+    const href = /^https?:\/\//i.test(urlText) ? urlText : `https://${urlText}`;
+
+    return (
+      <React.Fragment key={index}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(event) => event.stopPropagation()}
+          className="text-blue-700 underline underline-offset-2 break-all hover:text-blue-900"
+        >
+          {urlText}
+        </a>
+        {trailing}
+      </React.Fragment>
+    );
+  });
+};
+
 export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
   contentPlans,
   clientId,
@@ -998,8 +1031,8 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                             )}
                           </button>
                         </div>
-                        <h4 className="font-extrabold text-sm text-[#2D2D2A] leading-snug">
-                          {item.title}
+                        <h4 className="font-extrabold text-sm text-[#2D2D2A] leading-snug break-words">
+                          {linkifyContentText(item.title)}
                         </h4>
                       </div>
 
@@ -1042,13 +1075,13 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                           <Tag className="w-3 h-3" /> {item.category}
                         </div>
                         {item.idea && (
-                          <div className="font-semibold text-[#2D2D2A] text-xs">
-                            الفكرة: {item.idea}
+                          <div className="font-semibold text-[#2D2D2A] text-xs break-words">
+                            الفكرة: {linkifyContentText(item.idea)}
                           </div>
                         )}
                         {item.goal && (
-                          <p className="text-[11px] text-[#78786E] leading-relaxed">
-                            الهدف: {item.goal}
+                          <p className="text-[11px] text-[#78786E] leading-relaxed whitespace-pre-wrap break-words">
+                            الهدف: {linkifyContentText(item.goal)}
                           </p>
                         )}
                       </div>
@@ -1076,7 +1109,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                     {item.notes && (
                       <div className="text-xs text-[#2D2D2A] bg-amber-500/5 p-2.5 rounded-xl border border-amber-200/60 leading-relaxed whitespace-pre-line">
                         <span className="font-bold text-amber-900 block mb-0.5">ملاحظات ولينكات:</span>
-                        {item.notes}
+                        {linkifyContentText(item.notes)}
                       </div>
                     )}
 
@@ -1192,7 +1225,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                       <Target className="w-4 h-4 text-[#5A5A40] shrink-0 mt-0.5" />
                       <div>
                         <span className="font-extrabold text-[#2D2D2A]">الهدف: </span>
-                        <span className="text-[#78786E] leading-relaxed">{cat.goal}</span>
+                        <span className="text-[#78786E] leading-relaxed whitespace-pre-wrap break-words">{linkifyContentText(cat.goal)}</span>
                       </div>
                     </div>
                   </div>
@@ -1206,11 +1239,11 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                       >
                         <div className="space-y-2">
                           <h4 className="font-extrabold text-xs sm:text-sm text-[#2D2D2A] flex items-center justify-between">
-                            <span>{idea.name}</span>
+                            <span className="break-words">{linkifyContentText(idea.name)}</span>
                             <Sparkles className="w-3.5 h-3.5 text-amber-500 opacity-60 group-hover:opacity-100 transition" />
                           </h4>
                           <p className="text-xs text-[#78786E] leading-relaxed bg-[#F9F8F6] p-3 rounded-xl border border-[#E5E5E0]/60">
-                            {idea.description}
+                            {linkifyContentText(idea.description)}
                           </p>
                         </div>
 
@@ -1512,8 +1545,8 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                       : 'ستوري Story'}
                   </span>
                 </div>
-                <h4 className="text-base font-black text-[#2D2D2A] leading-snug">
-                  {previewItem.title}
+                <h4 className="text-base font-black text-[#2D2D2A] leading-snug break-words">
+                  {linkifyContentText(previewItem.title)}
                 </h4>
               </div>
 
@@ -1547,7 +1580,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                   {previewItem.goal && (
                     <div className="bg-white p-3 rounded-xl border border-[#E5E5E0] space-y-0.5">
                       <span className="font-extrabold text-[#5A5A40] text-[11px] block">الهدف التسويقي:</span>
-                      <p className="text-[#2D2D2A] text-[11px] leading-relaxed">{previewItem.goal}</p>
+                      <p className="text-[#2D2D2A] text-[11px] leading-relaxed whitespace-pre-wrap break-words">{linkifyContentText(previewItem.goal)}</p>
                     </div>
                   )}
 
@@ -1555,11 +1588,11 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                     <div className="bg-white p-3 rounded-xl border border-[#E5E5E0] space-y-1">
                       <div className="flex items-center gap-1 font-extrabold text-[#2D2D2A] text-[11px]">
                         <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span>الفكرة: {previewItem.idea}</span>
+                        <span className="break-words">الفكرة: {linkifyContentText(previewItem.idea)}</span>
                       </div>
                       {previewItem.ideaDescription && (
                         <p className="text-[#78786E] text-[11px] leading-relaxed whitespace-pre-wrap pt-1 border-t border-[#E5E5E0]/60">
-                          {previewItem.ideaDescription}
+                          {linkifyContentText(previewItem.ideaDescription)}
                         </p>
                       )}
                     </div>
@@ -1571,7 +1604,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
               {previewItem.notes && (
                 <div className="bg-[#F9F8F6] p-4 rounded-2xl border border-[#E5E5E0] space-y-1">
                   <span className="font-extrabold text-[#78786E] text-[11px] block">ملاحظات وروابط ريفرانس:</span>
-                  <p className="text-[#2D2D2A] text-xs leading-relaxed whitespace-pre-wrap">{previewItem.notes}</p>
+                  <p className="text-[#2D2D2A] text-xs leading-relaxed whitespace-pre-wrap break-words">{linkifyContentText(previewItem.notes)}</p>
                 </div>
               )}
 
@@ -1775,8 +1808,8 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                       </div>
 
                       {/* Content Title */}
-                      <h4 className="font-black text-sm text-[#2D2D2A] leading-snug">
-                        {item.title}
+                      <h4 className="font-black text-sm text-[#2D2D2A] leading-snug break-words">
+                        {linkifyContentText(item.title)}
                       </h4>
 
                       {/* Platforms */}
@@ -1817,7 +1850,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                           {item.goal && (
                             <div>
                               <span className="font-bold text-[#78786E] block text-[10px]">الهدف التسويقي:</span>
-                              <span className="font-extrabold text-[#5A5A40]">{item.goal}</span>
+                              <span className="font-extrabold text-[#5A5A40] whitespace-pre-wrap break-words">{linkifyContentText(item.goal)}</span>
                             </div>
                           )}
                         </div>
@@ -1829,12 +1862,12 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                           {item.idea && (
                             <div className="flex items-center gap-1.5 font-black text-xs text-[#2D2D2A]">
                               <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                              <span>الفكرة: {item.idea}</span>
+                              <span className="break-words">الفكرة: {linkifyContentText(item.idea)}</span>
                             </div>
                           )}
                           {item.ideaDescription && (
                             <p className="text-[11px] text-[#78786E] leading-relaxed whitespace-pre-wrap pr-5">
-                              {item.ideaDescription}
+                              {linkifyContentText(item.ideaDescription)}
                             </p>
                           )}
                         </div>
@@ -1844,7 +1877,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                       {item.notes && (
                         <div className="bg-[#F9F8F6] p-2.5 rounded-xl border border-[#E5E5E0] text-[11px] text-[#5A5A40] space-y-0.5">
                           <span className="font-bold block text-[10px] text-[#78786E]">ملاحظات وروابط ريفرانس:</span>
-                          <p className="whitespace-pre-wrap">{item.notes}</p>
+                          <p className="whitespace-pre-wrap break-words">{linkifyContentText(item.notes)}</p>
                         </div>
                       )}
                     </div>

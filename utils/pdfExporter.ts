@@ -44,6 +44,34 @@ const formatPlatformName = (platform: string) => {
   }
 };
 
+const PDF_URL_PATTERN = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+const PDF_TRAILING_URL_PUNCTUATION = /[.,!?;:،؛)\]]+$/;
+
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const linkifyPdfText = (value: unknown): string => {
+  const text = String(value ?? '');
+  if (!text) return '';
+
+  const parts = text.split(PDF_URL_PATTERN);
+  return parts.map(part => {
+    if (!part) return '';
+    if (!/^(https?:\/\/|www\.)/i.test(part)) return escapeHtml(part);
+
+    const trailing = part.match(PDF_TRAILING_URL_PUNCTUATION)?.[0] || '';
+    const urlText = trailing ? part.slice(0, -trailing.length) : part;
+    const href = /^https?:\/\//i.test(urlText) ? urlText : `https://${urlText}`;
+
+    return `<a data-pdf-link="true" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" style="color:#1D4ED8;text-decoration:underline;overflow-wrap:anywhere;word-break:break-word;">${escapeHtml(urlText)}</a>${escapeHtml(trailing)}`;
+  }).join('');
+};
+
 /**
  * Creates a DOM host element attached to document.body for accurate CSS height measurements
  */
@@ -625,6 +653,26 @@ async function renderPagesToPDF(host: HTMLElement, pageElements: HTMLElement[], 
       }
 
       pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+
+      // html2canvas rasterizes the page, so recreate real PDF link annotations
+      // over every auto-linked anchor to keep URLs clickable in the downloaded PDF.
+      const pageRect = pageEl.getBoundingClientRect();
+      const mmPerPxX = 210 / pageRect.width;
+      const mmPerPxY = 297 / pageRect.height;
+      pageEl.querySelectorAll<HTMLAnchorElement>('a[data-pdf-link="true"]').forEach(anchor => {
+        const href = anchor.href;
+        if (!href) return;
+
+        Array.from(anchor.getClientRects()).forEach(rect => {
+          const x = (rect.left - pageRect.left) * mmPerPxX;
+          const y = (rect.top - pageRect.top) * mmPerPxY;
+          const width = rect.width * mmPerPxX;
+          const height = rect.height * mmPerPxY;
+          if (width > 0 && height > 0) {
+            pdf.link(x, y, width, height, { url: href });
+          }
+        });
+      });
     }
 
     pdf.save(filename);
@@ -908,7 +956,7 @@ export async function exportSelectedCalendarDaysToPDF(
               <span style="font-size: 11px; font-weight: 800; background-color: #5A5A40; color: #ffffff; width: 22px; height: 22px; border-radius: 50%; text-align: center; line-height: 22px; display: inline-block;">
                 ${itemIdx + 1}
               </span>
-              <strong style="font-size: 13px; font-weight: 800; color: #2D2D2A; font-family: 'Cairo', sans-serif;">${item.title || 'منشور بدون عنوان'}</strong>
+              <strong style="font-size: 13px; font-weight: 800; color: #2D2D2A; font-family: 'Cairo', sans-serif;">${linkifyPdfText(item.title || 'منشور بدون عنوان')}</strong>
             </div>
             <div style="display: flex; gap: 6px; align-items: center;">
               <span style="font-size: 10px; font-weight: 800; background-color: ${formatBadge.bg}; color: ${formatBadge.text}; border: 1px solid ${formatBadge.border}; padding: 3px 8px; border-radius: 6px; display: inline-block;">
@@ -923,20 +971,20 @@ export async function exportSelectedCalendarDaysToPDF(
           <!-- Metadata Attributes Table (Uses HTML Table for 100% stable html2canvas rendering) -->
           <table style="width: 100%; border-collapse: collapse; font-size: 11px; color: #374151; background-color: #ffffff; padding: 6px 10px; border-radius: 8px; border: 1px solid #E5E7EB; margin-bottom: 8px; direction: rtl;">
             <tr>
-              <td style="width: 50%; padding: 4px 6px; vertical-align: top;"><strong style="color: #5A5A40;">📱 المنصات:</strong> <span>${platformsList}</span></td>
-              <td style="width: 50%; padding: 4px 6px; vertical-align: top;"><strong style="color: #5A5A40;">📂 التصنيف:</strong> <span>${item.category || 'عام'}</span></td>
+              <td style="width: 50%; padding: 4px 6px; vertical-align: top;"><strong style="color: #5A5A40;">📱 المنصات:</strong> <span>${linkifyPdfText(platformsList)}</span></td>
+              <td style="width: 50%; padding: 4px 6px; vertical-align: top;"><strong style="color: #5A5A40;">📂 التصنيف:</strong> <span>${linkifyPdfText(item.category || 'عام')}</span></td>
             </tr>
             ${(item.goal || item.idea) ? `
               <tr>
-                <td style="width: 50%; padding: 4px 6px; vertical-align: top;">${item.goal ? `<strong style="color: #5A5A40;">🎯 الهدف التسويقي:</strong> <span>${item.goal}</span>` : ''}</td>
-                <td style="width: 50%; padding: 4px 6px; vertical-align: top;">${item.idea ? `<strong style="color: #5A5A40;">💡 اسم الفكرة:</strong> <span>${item.idea}</span>` : ''}</td>
+                <td style="width: 50%; padding: 4px 6px; vertical-align: top;">${item.goal ? `<strong style="color: #5A5A40;">🎯 الهدف التسويقي:</strong> <span>${linkifyPdfText(item.goal)}</span>` : ''}</td>
+                <td style="width: 50%; padding: 4px 6px; vertical-align: top;">${item.idea ? `<strong style="color: #5A5A40;">💡 اسم الفكرة:</strong> <span>${linkifyPdfText(item.idea)}</span>` : ''}</td>
               </tr>
             ` : ''}
             ${item.ideaDescription ? `
               <tr>
                 <td colspan="2" style="padding: 6px 6px 4px 6px; vertical-align: top; border-top: 1px dashed #E5E7EB;">
                   <strong style="color: #5A5A40; display: block; margin-bottom: 3px;">📝 شرح الفكرة:</strong>
-                  <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.5;">${item.ideaDescription}</div>
+                  <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.5;">${linkifyPdfText(item.ideaDescription)}</div>
                 </td>
               </tr>
             ` : ''}
@@ -948,7 +996,7 @@ export async function exportSelectedCalendarDaysToPDF(
               <strong style="color: #5A5A40; display: block; margin-bottom: 4px; font-size: 11px; border-bottom: 1px solid #F3F4F6; padding-bottom: 4px;">
                 ✍️ صياغة وسكريبت المحتوى:
               </strong>
-              <div style="white-space: pre-wrap; word-break: break-word;">${item.details}</div>
+              <div style="white-space: pre-wrap; word-break: break-word;">${linkifyPdfText(item.details)}</div>
             </div>
           ` : ''}
 
@@ -956,7 +1004,7 @@ export async function exportSelectedCalendarDaysToPDF(
           ${item.notes ? `
             <div style="font-size: 10px; color: #92400E; background-color: #FEF3C7; padding: 6px 10px; border-radius: 6px; border: 1px solid #FDE68A;">
               <strong style="display: block; margin-bottom: 3px;">💡 ملاحظات وتنفيذ:</strong>
-              <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.5;">${item.notes}</div>
+              <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.5;">${linkifyPdfText(item.notes)}</div>
             </div>
           ` : ''}
         `;
@@ -1013,7 +1061,7 @@ export async function exportContentLibraryToPDF(
       catHeader.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 13px; font-weight: 800; font-family: 'Cairo', sans-serif;">
-            📂 تصنيف ${catIdx + 1}: ${cat.title}
+            📂 تصنيف ${catIdx + 1}: ${linkifyPdfText(cat.title)}
           </span>
           <span style="font-size: 10px; font-weight: 800; background-color: rgba(255,255,255,0.25); padding: 3px 10px; border-radius: 12px;">
             ${cat.ideas.length} أفكار
@@ -1021,7 +1069,7 @@ export async function exportContentLibraryToPDF(
         </div>
         ${cat.goal ? `
           <div style="font-size: 11px; opacity: 0.95; margin-top: 4px; font-weight: 600; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 4px;">
-            🎯 الهدف التسويقي: ${cat.goal}
+            🎯 الهدف التسويقي: ${linkifyPdfText(cat.goal)}
           </div>
         ` : ''}
       `;
@@ -1041,11 +1089,11 @@ export async function exportContentLibraryToPDF(
             <span style="background-color: #FEF3C7; color: #92400E; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; border: 1px solid #FDE68A;">
               فكرة ${ideaIdx + 1}
             </span>
-            <span>💡 ${idea.name}</span>
+            <span>💡 ${linkifyPdfText(idea.name)}</span>
           </div>
           ${idea.description ? `
             <div style="font-size: 11px; color: #374151; white-space: pre-wrap; word-break: break-word; background-color: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #E5E7EB; line-height: 1.5;">
-              ${idea.description}
+              ${linkifyPdfText(idea.description)}
             </div>
           ` : ''}
         `;
