@@ -16,6 +16,38 @@ import { PaymentRecord, PaymentStatus, UserRole } from '../../../types';
 import { normalizePaymentAmounts } from '../../../lib/financialLogic';
 import { formatLocalDate } from '../../../lib/dateUtils';
 
+const PAYMENT_URL_PATTERN = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+const PAYMENT_TRAILING_URL_PUNCTUATION = /[.,!?;:،؛)\]]+$/;
+
+const linkifyPaymentNote = (text?: string) => {
+  if (!text) return null;
+
+  return text.split(PAYMENT_URL_PATTERN).map((part, index) => {
+    if (!part) return null;
+    if (!/^(https?:\/\/|www\.)/i.test(part)) {
+      return <React.Fragment key={index}>{part}</React.Fragment>;
+    }
+
+    const trailing = part.match(PAYMENT_TRAILING_URL_PUNCTUATION)?.[0] || '';
+    const urlText = trailing ? part.slice(0, -trailing.length) : part;
+    const href = /^https?:\/\//i.test(urlText) ? urlText : `https://${urlText}`;
+
+    return (
+      <React.Fragment key={index}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-700 underline underline-offset-2 break-all hover:text-blue-900"
+        >
+          {urlText}
+        </a>
+        {trailing}
+      </React.Fragment>
+    );
+  });
+};
+
 interface WeeklyPaymentsSectionProps {
   payments: PaymentRecord[];
   clientId: string;
@@ -386,8 +418,8 @@ export const WeeklyPaymentsSection: React.FC<WeeklyPaymentsSectionProps> = ({
 
                     {/* Notes */}
                     {pay.notes && (
-                      <p className="text-[11px] sm:text-xs text-[#5A5A40] mt-1.5 bg-[#F9F8F6] px-2.5 py-1 rounded-xl inline-block border border-[#E5E5E0] max-w-full break-words">
-                        📝 {pay.notes}
+                      <p className="text-[11px] sm:text-xs text-[#5A5A40] mt-1.5 bg-[#F9F8F6] px-2.5 py-1 rounded-xl inline-block border border-[#E5E5E0] max-w-full break-words whitespace-pre-wrap">
+                        📝 {linkifyPaymentNote(pay.notes)}
                       </p>
                     )}
                   </div>

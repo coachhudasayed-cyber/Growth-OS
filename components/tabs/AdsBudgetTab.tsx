@@ -377,9 +377,6 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
     .filter((p) => p.status === 'overdue' || (p.status === 'pending' && p.date < todayStr))
     .reduce((sum, payment) => sum + getPaymentOutstandingAmount(payment), 0);
 
-  // 3. Monthly Summary: إجمالي Ads Spend + إجمالي أتعابك
-  const totalCombinedVolume = totalAdSpend + totalFeesPaid;
-
   // Period label for titles
   const periodLabel =
     filterMode === 'all'
@@ -451,7 +448,6 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
         feesPendingCount={feesPendingCount}
         feesOverdueCount={feesOverdueCount}
         feesPartialCount={feesPartialCount}
-        totalCombinedVolume={totalCombinedVolume}
         periodLabel={periodLabel}
         userRole={userRole}
         activeCampaignsCount={activeCampaignsCount}
