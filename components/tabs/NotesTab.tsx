@@ -3,6 +3,38 @@ import { StickyNote, Pin, Plus, Trash2, Edit2, User, ShieldCheck, CheckCircle2, 
 import { NoteItem, UserRole } from '../../types';
 import { formatLocalDate } from '../../lib/dateUtils';
 
+const NOTES_URL_PATTERN = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+const NOTES_TRAILING_URL_PUNCTUATION = /[.,!?;:،؛)\]]+$/;
+
+const linkifyNoteText = (text?: string) => {
+  if (!text) return null;
+
+  return text.split(NOTES_URL_PATTERN).map((part, index) => {
+    if (!part) return null;
+    if (!/^(https?:\/\/|www\.)/i.test(part)) {
+      return <React.Fragment key={index}>{part}</React.Fragment>;
+    }
+
+    const trailing = part.match(NOTES_TRAILING_URL_PUNCTUATION)?.[0] || '';
+    const urlText = trailing ? part.slice(0, -trailing.length) : part;
+    const href = /^https?:\/\//i.test(urlText) ? urlText : `https://${urlText}`;
+
+    return (
+      <React.Fragment key={index}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-700 underline underline-offset-2 break-all hover:text-blue-900"
+        >
+          {urlText}
+        </a>
+        {trailing}
+      </React.Fragment>
+    );
+  });
+};
+
 interface NotesTabProps {
   notes: NoteItem[];
   clientId: string;
@@ -270,8 +302,8 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                   </button>}
                 </div>
 
-                <p className="text-xs text-[#2D2D2A] leading-relaxed bg-white p-3 rounded-2xl border border-[#E5E5E0] mb-4 whitespace-pre-wrap">
-                  {note.content}
+                <p className="text-xs text-[#2D2D2A] leading-relaxed bg-white p-3 rounded-2xl border border-[#E5E5E0] mb-4 whitespace-pre-wrap break-words">
+                  {linkifyNoteText(note.content)}
                 </p>
               </div>
 
