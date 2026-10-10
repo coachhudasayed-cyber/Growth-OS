@@ -142,6 +142,8 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ContentPlanItem | null>(null);
   const [previewItem, setPreviewItem] = useState<ContentPlanItem | null>(null);
+  const [draggedContentId, setDraggedContentId] = useState<string | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
   // Form State
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -370,6 +372,42 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
 
     return days;
   }, [currentDate]);
+
+  const handleContentDragStart = (event: React.DragEvent<HTMLDivElement>, item: ContentPlanItem) => {
+    if (userRole === 'client') return;
+    setDraggedContentId(item.id);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', item.id);
+  };
+
+  const handleContentDragEnd = () => {
+    setDraggedContentId(null);
+    setDragOverDate(null);
+  };
+
+  const handleCalendarDayDragOver = (event: React.DragEvent<HTMLDivElement>, dateStr: string) => {
+    if (userRole === 'client' || !draggedContentId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (dragOverDate !== dateStr) setDragOverDate(dateStr);
+  };
+
+  const handleCalendarDayDrop = (event: React.DragEvent<HTMLDivElement>, dateStr: string) => {
+    if (userRole === 'client') return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const itemId = draggedContentId || event.dataTransfer.getData('text/plain');
+    if (!itemId) return;
+
+    const item = clientItems.find(contentItem => contentItem.id === itemId);
+    if (item && item.publishDate !== dateStr) {
+      onUpdateContentItem(item.id, { publishDate: dateStr });
+    }
+
+    setDraggedContentId(null);
+    setDragOverDate(null);
+  };
 
   // Open modal for a specific day date string
   const handleOpenModalForDate = (dateStr: string, existingItem?: ContentPlanItem) => {
@@ -877,8 +915,24 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                   <div
                     key={day.dateString}
                     onClick={() => setDayDetailsDate(day.dateString)}
+                    onDragOver={(event) => handleCalendarDayDragOver(event, day.dateString)}
+                    onDragEnter={(event) => {
+                      if (userRole !== 'client' && draggedContentId) {
+                        event.preventDefault();
+                        setDragOverDate(day.dateString);
+                      }
+                    }}
+                    onDragLeave={(event) => {
+                      const nextTarget = event.relatedTarget as Node | null;
+                      if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+                        setDragOverDate(current => current === day.dateString ? null : current);
+                      }
+                    }}
+                    onDrop={(event) => handleCalendarDayDrop(event, day.dateString)}
                     className={`min-h-[120px] p-2 rounded-2xl border transition flex flex-col justify-between group cursor-pointer ${
-                      !day.isCurrentMonth
+                      dragOverDate === day.dateString && draggedContentId
+                        ? 'bg-[#5A5A40]/10 border-[#5A5A40] ring-2 ring-[#5A5A40]/30 shadow-sm'
+                        : !day.isCurrentMonth
                         ? 'bg-[#F2F1ED]/50 border-transparent opacity-40 hover:opacity-80'
                         : day.isToday
                         ? 'bg-amber-500/5 border-amber-400 ring-2 ring-amber-400/30'
@@ -909,11 +963,19 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                       {dayItems.map((item) => (
                         <div
                           key={item.id}
+                          draggable={userRole !== 'client'}
+                          onDragStart={(event) => handleContentDragStart(event, item)}
+                          onDragEnd={handleContentDragEnd}
                           onClick={(e) => {
                             e.stopPropagation();
                             setDayDetailsDate(day.dateString);
                           }}
-                          className={`p-1.5 rounded-xl border text-[11px] transition flex flex-col gap-0.5 hover:scale-[1.02] cursor-pointer ${
+                          title={userRole !== 'client' ? 'اسحبي المحتوى ليوم تاني لتغيير تاريخ النشر تلقائيا' : undefined}
+                          className={`p-1.5 rounded-xl border text-[11px] transition flex flex-col gap-0.5 hover:scale-[1.02] ${
+                            userRole !== 'client' ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                          } ${
+                            draggedContentId === item.id ? 'opacity-50 scale-95' : ''
+                          } ${
                             item.isExecuted || item.status === 'published'
                               ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
                               : 'bg-[#F9F8F6] border-[#E5E5E0] text-[#2D2D2A]'
@@ -977,6 +1039,11 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
                 );
               })}
             </div>
+            {userRole !== 'client' && (
+              <p className="text-[10px] text-center text-[#78786E] mt-3 font-medium">
+                💡 تقدري تسحبي أي محتوى بالماوس وتحطيه على يوم مختلف، وتاريخ النشر هيتغير تلقائيا.
+              </p>
+            )}
           </div>
 
           {/* Quick List view below Calendar */}
