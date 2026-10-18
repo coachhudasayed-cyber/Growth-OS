@@ -306,7 +306,7 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0);
 
-    const startDayOfWeek = firstDayOfMonth.getDay(); // 0 is Sunday
+    const startDayOfWeek = (firstDayOfMonth.getDay() + 1) % 7; // Saturday-first calendar: 0 is Saturday
     const daysInMonth = lastDayOfMonth.getDate();
 
     const days: Array<{
@@ -839,13 +839,13 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
           <div className="block sm:hidden bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-2.5 shadow-xs">
             {/* Days of week header */}
             <div className="grid grid-cols-7 gap-1 mb-1.5 text-center text-[10px] font-black text-[#5A5A40]">
+              <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">سبت</div>
               <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">أحد</div>
               <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">إثن</div>
               <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">ثلا</div>
               <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">أرب</div>
               <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">خمي</div>
               <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">جمعة</div>
-              <div className="py-1 bg-white rounded-lg border border-[#E5E5E0]/60">سبت</div>
             </div>
 
             {/* Days Grid */}
@@ -897,13 +897,13 @@ export const ContentPlanTab: React.FC<ContentPlanTabProps> = ({
           <div className="hidden sm:block bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-5 shadow-xs overflow-hidden">
             {/* Days of week header */}
             <div className="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-black text-[#5A5A40]">
+              <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">السبت</div>
               <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">الأحد</div>
               <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">الاثنين</div>
               <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">الثلاثاء</div>
               <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">الأربعاء</div>
               <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">الخميس</div>
               <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">الجمعة</div>
-              <div className="py-2 bg-white rounded-xl border border-[#E5E5E0]/60">السبت</div>
             </div>
 
             {/* Month Days Grid */}
