@@ -43,7 +43,8 @@ interface AdsBudgetTabProps {
     platform?: string,
     notes?: string,
     campaignName?: string,
-    status?: 'active' | 'paused' | 'completed' | 'needs_recharge'
+    status?: 'active' | 'paused' | 'completed' | 'needs_recharge',
+    dailyBudget?: number
   ) => void;
   onUpdateBudgetAlarm?: (id: string, fields: Partial<BudgetAlarm>) => void;
   onRechargeBudgetAlarm?: (
@@ -51,7 +52,8 @@ interface AdsBudgetTabProps {
     newAmount: number,
     newExpectedDays: number,
     newStartDate?: string,
-    rechargeNotes?: string
+    rechargeNotes?: string,
+    newDailyBudget?: number
   ) => void;
   onDeleteBudgetAlarm: (id: string) => void;
   onAddPayment?: (paymentData: Omit<PaymentRecord, 'id'>) => void;
@@ -84,6 +86,8 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   const [editingBudget, setEditingBudget] = useState<BudgetAlarm | null>(null);
   const [deletingBudgetInfo, setDeletingBudgetInfo] = useState<{ id: string; name?: string } | null>(null);
   const [viewingDetailsBudget, setViewingDetailsBudget] = useState<BudgetAlarm | null>(null);
+  const [finalizingBudget, setFinalizingBudget] = useState<BudgetAlarm | null>(null);
+  const [finalActualSpend, setFinalActualSpend] = useState<number | ''>('');
 
   // Recharge Modal State
   const [rechargingBudget, setRechargingBudget] = useState<BudgetAlarm | null>(null);
@@ -133,7 +137,11 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
     setEditingBudget(budget);
     setCampaignName(budget.campaignName || '');
     setPlatform(budget.platform || 'Meta Ads (FB & Insta)');
-    setAmount(budget.amount || '');
+    setAmount(
+      budget.dailyBudget
+      ?? (budget.expectedDays > 0 ? Number((budget.amount / budget.expectedDays).toFixed(2)) : budget.amount)
+      ?? ''
+    );
     setStartDate(budget.startDate || todayStr);
     setExpectedDays(budget.expectedDays || 7);
     setStatus(budget.status || 'active');
@@ -145,7 +153,10 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   const handleOpenRecharge = (budget: BudgetAlarm) => {
     if (userRole === 'client') return;
     setRechargingBudget(budget);
-    setRechargeAmount(budget.amount);
+    setRechargeAmount(
+      budget.dailyBudget
+      ?? (budget.expectedDays > 0 ? Number((budget.amount / budget.expectedDays).toFixed(2)) : budget.amount)
+    );
     setRechargeDays(budget.expectedDays);
     setRechargeStartDate(todayStr);
     setRechargeNotes('');
@@ -154,16 +165,20 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   // Submit Add / Edit Form
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const normalizedAmount = Number(amount);
+    const normalizedDailyBudget = Number(amount);
     const normalizedDays = Number(expectedDays);
-    if (!startDate || !Number.isFinite(normalizedAmount) || normalizedAmount <= 0
+    if (!startDate || !Number.isFinite(normalizedDailyBudget) || normalizedDailyBudget <= 0
       || !Number.isInteger(normalizedDays) || normalizedDays < 1) return;
+
+    const plannedTotalBudget = Math.round(normalizedDailyBudget * normalizedDays * 100) / 100;
 
     if (editingBudget && onUpdateBudgetAlarm) {
       onUpdateBudgetAlarm(editingBudget.id, {
         campaignName: campaignName.trim() || 'حملة إعلانية',
         platform,
-        amount: normalizedAmount,
+        amount: plannedTotalBudget,
+        dailyBudget: normalizedDailyBudget,
+        plannedTotalBudget,
         startDate,
         expectedDays: normalizedDays,
         status,
@@ -172,13 +187,14 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
     } else {
       onAddBudgetAlarm(
         clientId,
-        normalizedAmount,
+        plannedTotalBudget,
         startDate,
         normalizedDays,
         platform,
         notes.trim(),
         campaignName.trim() || 'حملة إعلانية جديدة',
-        status
+        status,
+        normalizedDailyBudget
       );
     }
 
@@ -189,18 +205,21 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   // Submit Recharge Form
   const handleRechargeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const normalizedAmount = Number(rechargeAmount);
+    const normalizedDailyBudget = Number(rechargeAmount);
     const normalizedDays = Number(rechargeDays);
-    if (!rechargingBudget || !rechargeStartDate || !Number.isFinite(normalizedAmount)
-      || normalizedAmount <= 0 || !Number.isInteger(normalizedDays) || normalizedDays < 1) return;
+    if (!rechargingBudget || !rechargeStartDate || !Number.isFinite(normalizedDailyBudget)
+      || normalizedDailyBudget <= 0 || !Number.isInteger(normalizedDays) || normalizedDays < 1) return;
+
+    const plannedTotalBudget = Math.round(normalizedDailyBudget * normalizedDays * 100) / 100;
 
     if (onRechargeBudgetAlarm) {
       onRechargeBudgetAlarm(
         rechargingBudget.id,
-        normalizedAmount,
+        plannedTotalBudget,
         normalizedDays,
         rechargeStartDate,
-        rechargeNotes.trim()
+        rechargeNotes.trim(),
+        normalizedDailyBudget
       );
     } else if (onUpdateBudgetAlarm) {
       // Fallback
@@ -208,7 +227,11 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
       const oldNotes = rechargingBudget.notes || '';
       const addedNote = rechargeNotes ? `\n[إعادة شحن ${todayStr}]: ${rechargeNotes}` : '';
       onUpdateBudgetAlarm(rechargingBudget.id, {
-        amount: normalizedAmount,
+        amount: plannedTotalBudget,
+        dailyBudget: normalizedDailyBudget,
+        plannedTotalBudget,
+        actualSpend: undefined,
+        actualSpendConfirmedAt: undefined,
         expectedDays: normalizedDays,
         startDate: rechargeStartDate,
         endDate: newEndDate,
@@ -220,6 +243,31 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
     }
 
     setRechargingBudget(null);
+  };
+
+  const handleOpenFinalizeSpend = (budget: BudgetAlarm) => {
+    if (userRole === 'client') return;
+    setFinalizingBudget(budget);
+    setFinalActualSpend(
+      Number.isFinite(Number(budget.actualSpend))
+        ? Number(budget.actualSpend)
+        : Number(budget.plannedTotalBudget ?? budget.amount)
+    );
+  };
+
+  const handleFinalizeSpendSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!finalizingBudget || !onUpdateBudgetAlarm) return;
+    const normalizedActualSpend = Number(finalActualSpend);
+    if (!Number.isFinite(normalizedActualSpend) || normalizedActualSpend < 0) return;
+
+    onUpdateBudgetAlarm(finalizingBudget.id, {
+      actualSpend: Math.round(normalizedActualSpend * 100) / 100,
+      actualSpendConfirmedAt: todayStr,
+      status: 'completed'
+    });
+    setFinalizingBudget(null);
+    setFinalActualSpend('');
   };
 
   // Delete Budget
@@ -315,31 +363,43 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   };
 
   // 1. Ad Spend
+  // Confirmed actual spend replaces the planned budget for that campaign.
+  // Existing campaigns without a confirmation keep their historical planned-budget fallback.
   let adSpendFromBudgets = 0;
   let adSpendCampaignsCount = 0;
+  let confirmedActualSpendCount = 0;
 
   clientBudgets.forEach((budget) => {
     let budgetContributed = false;
-    const historyList =
-      budget.rechargeHistory && budget.rechargeHistory.length > 0
-        ? budget.rechargeHistory
-        : [
-            {
-              id: `initial-${budget.id}`,
-              date: budget.startDate || budget.createdAt || todayStr,
-              amount: budget.amount,
-              expectedDays: budget.expectedDays,
-              startDate: budget.startDate,
-              endDate: budget.endDate
-            }
-          ];
+    const hasConfirmedActualSpend = Number.isFinite(Number(budget.actualSpend));
+    const actualSpendDate = budget.actualSpendConfirmedAt || budget.endDate;
 
-    historyList.forEach((hist) => {
-      if (filterMode === 'all' || isDateInPeriod(hist.date) || isDateInPeriod(hist.startDate)) {
-        adSpendFromBudgets += hist.amount;
-        budgetContributed = true;
-      }
-    });
+    if (hasConfirmedActualSpend && (filterMode === 'all' || isDateInPeriod(actualSpendDate))) {
+      adSpendFromBudgets += Number(budget.actualSpend);
+      budgetContributed = true;
+      confirmedActualSpendCount++;
+    } else if (!hasConfirmedActualSpend) {
+      const historyList =
+        budget.rechargeHistory && budget.rechargeHistory.length > 0
+          ? budget.rechargeHistory
+          : [
+              {
+                id: `initial-${budget.id}`,
+                date: budget.startDate || budget.createdAt || todayStr,
+                amount: budget.amount,
+                expectedDays: budget.expectedDays,
+                startDate: budget.startDate,
+                endDate: budget.endDate
+              }
+            ];
+
+      historyList.forEach((hist) => {
+        if (filterMode === 'all' || isDateInPeriod(hist.date) || isDateInPeriod(hist.startDate)) {
+          adSpendFromBudgets += hist.amount;
+          budgetContributed = true;
+        }
+      });
+    }
 
     if (budgetContributed || filterMode === 'all') {
       adSpendCampaignsCount++;
@@ -351,8 +411,8 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
     .reduce((sum, p) => sum + getPaymentCollectedAmount(p), 0);
 
   // Explicit spend records are the source of truth. Budget history is a funding estimate fallback.
-  const hasActualSpendRecords = adSpendPaymentRecords.length > 0;
-  const totalAdSpend = hasActualSpendRecords ? adSpendFromPayments : adSpendFromBudgets;
+  const hasActualSpendRecords = adSpendPaymentRecords.length > 0 || confirmedActualSpendCount > 0;
+  const totalAdSpend = adSpendPaymentRecords.length > 0 ? adSpendFromPayments : adSpendFromBudgets;
 
   // 2. Media Buying Fees (اللي العميل دفعهولك)
   const mediaBuyingPayments = useMemo(() => {
@@ -388,7 +448,9 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
   // Calculate statistics & urgent alarms
   const urgentCount = clientBudgets.filter((b) => isBudgetRechargeUrgent(b, 2, todayStr)).length;
 
-  const activeCampaignsCount = clientBudgets.filter((b) => b.status === 'active').length;
+  const activeCampaignsCount = clientBudgets.filter(
+    (b) => b.status === 'active' && getBudgetDaysRemaining(b.endDate, todayStr) >= 0
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -685,11 +747,17 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                   </div>
 
                   {/* Grid Numbers */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white p-3 rounded-2xl border border-[#E5E5E0] text-center text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-white p-3 rounded-2xl border border-[#E5E5E0] text-center text-xs">
                     <div>
-                      <div className="text-[10px] text-[#8E8E85]">الميزانية الحالية</div>
+                      <div className="text-[10px] text-[#8E8E85]">ميزانية اليوم</div>
                       <div className="font-extrabold text-[#5A5A40] mt-0.5">
-                        {budget.amount ? budget.amount.toLocaleString() : '0'} EGP
+                        {(budget.dailyBudget ?? (budget.expectedDays > 0 ? budget.amount / budget.expectedDays : budget.amount)).toLocaleString()} EGP
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#8E8E85]">ميزانية المدة</div>
+                      <div className="font-extrabold text-[#2D2D2A] mt-0.5">
+                        {(budget.plannedTotalBudget ?? budget.amount).toLocaleString()} EGP
                       </div>
                     </div>
                     <div>
@@ -707,6 +775,13 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {Number.isFinite(Number(budget.actualSpend)) && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                      <span className="font-bold text-emerald-800">الصرف الفعلي المؤكد:</span>
+                      <span className="font-black text-emerald-950">{Number(budget.actualSpend).toLocaleString()} EGP</span>
+                    </div>
+                  )}
 
                   {/* Warning Messages */}
                   {!isPaused && !isCompleted && (isToday || isExpired || isWarning || isNeedsRecharge) && (
@@ -757,6 +832,20 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                       >
                         <BatteryCharging className="w-4 h-4" />
                         <span>إعادة شحن الحملة</span>
+                      </button>
+                    )}
+
+                    {userRole !== 'client' && (isToday || isExpired || isCompleted) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenFinalizeSpend(budget);
+                        }}
+                        className="flex-1 sm:flex-initial px-3.5 py-2.5 sm:py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-xs transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{Number.isFinite(Number(budget.actualSpend)) ? 'تعديل الصرف الفعلي' : 'تأكيد الصرف الفعلي'}</span>
                       </button>
                     )}
 
@@ -939,7 +1028,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[#2D2D2A] font-bold mb-1">
-                    الميزانية المخصصة (EGP) *
+                    ميزانية اليوم (EGP) *
                   </label>
                   <input
                     type="number"
@@ -947,7 +1036,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                     step="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : '')}
-                    placeholder="15000"
+                    placeholder="350"
                     className="w-full bg-white border border-[#E5E5E0] rounded-xl px-3.5 py-2 text-[#2D2D2A] outline-none focus:border-[#5A5A40]"
                     required
                   />
@@ -996,13 +1085,24 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                 </div>
               </div>
 
-              {/* Calculated End Date Preview */}
-              {startDate && expectedDays && (
-                <div className="p-3 bg-white border border-[#E5E5E0] rounded-xl flex items-center justify-between text-xs">
-                  <span className="text-[#8E8E85]">تاريخ الانتهاء المتوقع:</span>
-                  <span className="font-extrabold text-[#5A5A40]">
-                    {calculateBudgetEndDate(startDate, Number(expectedDays))}
-                  </span>
+              {/* Calculated budget & end date preview */}
+              {startDate && expectedDays && amount && (
+                <div className="p-3 bg-white border border-[#E5E5E0] rounded-xl text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8E8E85]">ميزانية المدة المخططة:</span>
+                    <span className="font-extrabold text-[#2D2D2A]">
+                      {(Math.round(Number(amount) * Number(expectedDays) * 100) / 100).toLocaleString()} EGP
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8E8E85]">تاريخ الانتهاء المتوقع:</span>
+                    <span className="font-extrabold text-[#5A5A40]">
+                      {calculateBudgetEndDate(startDate, Number(expectedDays))}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#8E8E85] border-t border-[#E5E5E0] pt-1.5">
+                    يوم البداية محسوب كأول يوم كامل من مدة التشغيل.
+                  </p>
                 </div>
               )}
 
@@ -1100,7 +1200,7 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
               {/* New Amount & New Days */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[#2D2D2A] font-bold mb-1">مبلغ الشحن الجديد (EGP) *</label>
+                  <label className="block text-[#2D2D2A] font-bold mb-1">ميزانية اليوم الجديدة (EGP) *</label>
                   <input
                     type="number"
                     min="0.01"
@@ -1128,13 +1228,21 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                 </div>
               </div>
 
-              {/* Live Preview of New End Date */}
-              {rechargeStartDate && rechargeDays && (
-                <div className="p-3 bg-white border border-[#E5E5E0] rounded-xl flex items-center justify-between">
-                  <span className="text-[#8E8E85] font-semibold">تاريخ الانتهاء الجديد المتوقع:</span>
-                  <span className="font-extrabold text-[#5A5A40]">
-                    {calculateBudgetEndDate(rechargeStartDate, Number(rechargeDays))}
-                  </span>
+              {/* Live Preview of New Planned Total & End Date */}
+              {rechargeStartDate && rechargeDays && rechargeAmount && (
+                <div className="p-3 bg-white border border-[#E5E5E0] rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8E8E85] font-semibold">ميزانية المدة الجديدة:</span>
+                    <span className="font-extrabold text-[#2D2D2A]">
+                      {(Math.round(Number(rechargeAmount) * Number(rechargeDays) * 100) / 100).toLocaleString()} EGP
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8E8E85] font-semibold">تاريخ الانتهاء الجديد المتوقع:</span>
+                    <span className="font-extrabold text-[#5A5A40]">
+                      {calculateBudgetEndDate(rechargeStartDate, Number(rechargeDays))}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -1168,6 +1276,80 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                 إلغاء
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FINAL ACTUAL SPEND CONFIRMATION */}
+      {finalizingBudget && userRole !== 'client' && (
+        <div className="fixed inset-0 bg-[#2D2D2A]/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E5E5E0] rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between gap-3 border-b border-[#E5E5E0] pb-3">
+              <div>
+                <h3 className="font-extrabold text-[#2D2D2A] text-base">تأكيد الصرف الفعلي للحملة</h3>
+                <p className="text-[11px] text-[#8E8E85] mt-0.5">
+                  {finalizingBudget.campaignName || 'الحملة الإعلانية'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFinalizingBudget(null)}
+                className="p-1.5 text-[#8E8E85] hover:text-[#2D2D2A] rounded-xl hover:bg-[#E5E5E0]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl p-3">
+                <span className="text-[10px] text-[#8E8E85] block">المخطط للمدة</span>
+                <strong className="text-[#2D2D2A]">
+                  {(finalizingBudget.plannedTotalBudget ?? finalizingBudget.amount).toLocaleString()} EGP
+                </strong>
+              </div>
+              <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl p-3">
+                <span className="text-[10px] text-[#8E8E85] block">الفترة</span>
+                <strong className="text-[#2D2D2A]">
+                  {finalizingBudget.startDate} → {finalizingBudget.endDate}
+                </strong>
+              </div>
+            </div>
+
+            <form onSubmit={handleFinalizeSpendSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-extrabold text-[#2D2D2A] mb-1">
+                  الصرف الفعلي النهائي من Meta / المنصة (EGP) *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={finalActualSpend}
+                  onChange={(e) => setFinalActualSpend(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full bg-white border border-[#E5E5E0] rounded-xl px-3.5 py-2.5 text-[#2D2D2A] outline-none focus:border-[#5A5A40]"
+                  required
+                  autoFocus
+                />
+              </div>
+              <p className="text-[10px] text-[#8E8E85] leading-relaxed">
+                بعد التأكيد، إجماليات Ad Spend هتستخدم الرقم الفعلي ده بدل الميزانية المخططة للحملة، والحملة هتتحول لمكتملة.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold py-2.5 rounded-xl text-xs"
+                >
+                  تأكيد الصرف الفعلي
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFinalizingBudget(null)}
+                  className="px-4 bg-[#F9F8F6] border border-[#E5E5E0] text-[#2D2D2A] font-bold rounded-xl text-xs"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1307,11 +1489,17 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                     </div>
 
                     {/* Metric Cards Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-white p-4 rounded-2xl border border-[#E5E5E0] text-center shadow-2xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 bg-white p-4 rounded-2xl border border-[#E5E5E0] text-center shadow-2xs">
                       <div>
-                        <div className="text-[10px] text-[#8E8E85] font-semibold">الميزانية الحالية</div>
+                        <div className="text-[10px] text-[#8E8E85] font-semibold">ميزانية اليوم</div>
                         <div className="font-black text-[#5A5A40] text-sm mt-1">
-                          {viewingDetailsBudget.amount ? viewingDetailsBudget.amount.toLocaleString() : '0'} EGP
+                          {(viewingDetailsBudget.dailyBudget ?? (viewingDetailsBudget.expectedDays > 0 ? viewingDetailsBudget.amount / viewingDetailsBudget.expectedDays : viewingDetailsBudget.amount)).toLocaleString()} EGP
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-[#8E8E85] font-semibold">ميزانية المدة</div>
+                        <div className="font-black text-[#2D2D2A] text-sm mt-1">
+                          {(viewingDetailsBudget.plannedTotalBudget ?? viewingDetailsBudget.amount).toLocaleString()} EGP
                         </div>
                       </div>
                       <div>
@@ -1329,6 +1517,22 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {Number.isFinite(Number(viewingDetailsBudget.actualSpend)) && (
+                      <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-700 block">الصرف الفعلي المؤكد للحملة</span>
+                          <span className="text-lg font-black text-emerald-950">
+                            {Number(viewingDetailsBudget.actualSpend).toLocaleString()} EGP
+                          </span>
+                        </div>
+                        {viewingDetailsBudget.actualSpendConfirmedAt && (
+                          <span className="text-[10px] font-bold text-emerald-700">
+                            تم التأكيد: {viewingDetailsBudget.actualSpendConfirmedAt}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Operational Notes */}
                     {viewingDetailsBudget.notes && (
@@ -1390,7 +1594,13 @@ export const AdsBudgetTab: React.FC<AdsBudgetTabProps> = ({
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-[#2D2D2A]">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-[#2D2D2A]">
+                                <div>
+                                  <span className="text-[#8E8E85] block text-[10px]">ميزانية اليوم</span>
+                                  <span className="font-extrabold">
+                                    {(rec.dailyBudget ?? (rec.expectedDays > 0 ? Number(rec.amount) / rec.expectedDays : Number(rec.amount))).toLocaleString()} EGP
+                                  </span>
+                                </div>
                                 <div>
                                   <span className="text-[#8E8E85] block text-[10px]">مدة التشغيل</span>
                                   <span className="font-extrabold">{rec.expectedDays} أيام</span>
