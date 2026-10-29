@@ -475,7 +475,8 @@ export function useAppData() {
     platform?: string,
     notes?: string,
     campaignName?: string,
-    status?: 'active' | 'paused' | 'completed' | 'needs_recharge'
+    status?: 'active' | 'paused' | 'completed' | 'needs_recharge',
+    dailyBudget?: number
   ) => {
     if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(expectedDays) || expectedDays < 1) return;
     const clientObj = clients.find(c => c.id === clientId);
@@ -486,6 +487,8 @@ export function useAppData() {
       id: `rec-${crypto.randomUUID()}`,
       date: startDate,
       amount,
+      dailyBudget,
+      plannedTotalBudget: amount,
       expectedDays,
       startDate,
       endDate,
@@ -499,6 +502,8 @@ export function useAppData() {
       brandName,
       campaignName: campaignName || 'حملة إعلانية جديدة',
       amount,
+      dailyBudget,
+      plannedTotalBudget: amount,
       startDate,
       expectedDays,
       endDate,
@@ -546,6 +551,8 @@ export function useAppData() {
         history[latestIndex] = {
           ...history[latestIndex],
           amount: updated.amount,
+          dailyBudget: updated.dailyBudget,
+          plannedTotalBudget: updated.plannedTotalBudget ?? updated.amount,
           expectedDays: updated.expectedDays,
           startDate: updated.startDate,
           endDate: updated.endDate
@@ -561,7 +568,8 @@ export function useAppData() {
     newAmount: number,
     newExpectedDays: number,
     newStartDate?: string,
-    rechargeNotes?: string
+    rechargeNotes?: string,
+    newDailyBudget?: number
   ) => {
     if (!Number.isFinite(newAmount) || newAmount <= 0 || !Number.isInteger(newExpectedDays) || newExpectedDays < 1) return;
     const todayStr = formatLocalDate();
@@ -591,6 +599,8 @@ export function useAppData() {
         id: `rec-${crypto.randomUUID()}`,
         date: todayStr,
         amount: newAmount,
+        dailyBudget: newDailyBudget,
+        plannedTotalBudget: newAmount,
         expectedDays: newExpectedDays,
         startDate: startDateToUse,
         endDate: newEndDate,
@@ -606,6 +616,10 @@ export function useAppData() {
       return {
         ...b,
         amount: newAmount,
+        dailyBudget: newDailyBudget,
+        plannedTotalBudget: newAmount,
+        actualSpend: undefined,
+        actualSpendConfirmedAt: undefined,
         startDate: startDateToUse,
         expectedDays: newExpectedDays,
         endDate: newEndDate,
