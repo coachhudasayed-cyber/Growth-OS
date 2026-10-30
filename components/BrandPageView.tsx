@@ -99,7 +99,8 @@ interface BrandPageViewProps {
     platform?: string,
     notes?: string,
     campaignName?: string,
-    status?: 'active' | 'paused' | 'completed' | 'needs_recharge'
+    status?: 'active' | 'paused' | 'completed' | 'needs_recharge',
+    dailyBudget?: number
   ) => void;
   onUpdateBudgetAlarm?: (id: string, fields: Partial<BudgetAlarm>) => void;
   onRechargeBudgetAlarm?: (
@@ -107,7 +108,8 @@ interface BrandPageViewProps {
     newAmount: number,
     newExpectedDays: number,
     newStartDate?: string,
-    rechargeNotes?: string
+    rechargeNotes?: string,
+    newDailyBudget?: number
   ) => void;
   onDeleteBudgetAlarm: (id: string) => void;
   onAddPayment?: (paymentData: Omit<PaymentRecord, 'id'>) => void;

@@ -51,7 +51,9 @@ export interface TodoTask {
 export interface BudgetRechargeRecord {
   id: string;
   date: string;          // تاريخ الشحن / تسجيل الميزانية
-  amount: number;        // القيمة (EGP)
+  amount: number;        // إجمالي الميزانية المخططة لهذه الدورة (EGP)
+  dailyBudget?: number;   // ميزانية اليوم
+  plannedTotalBudget?: number; // إجمالي الميزانية المخططة للدورة
   expectedDays: number;  // عدد الأيام
   startDate: string;     // تاريخ البداية
   endDate: string;       // تاريخ الانتهاء
@@ -64,7 +66,11 @@ export interface BudgetAlarm {
   clientId: string;
   brandName: string;
   campaignName?: string;  // اسم الحملة
-  amount: number;         // قيمة الميزانية
+  amount: number;         // إجمالي الميزانية المخططة الحالية (legacy-compatible)
+  dailyBudget?: number;    // ميزانية اليوم
+  plannedTotalBudget?: number; // ميزانية المدة المخططة
+  actualSpend?: number;    // الصرف الفعلي المؤكد بعد انتهاء الحملة
+  actualSpendConfirmedAt?: string; // تاريخ تأكيد الصرف الفعلي
   startDate: string;      // تاريخ بداية التشغيل (YYYY-MM-DD)
   expectedDays: number;   // عدد الأيام المتوقع أن تكفيها الميزانية
   endDate: string;        // تاريخ انتهاء الميزانية (محسوب تلقائياً)

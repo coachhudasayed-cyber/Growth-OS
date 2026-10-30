@@ -41,6 +41,45 @@ const ARABIC_MONTHS = [
 const ARABIC_WEEKDAYS = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 const ARABIC_WEEKDAYS_SHORT = ['أحد', 'إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت'];
 
+const formatTotalWorkDuration = (activeLogs: DailyWorkLog[]) => {
+  const totalActiveDays = activeLogs.length;
+  if (totalActiveDays === 0) return { months: 0, days: 0, totalActiveDays: 0 };
+
+  const datedLogs = activeLogs
+    .filter((log) => /^\d{4}-\d{2}-\d{2}$/.test(log.date))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const firstDate = datedLogs.length > 0 ? datedLogs[0].date : null;
+  if (!firstDate) {
+    return {
+      months: Math.floor(totalActiveDays / 30),
+      days: totalActiveDays % 30,
+      totalActiveDays
+    };
+  }
+
+  const [startYear, startMonth] = firstDate.split('-').map(Number);
+  let remainingDays = totalActiveDays;
+  let months = 0;
+  let year = startYear;
+  let monthIndex = startMonth - 1;
+
+  while (remainingDays > 0) {
+    const daysInCalendarMonth = new Date(year, monthIndex + 1, 0).getDate();
+    if (remainingDays < daysInCalendarMonth) break;
+
+    remainingDays -= daysInCalendarMonth;
+    months += 1;
+    monthIndex += 1;
+    if (monthIndex > 11) {
+      monthIndex = 0;
+      year += 1;
+    }
+  }
+
+  return { months, days: remainingDays, totalActiveDays };
+};
+
 export const DailyWorkTrackingTab: React.FC<DailyWorkTrackingTabProps> = ({
   logs,
   clientId,
@@ -232,6 +271,12 @@ export const DailyWorkTrackingTab: React.FC<DailyWorkTrackingTabProps> = ({
   const activeDaysThisMonth = currentMonthLogs.filter((l) => l.status === 'active').length;
   const pausedDaysThisMonth = currentMonthLogs.filter((l) => l.status === 'paused').length;
 
+  const allActiveLogs = clientLogs.filter((l) => l.status === 'active');
+  const totalWorkDuration = formatTotalWorkDuration(allActiveLogs);
+  const totalWorkDurationLabel = totalWorkDuration.months > 0
+    ? `${totalWorkDuration.months} شهر${totalWorkDuration.days > 0 ? ` و ${totalWorkDuration.days} يوم` : ''}`
+    : `${totalWorkDuration.days} يوم`;
+
   return (
     <div className="space-y-6">
       {/* PAGE HEADER & TOP CONTROLS */}
@@ -296,9 +341,12 @@ export const DailyWorkTrackingTab: React.FC<DailyWorkTrackingTabProps> = ({
         </div>
 
         <div className="bg-white border border-[#E5E5E0] rounded-xl p-2.5 text-center shadow-2xs">
-          <div className="text-[10px] font-bold text-[#78786E] truncate mb-0.5">⏱️ المسجل</div>
-          <div className="text-lg font-black text-[#2D2D2A]">
-            {currentMonthLogs.length}<span className="text-[10px] text-[#78786E] font-medium">/{daysInMonth}</span>
+          <div className="text-[10px] font-bold text-[#78786E] truncate mb-0.5">⏱️ إجمالي مدة العمل</div>
+          <div className="text-sm font-black text-[#2D2D2A] leading-tight">
+            {totalWorkDurationLabel}
+          </div>
+          <div className="text-[9px] text-[#78786E] font-medium mt-0.5">
+            {totalWorkDuration.totalActiveDays} يوم عمل فعلي
           </div>
         </div>
       </div>
@@ -338,12 +386,14 @@ export const DailyWorkTrackingTab: React.FC<DailyWorkTrackingTabProps> = ({
         <div className="bg-white border border-[#E5E5E0] rounded-2xl p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-xs text-[#78786E] font-medium block mb-1">
-              إجمالي أيام الشهر المسجلة
+              إجمالي مدة العمل منذ البداية
             </span>
             <div className="text-2xl font-black text-[#2D2D2A] flex items-baseline gap-1.5">
-              <span>{currentMonthLogs.length}</span>
-              <span className="text-xs text-[#78786E] font-semibold">من {daysInMonth} يوم</span>
+              <span>{totalWorkDurationLabel}</span>
             </div>
+            <span className="text-[10px] text-[#78786E] font-semibold mt-1 block">
+              محسوبة من {totalWorkDuration.totalActiveDays} يوم عمل فعلي حسب طول الشهور الميلادية
+            </span>
           </div>
           <div className="w-10 h-10 rounded-2xl bg-[#F5F5F0] border border-[#E5E5E0] flex items-center justify-center text-[#5A5A40]">
             <Clock className="w-5 h-5" />
