@@ -658,12 +658,23 @@ export interface ClientDailyReport {
 }
 
 export type WeeklyReportSectionId =
+  | 'overview'
+  | 'campaigns'
+  | 'learnings'
+  | 'next_week'
+  // Legacy section ids are retained so historical saved reports remain readable.
   | 'performance'
   | 'wow'
-  | 'campaigns'
   | 'analysis'
   | 'plan'
-  | 'summary';
+  | 'summary'
+  | string;
+
+export interface WeeklyReportSection {
+  id: WeeklyReportSectionId;
+  title: string;
+  kind?: 'fields' | 'campaigns';
+}
 
 export interface WeeklyReportQuestion {
   id: string;
@@ -684,71 +695,72 @@ export interface WeeklyReportQuestionAnswer {
   standardKey?: string;
 }
 
+export interface WeeklyReportCampaignEntry {
+  id: string;
+  answers: Record<string, string | number>;
+}
+
 export interface WeeklyReport {
   id: string;
   clientId: string;
-  title?: string; // اسم أو عنوان مخصص للتقرير (مثل: أسبوع العيد، الأسبوع الأول...)
+  title?: string;
   weekStartDate: string;
   weekEndDate?: string;
-  clientViewed?: boolean; // هل اتطلع العميل عليه أم لا
+  clientViewed?: boolean;
 
-  // 1. ملخص الأداء | Weekly Performance
-  totalSpent: number;                   // إجمالي الإنفاق | Total Spend (EGP)
-  totalOrders: number;                  // إجمالي الطلبات | Total Orders
-  totalRevenue?: number;                // إجمالي المبيعات | Total Revenue (EGP)
-  salesValue?: number;                  // للتوافق (قيمة المبيعات)
-  roas: number;                         // العائد على الإنفاق الإعلاني | ROAS
-  cpa?: string | number;                // تكلفة الطلب | CPA
-  aov?: string | number;                // متوسط قيمة الطلب | AOV
-  conversionRate?: string | number;     // معدل التحويل | Conversion Rate
+  // New simplified weekly report fields.
+  campaignsRunThisWeek?: string;
+  totalSpent?: number;
+  keyLearnings?: string;
+  nextWeekActions?: string;
+  campaignEntries?: WeeklyReportCampaignEntry[];
+  sectionsSnapshot?: WeeklyReportSection[];
 
-  // 2. مقارنة بالأسبوع السابق | Week-over-Week
-  spendChange?: string;                 // تغير الإنفاق | Spend Change
-  ordersChange?: string;                // تغير عدد الطلبات | Orders Change
-  revenueChange?: string;               // تغير المبيعات | Revenue Change
-  roasChange?: string;                  // تغير ROAS | ROAS Change
-  cpaChange?: string;                   // تغير CPA | CPA Change
-  aovChange?: string;                   // تغير AOV | AOV Change
-
-  // 3. أداء الحملات | Campaign Performance
-  bestCampaign?: string;                // أفضل حملة | Best Performing Campaign + سبب النجاح
-  weakestCampaign?: string;             // أضعف حملة | Weakest Campaign + سبب الضعف
-  improvingCampaigns?: string;          // الحملات التي تحسنت | Improving Campaigns
-  decliningCampaigns?: string;          // الحملات التي تراجعت | Declining Campaigns
-  scalingCampaigns?: string;            // الحملات التي تحتاج Scaling
-  optimizationPauseCampaigns?: string;  // الحملات التي تحتاج Optimization / Pause
-
-  // 4. التحليل الأسبوعي | Weekly Analysis
-  whatWorkedWell?: string;              // إيه اللي اشتغل كويس؟ | What Worked Well
-  whatNeedsImprovement?: string;        // إيه اللي محتاج يتحسن؟ | What Needs Improvement
-  keyChanges?: string;                  // أهم التغييرات هذا الأسبوع | Key Changes
-  whatChangedFromLastWeek?: string;     // للتوافق
-  keyInsight?: string;                  // أهم Insight من بيانات الأسبوع | Key Insight of the Week
-  salesAndLeadNotes?: string;           // ملاحظات بيانات المبيعات والعملاء | Sales & Lead Data Notes
-  dailyClientDataNotes?: string;        // للتوافق
-
-  // 5. خطة الأسبوع القادم | Next Week Action Plan
-  nextWeekGoal?: string;                // الهدف الرئيسي | Next Week Goal
-  topPriorities?: string;               // أهم الأولويات | Top Priorities
-  campaignAdjustments?: string;         // تعديلات الحملات | Campaign Adjustments
-  campaignAdjustmentsNextWeek?: string; // للتوافق
-  newTests?: string;                    // الاختبارات الجديدة | New A/B Tests
-  newTestsNextWeek?: string;            // للتوافق
-  clientRequiredAction?: string;        // المطلوب من العميل | Action Required from Client
-  clientRequiredActionNextWeek?: string;// للتوافق
-
-  // 6. ملخص القرار | Weekly Decision Summary
-  decisionSummary?: string;             // ملخص القرار | Weekly Decision Summary (ملخص قصير يوضح أهم ما حدث هذا الأسبوع، أهم استنتاج تم الوصول إليه من البيانات، وأهم القرارات والتعديلات التي سيتم تنفيذها خلال الأسبوع القادم)
-
-  campaignsPerformanceSummary?: string;// للتوافق
-  totalReach?: number;                  // للتوافق
-  totalConversions?: number;            // للتوافق
-  notes?: string;                       // ملاحظات عامة
-
-  // Dynamic / Custom Questions & Answers
+  // Dynamic/custom template snapshot saved with every report.
   customAnswers?: Record<string, string | number>;
   questionsList?: WeeklyReportQuestionAnswer[];
   customSectionsQuestions?: WeeklyReportQuestion[];
+
+  // Legacy fields retained for historical report compatibility only.
+  totalOrders?: number;
+  totalRevenue?: number;
+  salesValue?: number;
+  roas?: number;
+  cpa?: string | number;
+  aov?: string | number;
+  conversionRate?: string | number;
+  spendChange?: string;
+  ordersChange?: string;
+  revenueChange?: string;
+  roasChange?: string;
+  cpaChange?: string;
+  aovChange?: string;
+  bestCampaign?: string;
+  weakestCampaign?: string;
+  improvingCampaigns?: string;
+  decliningCampaigns?: string;
+  scalingCampaigns?: string;
+  optimizationPauseCampaigns?: string;
+  whatWorkedWell?: string;
+  whatNeedsImprovement?: string;
+  keyChanges?: string;
+  whatChangedFromLastWeek?: string;
+  keyInsight?: string;
+  salesAndLeadNotes?: string;
+  dailyClientDataNotes?: string;
+  nextWeekGoal?: string;
+  topPriorities?: string;
+  campaignAdjustments?: string;
+  campaignAdjustmentsNextWeek?: string;
+  newTests?: string;
+  newTestsNextWeek?: string;
+  clientRequiredAction?: string;
+  clientRequiredActionNextWeek?: string;
+  decisionSummary?: string;
+  campaignsPerformanceSummary?: string;
+  totalReach?: number;
+  totalConversions?: number;
+  notes?: string;
 }
 
 export type MonthlyReportSectionId =
