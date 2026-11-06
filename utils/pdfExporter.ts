@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas-pro';
 import { ContentPlanItem, WeeklyReport, MonthlyReport, QuarterlyReport } from '../types';
 import { ContentLibraryCategory } from '../data/contentLibraryData';
 import { formatLocalDate } from '../lib/dateUtils';
+import { getWeeklyReportDisplaySections } from '../lib/weeklyReportConfig';
 
 const getFormatBadge = (format: string) => {
   switch (format) {
@@ -1145,7 +1146,7 @@ export async function exportWeeklyReportToPDF(
   const host = createPdfStagingHost();
   const displayBrand = brandName || 'البراند';
   const periodText = `من ${rep.weekStartDate || ''}${rep.weekEndDate ? ` إلى ${rep.weekEndDate}` : ''}`;
-  const docTitle = rep.title ? `${rep.title} (${periodText})` : `التقرير الأسبوعي الشامل - ${periodText}`;
+  const docTitle = rep.title ? `${rep.title} - ${periodText}` : `Weekly Report - ${periodText}`;
 
   const pages: HTMLElement[] = [];
   const createPage = () => {
@@ -1154,319 +1155,95 @@ export async function exportWeeklyReportToPDF(
     return { page, body };
   };
 
-  const revenueVal = rep.totalRevenue || rep.salesValue || 0;
-  const ordersVal = rep.totalOrders || rep.totalConversions || 0;
+  const sections = getWeeklyReportDisplaySections(rep);
 
-  // 1. ملخص الأداء | Weekly Performance
-  const statsBlock = document.createElement('div');
-  statsBlock.style.marginBottom = '12px';
-  statsBlock.innerHTML = `
-    <div style="background-color: rgba(90, 90, 64, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(90, 90, 64, 0.2); font-weight: 800; font-size: 12px; color: #2D2D2A; margin-bottom: 8px; font-family: 'Cairo', sans-serif;">
-      📊 1. ملخص الأداء | Weekly Performance
-    </div>
-    <table style="width: 100%; border-collapse: separate; border-spacing: 6px; margin-bottom: 6px; direction: rtl;">
-      <tr>
-        <td style="width: 25%; background-color: #F9F8F6; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; text-align: center; vertical-align: top;">
-          <span style="font-size: 9px; color: #8E8E85; font-weight: 700; display: block; margin-bottom: 2px;">إجمالي الإنفاق (EGP)</span>
-          <div style="font-size: 12px; font-weight: 900; color: #be123c;">${(rep.totalSpent || 0).toLocaleString()} EGP</div>
-        </td>
-        <td style="width: 25%; background-color: #F9F8F6; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; text-align: center; vertical-align: top;">
-          <span style="font-size: 9px; color: #8E8E85; font-weight: 700; display: block; margin-bottom: 2px;">إجمالي الطلبات</span>
-          <div style="font-size: 12px; font-weight: 900; color: #5A5A40;">${ordersVal} طلب</div>
-        </td>
-        <td style="width: 25%; background-color: #F9F8F6; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; text-align: center; vertical-align: top;">
-          <span style="font-size: 9px; color: #8E8E85; font-weight: 700; display: block; margin-bottom: 2px;">إجمالي المبيعات (EGP)</span>
-          <div style="font-size: 12px; font-weight: 900; color: #047857;">${revenueVal.toLocaleString()} EGP</div>
-        </td>
-        <td style="width: 25%; background-color: #F9F8F6; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; text-align: center; vertical-align: top;">
-          <span style="font-size: 9px; color: #8E8E85; font-weight: 700; display: block; margin-bottom: 2px;">العائد (ROAS)</span>
-          <div style="font-size: 12px; font-weight: 900; color: #92400e;">${rep.roas || 0}x</div>
-        </td>
-      </tr>
-    </table>
-    <table style="width: 100%; border-collapse: separate; border-spacing: 6px; margin-bottom: 6px; direction: rtl;">
-      <tr>
-        <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; text-align: center; vertical-align: top;">
-          <span style="font-size: 9px; color: #8E8E85; font-weight: 700; display: block; margin-bottom: 2px;">تكلفة الطلب (CPA)</span>
-          <div style="font-size: 11px; font-weight: 800; color: #2D2D2A;">${rep.cpa || '-'}</div>
-        </td>
-        <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; text-align: center; vertical-align: top;">
-          <span style="font-size: 9px; color: #8E8E85; font-weight: 700; display: block; margin-bottom: 2px;">متوسط قيمة الطلب (AOV)</span>
-          <div style="font-size: 11px; font-weight: 800; color: #2D2D2A;">${rep.aov || '-'}</div>
-        </td>
-        <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; text-align: center; vertical-align: top;">
-          <span style="font-size: 9px; color: #8E8E85; font-weight: 700; display: block; margin-bottom: 2px;">معدل التحويل (Conversion Rate)</span>
-          <div style="font-size: 11px; font-weight: 800; color: #4338ca;">${rep.conversionRate || '-'}</div>
-        </td>
-      </tr>
-    </table>
-  `;
-  appendBlockToPages(pages, createPage, statsBlock);
-
-  // 2. مقارنة بالأسبوع السابق | Week-over-Week
-  if (rep.spendChange || rep.ordersChange || rep.revenueChange || rep.roasChange || rep.cpaChange || rep.aovChange) {
-    const wowBlock = document.createElement('div');
-    wowBlock.style.marginBottom = '12px';
-    wowBlock.innerHTML = `
-      <div style="background-color: rgba(59, 130, 246, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2); font-weight: 800; font-size: 12px; color: #1e40af; margin-bottom: 8px; font-family: 'Cairo', sans-serif;">
-        📈 2. مقارنة بالأسبوع السابق | Week-over-Week
+  if (sections.length === 0) {
+    const emptyBlock = document.createElement('div');
+    emptyBlock.style.marginBottom = '12px';
+    emptyBlock.innerHTML = `
+      <div data-pdf-block style="background:#F9F8F6;border:1px solid #E5E5E0;border-radius:10px;padding:18px;text-align:center;font-size:11px;color:#8E8E85;font-family:'Cairo',sans-serif;">
+        لا توجد بيانات مدخلة في هذا التقرير.
       </div>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 6px; font-size: 10px; direction: rtl;">
-        <tr>
-          ${rep.spendChange ? `
-            <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #8E8E85; display: block; margin-bottom: 2px;">تغير الإنفاق:</span>
-              <p style="font-weight: 800; color: #2D2D2A; margin: 0;">${rep.spendChange}</p>
-            </td>
-          ` : '<td style="width: 33.33%;"></td>'}
-          ${rep.ordersChange ? `
-            <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #8E8E85; display: block; margin-bottom: 2px;">تغير عدد الطلبات:</span>
-              <p style="font-weight: 800; color: #2D2D2A; margin: 0;">${rep.ordersChange}</p>
-            </td>
-          ` : '<td style="width: 33.33%;"></td>'}
-          ${rep.revenueChange ? `
-            <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #8E8E85; display: block; margin-bottom: 2px;">تغير المبيعات:</span>
-              <p style="font-weight: 800; color: #2D2D2A; margin: 0;">${rep.revenueChange}</p>
-            </td>
-          ` : '<td style="width: 33.33%;"></td>'}
-        </tr>
-        <tr>
-          ${rep.roasChange ? `
-            <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #8E8E85; display: block; margin-bottom: 2px;">تغير ROAS:</span>
-              <p style="font-weight: 800; color: #2D2D2A; margin: 0;">${rep.roasChange}</p>
-            </td>
-          ` : '<td style="width: 33.33%;"></td>'}
-          ${rep.cpaChange ? `
-            <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #8E8E85; display: block; margin-bottom: 2px;">تغير CPA:</span>
-              <p style="font-weight: 800; color: #2D2D2A; margin: 0;">${rep.cpaChange}</p>
-            </td>
-          ` : '<td style="width: 33.33%;"></td>'}
-          ${rep.aovChange ? `
-            <td style="width: 33.33%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #8E8E85; display: block; margin-bottom: 2px;">تغير AOV:</span>
-              <p style="font-weight: 800; color: #2D2D2A; margin: 0;">${rep.aovChange}</p>
-            </td>
-          ` : '<td style="width: 33.33%;"></td>'}
-        </tr>
-      </table>
     `;
-    appendBlockToPages(pages, createPage, wowBlock);
+    appendBlockToPages(pages, createPage, emptyBlock);
   }
 
-  // 3. أداء الحملات | Campaign Performance
-  if (rep.bestCampaign || rep.weakestCampaign || rep.improvingCampaigns || rep.decliningCampaigns || rep.scalingCampaigns || rep.optimizationPauseCampaigns) {
-    const campaignBlock = document.createElement('div');
-    campaignBlock.style.marginBottom = '12px';
-    campaignBlock.innerHTML = `
-      <div style="background-color: rgba(16, 185, 129, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2); font-weight: 800; font-size: 12px; color: #065f46; margin-bottom: 8px; font-family: 'Cairo', sans-serif;">
-        🎯 3. أداء الحملات | Campaign Performance
-      </div>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 6px; font-size: 10px; direction: rtl;">
-        ${(rep.bestCampaign || rep.weakestCampaign) ? `
-          <tr>
-            ${rep.bestCampaign ? `
-              <td style="width: 50%; background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 8px; border-radius: 8px; vertical-align: top;">
-                <span style="font-weight: 800; color: #065f46; display: block; margin-bottom: 3px;">🟢 أفضل حملة وسبب النجاح:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.bestCampaign}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-            ${rep.weakestCampaign ? `
-              <td style="width: 50%; background-color: #fff1f2; border: 1px solid #fecdd3; padding: 8px; border-radius: 8px; vertical-align: top;">
-                <span style="font-weight: 800; color: #9f1239; display: block; margin-bottom: 3px;">🔴 أضعف حملة وسبب الضعف:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.weakestCampaign}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-          </tr>
-        ` : ''}
-        ${(rep.improvingCampaigns || rep.decliningCampaigns) ? `
-          <tr>
-            ${rep.improvingCampaigns ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #047857; display: block; margin-bottom: 3px;">الحملات التي تحسنت:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.improvingCampaigns}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-            ${rep.decliningCampaigns ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #b45309; display: block; margin-bottom: 3px;">الحملات التي تراجعت:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.decliningCampaigns}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-          </tr>
-        ` : ''}
-        ${(rep.scalingCampaigns || rep.optimizationPauseCampaigns) ? `
-          <tr>
-            ${rep.scalingCampaigns ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #1e40af; display: block; margin-bottom: 3px;">الحملات التي تحتاج Scaling:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.scalingCampaigns}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-            ${rep.optimizationPauseCampaigns ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #be123c; display: block; margin-bottom: 3px;">الحملات التي تحتاج Optimization / Pause:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.optimizationPauseCampaigns}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-          </tr>
-        ` : ''}
-      </table>
-    `;
-    appendBlockToPages(pages, createPage, campaignBlock);
-  }
+  sections.forEach((section) => {
+    const sectionBlock = document.createElement('div');
+    sectionBlock.style.marginBottom = '12px';
 
-  // 4. التحليل الأسبوعي | Weekly Analysis
-  if (rep.whatWorkedWell || rep.whatNeedsImprovement || rep.keyChanges || rep.keyInsight || rep.salesAndLeadNotes || rep.whatChangedFromLastWeek || rep.dailyClientDataNotes) {
-    const analysisBlock = document.createElement('div');
-    analysisBlock.style.marginBottom = '12px';
-    analysisBlock.innerHTML = `
-      <div style="background-color: rgba(245, 158, 11, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.2); font-weight: 800; font-size: 12px; color: #92400e; margin-bottom: 8px; font-family: 'Cairo', sans-serif;">
-        💡 4. التحليل الأسبوعي | Weekly Analysis
-      </div>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 6px; font-size: 10px; direction: rtl;">
-        <tr>
-          ${rep.whatWorkedWell ? `
-            <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #065f46; display: block; margin-bottom: 3px;">إيه اللي اشتغل كويس؟</span>
-              <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.whatWorkedWell}</p>
-            </td>
-          ` : '<td style="width: 50%;"></td>'}
-          ${rep.whatNeedsImprovement ? `
-            <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #92400e; display: block; margin-bottom: 3px;">إيه اللي محتاج يتحسن؟</span>
-              <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.whatNeedsImprovement}</p>
-            </td>
-          ` : '<td style="width: 50%;"></td>'}
-        </tr>
-        ${((rep.keyChanges || rep.whatChangedFromLastWeek) || rep.keyInsight) ? `
-          <tr>
-            ${(rep.keyChanges || rep.whatChangedFromLastWeek) ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #5A5A40; display: block; margin-bottom: 3px;">أهم التغييرات هذا الأسبوع:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.keyChanges || rep.whatChangedFromLastWeek}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-            ${rep.keyInsight ? `
-              <td style="width: 50%; background-color: #fdf4ff; border: 1px solid #f5d0fe; padding: 8px; border-radius: 8px; vertical-align: top;">
-                <span style="font-weight: 800; color: #86198f; display: block; margin-bottom: 3px;">💡 أهم Insight من بيانات الأسبوع:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.keyInsight}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-          </tr>
-        ` : ''}
-        ${(rep.salesAndLeadNotes || rep.dailyClientDataNotes) ? `
-          <tr>
-            <td colspan="2" style="background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #1e40af; display: block; margin-bottom: 3px;">ملاحظات بيانات المبيعات والعملاء:</span>
-              <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.salesAndLeadNotes || rep.dailyClientDataNotes}</p>
-            </td>
-          </tr>
-        ` : ''}
-      </table>
-    `;
-    appendBlockToPages(pages, createPage, analysisBlock);
-  }
+    const fieldsHtml = section.fields.map(field => {
+      const value = field.type === 'number' && field.standardKey === 'totalSpent'
+        ? `${Number(field.answer).toLocaleString()} EGP`
+        : String(field.answer ?? '');
 
-  // 5. خطة الأسبوع القادم | Next Week Action Plan
-  if (rep.nextWeekGoal || rep.topPriorities || rep.campaignAdjustments || rep.newTests || rep.clientRequiredAction || rep.campaignAdjustmentsNextWeek || rep.newTestsNextWeek || rep.clientRequiredActionNextWeek) {
-    const planBlock = document.createElement('div');
-    planBlock.style.marginBottom = '12px';
-    planBlock.innerHTML = `
-      <div style="background-color: rgba(200, 102, 43, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(200, 102, 43, 0.2); font-weight: 800; font-size: 12px; color: #C8662B; margin-bottom: 8px; font-family: 'Cairo', sans-serif;">
-        🎯 5. خطة الأسبوع القادم | Next Week Action Plan
-      </div>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 6px; font-size: 10px; direction: rtl;">
-        ${rep.nextWeekGoal ? `
-          <tr>
-            <td colspan="2" style="background-color: #fff7ed; border: 1px solid #fed7aa; padding: 8px; border-radius: 8px; vertical-align: top;">
-              <span style="font-weight: 800; color: #C8662B; display: block; margin-bottom: 3px;">🎯 الهدف الرئيسي:</span>
-              <p style="color: #2D2D2A; font-weight: 800; margin: 0; line-height: 1.4;">${rep.nextWeekGoal}</p>
-            </td>
-          </tr>
-        ` : ''}
-        ${(rep.topPriorities || (rep.campaignAdjustments || rep.campaignAdjustmentsNextWeek)) ? `
-          <tr>
-            ${rep.topPriorities ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #5A5A40; display: block; margin-bottom: 3px;">أهم الأولويات:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.topPriorities}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-            ${(rep.campaignAdjustments || rep.campaignAdjustmentsNextWeek) ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #5A5A40; display: block; margin-bottom: 3px;">تعديلات الحملات:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.campaignAdjustments || rep.campaignAdjustmentsNextWeek}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-          </tr>
-        ` : ''}
-        ${((rep.newTests || rep.newTestsNextWeek) || (rep.clientRequiredAction || rep.clientRequiredActionNextWeek)) ? `
-          <tr>
-            ${(rep.newTests || rep.newTestsNextWeek) ? `
-              <td style="width: 50%; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-                <span style="font-weight: 800; color: #065f46; display: block; margin-bottom: 3px;">الاختبارات الجديدة (A/B Tests):</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.newTests || rep.newTestsNextWeek}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-            ${(rep.clientRequiredAction || rep.clientRequiredActionNextWeek) ? `
-              <td style="width: 50%; background-color: #faf5ff; border: 1px solid #e9d5ff; padding: 8px; border-radius: 8px; vertical-align: top;">
-                <span style="font-weight: 800; color: #6b21a8; display: block; margin-bottom: 3px;">المطلوب من العميل:</span>
-                <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${rep.clientRequiredAction || rep.clientRequiredActionNextWeek}</p>
-              </td>
-            ` : '<td style="width: 50%;"></td>'}
-          </tr>
-        ` : ''}
-      </table>
-    `;
-    appendBlockToPages(pages, createPage, planBlock);
-  }
+      return `
+        <div data-pdf-block style="background:#ffffff;border:1px solid #E5E5E0;border-radius:8px;padding:9px;margin-bottom:6px;">
+          <div style="font-size:9px;font-weight:800;color:#8E8E85;margin-bottom:3px;font-family:'Cairo',sans-serif;">
+            ${escapeHtml(field.question)}
+          </div>
+          <div style="font-size:10px;font-weight:600;color:#2D2D2A;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
+            ${linkifyPdfText(value)}
+          </div>
+        </div>
+      `;
+    }).join('');
 
-  // 6. ملخص القرار | Weekly Decision Summary
-  if (rep.decisionSummary) {
-    const decisionBlock = document.createElement('div');
-    decisionBlock.style.marginBottom = '12px';
-    decisionBlock.innerHTML = `
-      <div style="background-color: rgba(147, 51, 234, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(147, 51, 234, 0.2); font-weight: 800; font-size: 12px; color: #6b21a8; margin-bottom: 8px; font-family: 'Cairo', sans-serif;">
-        📝 6. ملخص القرار | Weekly Decision Summary
-      </div>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 6px; font-size: 10px; direction: rtl;">
-        <tr>
-          <td style="background-color: #faf5ff; border: 1px solid #e9d5ff; padding: 10px; border-radius: 8px; vertical-align: top;">
-            <span style="font-weight: 800; color: #6b21a8; display: block; margin-bottom: 4px;">ملخص ما حدث، أهم الاستنتاجات، وقرارات وتعديلات الأسبوع القادم:</span>
-            <p style="color: #2D2D2A; margin: 0; line-height: 1.5; white-space: pre-wrap; font-weight: 600;">${rep.decisionSummary}</p>
-          </td>
-        </tr>
-      </table>
-    `;
-    appendBlockToPages(pages, createPage, decisionBlock);
-  }
+    const campaignsHtml = section.campaignEntries.map((entry, index) => {
+      const campaignFields = section.campaignFields
+        .filter(field => {
+          const value = entry.answers?.[field.id];
+          return typeof value === 'number'
+            ? Number.isFinite(value)
+            : String(value ?? '').trim().length > 0;
+        })
+        .map(field => {
+          const raw = entry.answers?.[field.id];
+          const value = field.type === 'number' && typeof raw === 'number'
+            ? raw.toLocaleString()
+            : String(raw ?? '');
 
-  // 7. أسئلة وملاحظات إضافية مخصصة
-  const customQuestions = rep.questionsList?.filter((qa) => !qa.standardKey && qa.answer) || [];
-  if (customQuestions.length > 0) {
-    const customBlock = document.createElement('div');
-    customBlock.style.marginBottom = '12px';
-    customBlock.innerHTML = `
-      <div style="background-color: rgba(90, 90, 64, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(90, 90, 64, 0.2); font-weight: 800; font-size: 12px; color: #5A5A40; margin-bottom: 8px; font-family: 'Cairo', sans-serif;">
-        ✨ أسئلة وملاحظات إضافية مخصصة
-      </div>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 6px; font-size: 10px; direction: rtl;">
-        ${customQuestions.map((qa) => `
-          <tr>
-            <td style="background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #E5E5E0; vertical-align: top;">
-              <span style="font-weight: 800; color: #5A5A40; display: block; margin-bottom: 3px;">${qa.question}:</span>
-              <p style="color: #2D2D2A; margin: 0; line-height: 1.4; white-space: pre-wrap;">${qa.answer}</p>
+          return `
+            <td style="width:33.33%;vertical-align:top;padding:6px;">
+              <div style="font-size:8px;font-weight:800;color:#8E8E85;margin-bottom:2px;font-family:'Cairo',sans-serif;">
+                ${escapeHtml(field.label)}
+              </div>
+              <div style="font-size:9px;font-weight:700;color:#2D2D2A;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
+                ${linkifyPdfText(value)}
+              </div>
             </td>
-          </tr>
-        `).join('')}
-      </table>
+          `;
+        });
+
+      const rows: string[] = [];
+      for (let i = 0; i < campaignFields.length; i += 3) {
+        rows.push(`<tr>${campaignFields.slice(i, i + 3).join('')}</tr>`);
+      }
+
+      return `
+        <div data-pdf-block style="background:#ffffff;border:1px solid #E5E5E0;border-radius:8px;padding:8px;margin-bottom:7px;">
+          <div style="font-size:9px;font-weight:900;color:#5A5A40;margin-bottom:5px;font-family:'Cairo',sans-serif;">
+            Campaign ${index + 1}
+          </div>
+          <table style="width:100%;border-collapse:collapse;direction:rtl;">
+            ${rows.join('')}
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    sectionBlock.innerHTML = `
+      <section data-pdf-block style="margin-bottom:4px;">
+        <div style="background:#F9F8F6;border:1px solid #E5E5E0;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:900;color:#2D2D2A;margin-bottom:7px;font-family:'Cairo',sans-serif;">
+          ${escapeHtml(section.title)}
+        </div>
+        ${fieldsHtml}
+        ${campaignsHtml}
+      </section>
     `;
-    appendBlockToPages(pages, createPage, customBlock);
-  }
+
+    appendBlockToPages(pages, createPage, sectionBlock);
+  });
 
   updatePageNumbers(pages);
   const safeBrand = (displayBrand || 'Brand').replace(/[^a-zA-Z0-9أ-ي]/g, '_');
