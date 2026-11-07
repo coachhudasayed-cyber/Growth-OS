@@ -31,6 +31,7 @@ import {
   UserRole,
   WeeklyReport,
   WeeklyReportCampaignEntry,
+  WeeklyReportOrganicEntry,
   WeeklyReportQuestion,
   WeeklyReportQuestionAnswer,
   WeeklyReportSection
@@ -59,6 +60,11 @@ const isFilled = (value: unknown) => {
 
 const createCampaignEntry = (): WeeklyReportCampaignEntry => ({
   id: `campaign-${crypto.randomUUID()}`,
+  answers: {}
+});
+
+const createOrganicEntry = (): WeeklyReportOrganicEntry => ({
+  id: `organic-${crypto.randomUUID()}`,
   answers: {}
 });
 
@@ -106,13 +112,13 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const todayStr = formatLocalDate();
 
   const [templateSections, setTemplateSections] = useSupabaseSetting<WeeklyReportSection[]>(
-    'weekly_report_sections_simple_v3',
+    'weekly_report_sections_simple_v4',
     null,
     DEFAULT_WEEKLY_REPORT_SECTIONS,
     !isClient
   );
   const [templateQuestions, setTemplateQuestions] = useSupabaseSetting<WeeklyReportQuestion[]>(
-    'weekly_report_questions_simple_v3',
+    'weekly_report_questions_simple_v4',
     null,
     DEFAULT_WEEKLY_REPORT_QUESTIONS,
     !isClient
@@ -138,6 +144,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const [formQuestions, setFormQuestions] = useState<WeeklyReportQuestion[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string | number>>({});
   const [campaignEntries, setCampaignEntries] = useState<WeeklyReportCampaignEntry[]>([]);
+  const [organicEntries, setOrganicEntries] = useState<WeeklyReportOrganicEntry[]>([]);
 
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editingSectionTitle, setEditingSectionTitle] = useState('');
@@ -211,7 +218,8 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     const questions = cloneQuestions(templateQuestions.length ? templateQuestions : DEFAULT_WEEKLY_REPORT_QUESTIONS);
     const initialValues: Record<string, string | number> = {};
     questions.forEach(question => {
-      if (sections.find(section => section.id === question.sectionId)?.kind !== 'campaigns') {
+      const kind = sections.find(section => section.id === question.sectionId)?.kind;
+      if (!kind || kind === 'fields') {
         initialValues[question.id] = '';
       }
     });
@@ -224,6 +232,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     setFormQuestions(questions);
     setFormValues(initialValues);
     setCampaignEntries([]);
+    setOrganicEntries([]);
     resetEditorState();
     setShowForm(true);
   };
@@ -245,6 +254,10 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     setFormQuestions(questions.length ? questions : cloneQuestions(DEFAULT_WEEKLY_REPORT_QUESTIONS));
     setFormValues(values);
     setCampaignEntries((report.campaignEntries || []).map(entry => ({
+      ...entry,
+      answers: { ...(entry.answers || {}) }
+    })));
+    setOrganicEntries((report.organicEntries || []).map(entry => ({
       ...entry,
       answers: { ...(entry.answers || {}) }
     })));
@@ -286,7 +299,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     setAddingQuestionSectionId(String(section.id));
     setNewQuestionLabel('');
     setNewQuestionPlaceholder('');
-    setNewQuestionType(section.kind === 'campaigns' ? 'text' : 'textarea');
+    setNewQuestionType(section.kind === 'campaigns' || section.kind === 'organic' ? 'text' : 'textarea');
   };
 
   const handleSaveNewQuestion = (sectionId: string) => {
@@ -299,7 +312,8 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
       type: newQuestionType
     };
     syncQuestions([...formQuestions, question]);
-    if (formSections.find(section => String(section.id) === sectionId)?.kind !== 'campaigns') {
+    const sectionKind = formSections.find(section => String(section.id) === sectionId)?.kind;
+    if (!sectionKind || sectionKind === 'fields') {
       setFormValues(previous => ({ ...previous, [question.id]: '' }));
     }
     setAddingQuestionSectionId(null);
@@ -342,12 +356,20 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     ));
   };
 
+  const updateOrganicAnswer = (entryId: string, questionId: string, value: string | number) => {
+    setOrganicEntries(entries => entries.map(entry =>
+      entry.id === entryId
+        ? { ...entry, answers: { ...entry.answers, [questionId]: value } }
+        : entry
+    ));
+  };
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
     const answers: WeeklyReportQuestionAnswer[] = [];
     formSections.forEach(section => {
-      if (section.kind === 'campaigns') return;
+      if (section.kind === 'campaigns' || section.kind === 'organic') return;
       formQuestions
         .filter(question => String(question.sectionId) === String(section.id))
         .forEach(question => {
@@ -383,6 +405,10 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
       keyLearnings: String(standardValue('keyLearnings') || '').trim() || undefined,
       nextWeekActions: String(standardValue('nextWeekActions') || '').trim() || undefined,
       campaignEntries: campaignEntries.map(entry => ({
+        ...entry,
+        answers: { ...entry.answers }
+      })),
+      organicEntries: organicEntries.map(entry => ({
         ...entry,
         answers: { ...entry.answers }
       })),
@@ -543,6 +569,43 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     );
   };
 
+  const renderOrganicField = (
+    entry: WeeklyReportOrganicEntry,
+    question: WeeklyReportQuestion
+  ) => {
+    const value = entry.answers?.[question.id] ?? '';
+    const commonClass = 'w-full bg-white border border-[#E5E5E0] rounded-xl px-3 py-2 text-[11px] text-[#2D2D2A] outline-none focus:border-[#5A5A40]';
+
+    if (question.type === 'textarea') {
+      return (
+        <textarea
+          rows={2}
+          value={String(value)}
+          onChange={event => updateOrganicAnswer(entry.id, question.id, event.target.value)}
+          placeholder={question.placeholder}
+          className={`${commonClass} resize-y`}
+        />
+      );
+    }
+
+    return (
+      <input
+        type={question.type === 'number' ? 'number' : 'text'}
+        step={question.type === 'number' ? '0.01' : undefined}
+        value={value}
+        onChange={event => updateOrganicAnswer(
+          entry.id,
+          question.id,
+          question.type === 'number'
+            ? (event.target.value === '' ? '' : Number(event.target.value))
+            : event.target.value
+        )}
+        placeholder={question.placeholder}
+        className={commonClass}
+      />
+    );
+  };
+
   return (
     <div className="space-y-5">
       <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-3xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
@@ -552,7 +615,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
             <span>Weekly Reports</span>
           </h2>
           <p className="text-xs text-[#78786E] mt-1">
-            تقرير أسبوعي بسيط: الحملات اللي اشتغلت هذا الأسبوع وهنعمل ايه الأسبوع القادم.
+            تقرير أسبوعي مختصر لأداء الحملات المدفوعة والمحتوى العضوي على المنصات.
           </p>
         </div>
 
@@ -725,6 +788,11 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                                 {campaignEntries.length} Campaigns
                               </span>
                             )}
+                            {section.kind === 'organic' && (
+                              <span className="text-[10px] font-extrabold text-[#5A5A40] bg-[#F9F8F6] border border-[#E5E5E0] rounded-lg px-2 py-0.5">
+                                {organicEntries.length} Platforms
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -801,6 +869,66 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                           </button>
                         )}
                       </div>
+                    ) : section.kind === 'organic' ? (
+                      <div className="space-y-3">
+                        <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-extrabold text-[#78786E]">Platform fields</span>
+                            {!isClient && (
+                              <button type="button" onClick={() => handleStartAddQuestion(section)} className="text-[10px] font-extrabold text-[#5A5A40] flex items-center gap-1 cursor-pointer">
+                                <Plus className="w-3 h-3" /> Add Field
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sectionQuestions.map(question => (
+                              <div key={question.id} className="inline-flex items-center gap-1 bg-white border border-[#E5E5E0] rounded-lg px-2 py-1">
+                                <span className="text-[10px] font-bold text-[#2D2D2A]">{question.label}</span>
+                                {!isClient && (
+                                  <>
+                                    <button type="button" onClick={() => handleStartEditQuestion(question)} className="text-[#78786E] hover:text-[#2D2D2A] cursor-pointer"><Edit2 className="w-3 h-3" /></button>
+                                    <button type="button" onClick={() => handleDeleteQuestion(question)} className="text-rose-600 cursor-pointer"><Trash2 className="w-3 h-3" /></button>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {sectionQuestions.map(question => (
+                            <React.Fragment key={`editor-${question.id}`}>
+                              {renderQuestionEditor(question)}
+                            </React.Fragment>
+                          ))}
+                        </div>
+
+                        {organicEntries.map((entry, index) => (
+                          <div key={entry.id} className="bg-white border border-[#E5E5E0] rounded-2xl p-3.5 space-y-3 shadow-2xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-extrabold text-[#5A5A40] flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5" /> Platform {index + 1}
+                              </span>
+                              {!isClient && (
+                                <button type="button" onClick={() => setOrganicEntries(entries => entries.filter(item => item.id !== entry.id))} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                              {sectionQuestions.map(question => (
+                                <div key={question.id} className={question.type === 'textarea' ? 'sm:col-span-2 lg:col-span-3' : ''}>
+                                  <label className="block text-[10px] font-bold text-[#78786E] mb-1">{question.label}</label>
+                                  {renderOrganicField(entry, question)}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+
+                        {!isClient && (
+                          <button type="button" onClick={() => setOrganicEntries(entries => [...entries, createOrganicEntry()])} className="w-full py-2.5 border border-dashed border-[#5A5A40]/40 hover:border-[#5A5A40] bg-[#F9F8F6] text-[#5A5A40] rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer">
+                            <Plus className="w-3.5 h-3.5" /> Add Platform
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {sectionQuestions.map(question => (
@@ -845,7 +973,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                       </div>
                     )}
 
-                    {!isClient && section.kind !== 'campaigns' && addingQuestionSectionId !== sectionId && (
+                    {!isClient && section.kind !== 'campaigns' && section.kind !== 'organic' && addingQuestionSectionId !== sectionId && (
                       <button type="button" onClick={() => handleStartAddQuestion(section)} className="text-[10px] font-extrabold text-[#5A5A40] flex items-center gap-1 cursor-pointer">
                         <Plus className="w-3 h-3" /> Add Field
                       </button>
@@ -914,6 +1042,30 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                           <span className="text-[10px] font-extrabold text-[#5A5A40] block mb-2">Campaign {index + 1}</span>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                             {section.campaignFields
+                              .filter(field => isFilled(entry.answers?.[field.id]))
+                              .map(field => (
+                                <div key={field.id} className={field.type === 'textarea' ? 'sm:col-span-2 lg:col-span-3' : ''}>
+                                  <span className="text-[9px] font-bold text-[#8E8E85] block">{field.label}</span>
+                                  <p className="text-[11px] font-semibold text-[#2D2D2A] whitespace-pre-wrap break-words">
+                                    {field.type === 'number'
+                                      ? Number(entry.answers[field.id]).toLocaleString()
+                                      : String(entry.answers[field.id])}
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {section.organicEntries.length > 0 && (
+                    <div className="space-y-2.5">
+                      {section.organicEntries.map((entry, index) => (
+                        <div key={entry.id} className="border border-[#E5E5E0] rounded-xl p-3">
+                          <span className="text-[10px] font-extrabold text-[#5A5A40] block mb-2">Platform {index + 1}</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {section.organicFields
                               .filter(field => isFilled(entry.answers?.[field.id]))
                               .map(field => (
                                 <div key={field.id} className={field.type === 'textarea' ? 'sm:col-span-2 lg:col-span-3' : ''}>
