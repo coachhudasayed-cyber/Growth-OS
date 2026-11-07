@@ -58,6 +58,39 @@ const isFilled = (value: unknown) => {
   return String(value ?? '').trim().length > 0;
 };
 
+const REPORT_URL_PATTERN = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+const REPORT_TRAILING_URL_PUNCTUATION = /[.,!?;:،؛)\]]+$/;
+
+const renderLinkifiedText = (value: unknown): React.ReactNode => {
+  const text = String(value ?? '');
+  if (!text) return '';
+
+  return text.split(REPORT_URL_PATTERN).map((part, index) => {
+    if (!part || !/^(https?:\/\/|www\.)/i.test(part)) {
+      return <React.Fragment key={`text-${index}`}>{part}</React.Fragment>;
+    }
+
+    const trailing = part.match(REPORT_TRAILING_URL_PUNCTUATION)?.[0] || '';
+    const urlText = trailing ? part.slice(0, -trailing.length) : part;
+    const href = /^https?:\/\//i.test(urlText) ? urlText : `https://${urlText}`;
+
+    return (
+      <React.Fragment key={`link-${index}`}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-700 underline underline-offset-2 hover:text-blue-900 break-all"
+          onClick={event => event.stopPropagation()}
+        >
+          {urlText}
+        </a>
+        {trailing}
+      </React.Fragment>
+    );
+  });
+};
+
 const createCampaignEntry = (): WeeklyReportCampaignEntry => ({
   id: `campaign-${crypto.randomUUID()}`,
   answers: {}
@@ -867,7 +900,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-sm font-black text-[#2D2D2A]">{section.title}</h4>
+                            <h4 className="text-sm font-black text-[#2D2D2A]">{renderLinkifiedText(section.title)}</h4>
                             {section.kind === 'campaigns' && (
                               <span className="text-[10px] font-extrabold text-[#5A5A40] bg-[#F9F8F6] border border-[#E5E5E0] rounded-lg px-2 py-0.5">
                                 {campaignEntries.length} Campaigns
@@ -1087,7 +1120,9 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
             <div className="bg-[#F9F8F6] border-b border-[#E5E5E0] p-4 sm:p-5 flex items-start justify-between gap-3">
               <div>
                 <span className="text-[10px] font-extrabold text-[#5A5A40] uppercase">Weekly Report</span>
-                <h3 className="text-lg font-black text-[#2D2D2A] mt-1">{viewingReport.title || brandName || 'Weekly Report'}</h3>
+                <h3 className="text-lg font-black text-[#2D2D2A] mt-1">
+                  {renderLinkifiedText(viewingReport.title || brandName || 'Weekly Report')}
+                </h3>
                 <div className="flex items-center gap-1.5 text-[11px] text-[#78786E] mt-1">
                   <Calendar className="w-3.5 h-3.5" />
                   <span>{viewingReport.weekStartDate}{viewingReport.weekEndDate ? ` → ${viewingReport.weekEndDate}` : ''}</span>
@@ -1108,11 +1143,11 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                       {section.fields.map(field => (
                         <div key={field.id} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
                           <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl p-3">
-                            <span className="text-[10px] font-extrabold text-[#78786E] block mb-1">{field.question}</span>
+                            <span className="text-[10px] font-extrabold text-[#78786E] block mb-1">{renderLinkifiedText(field.question)}</span>
                             <p className="text-xs text-[#2D2D2A] font-medium leading-relaxed whitespace-pre-wrap break-words">
                               {field.type === 'number' && field.standardKey === 'totalSpent'
                                 ? `${Number(field.answer).toLocaleString()} EGP`
-                                : String(field.answer)}
+                                : renderLinkifiedText(field.answer)}
                             </p>
                           </div>
                         </div>
@@ -1130,11 +1165,11 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                               .filter(field => isFilled(entry.answers?.[field.id]))
                               .map(field => (
                                 <div key={field.id} className={field.type === 'textarea' ? 'sm:col-span-2 lg:col-span-3' : ''}>
-                                  <span className="text-[9px] font-bold text-[#8E8E85] block">{field.label}</span>
+                                  <span className="text-[9px] font-bold text-[#8E8E85] block">{renderLinkifiedText(field.label)}</span>
                                   <p className="text-[11px] font-semibold text-[#2D2D2A] whitespace-pre-wrap break-words">
                                     {field.type === 'number'
                                       ? Number(entry.answers[field.id]).toLocaleString()
-                                      : String(entry.answers[field.id])}
+                                      : renderLinkifiedText(entry.answers[field.id])}
                                   </p>
                                 </div>
                               ))}
@@ -1154,11 +1189,11 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                               .filter(field => isFilled(entry.answers?.[field.id]))
                               .map(field => (
                                 <div key={field.id} className={field.type === 'textarea' ? 'sm:col-span-2 lg:col-span-3' : ''}>
-                                  <span className="text-[9px] font-bold text-[#8E8E85] block">{field.label}</span>
+                                  <span className="text-[9px] font-bold text-[#8E8E85] block">{renderLinkifiedText(field.label)}</span>
                                   <p className="text-[11px] font-semibold text-[#2D2D2A] whitespace-pre-wrap break-words">
                                     {field.type === 'number'
                                       ? Number(entry.answers[field.id]).toLocaleString()
-                                      : String(entry.answers[field.id])}
+                                      : renderLinkifiedText(entry.answers[field.id])}
                                   </p>
                                 </div>
                               ))}
