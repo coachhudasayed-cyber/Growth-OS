@@ -1252,6 +1252,69 @@ export async function exportWeeklyReportToPDF(
       `;
     }).join('');
 
+    const organicHtml = section.organicEntries.map((entry, index) => {
+      const filledFields = section.organicFields.filter(field => {
+        const value = entry.answers?.[field.id];
+        return typeof value === 'number'
+          ? Number.isFinite(value)
+          : String(value ?? '').trim().length > 0;
+      });
+
+      const compactCells = filledFields
+        .filter(field => field.type !== 'textarea')
+        .map(field => {
+          const raw = entry.answers?.[field.id];
+          const value = field.type === 'number' && typeof raw === 'number'
+            ? raw.toLocaleString()
+            : String(raw ?? '');
+
+          return `
+            <td style="width:33.33%;vertical-align:top;padding:6px;">
+              <div style="font-size:8px;font-weight:800;color:#8E8E85;margin-bottom:2px;font-family:'Cairo',sans-serif;">
+                ${escapeHtml(field.label)}
+              </div>
+              <div style="font-size:9px;font-weight:700;color:#2D2D2A;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
+                ${linkifyPdfText(value)}
+              </div>
+            </td>
+          `;
+        });
+
+      const rows: string[] = [];
+      for (let i = 0; i < compactCells.length; i += 3) {
+        rows.push(`<tr>${compactCells.slice(i, i + 3).join('')}</tr>`);
+      }
+
+      filledFields
+        .filter(field => field.type === 'textarea')
+        .forEach(field => {
+          const value = String(entry.answers?.[field.id] ?? '');
+          rows.push(`
+            <tr>
+              <td colspan="3" style="vertical-align:top;padding:7px 6px;">
+                <div style="font-size:8px;font-weight:800;color:#8E8E85;margin-bottom:3px;font-family:'Cairo',sans-serif;">
+                  ${escapeHtml(field.label)}
+                </div>
+                <div style="font-size:9px;font-weight:600;color:#2D2D2A;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
+                  ${linkifyPdfText(value)}
+                </div>
+              </td>
+            </tr>
+          `);
+        });
+
+      return `
+        <div data-pdf-block style="background:#ffffff;border:1px solid #E5E5E0;border-radius:8px;padding:8px;margin-bottom:7px;">
+          <div style="font-size:9px;font-weight:900;color:#5A5A40;margin-bottom:5px;font-family:'Cairo',sans-serif;">
+            Platform ${index + 1}
+          </div>
+          <table style="width:100%;border-collapse:collapse;direction:rtl;">
+            ${rows.join('')}
+          </table>
+        </div>
+      `;
+    }).join('');
+
     sectionBlock.innerHTML = `
       <section data-pdf-block style="margin-bottom:4px;">
         <div style="background:#F9F8F6;border:1px solid #E5E5E0;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:900;color:#2D2D2A;margin-bottom:7px;font-family:'Cairo',sans-serif;">
@@ -1259,6 +1322,7 @@ export async function exportWeeklyReportToPDF(
         </div>
         ${fieldsHtml}
         ${campaignsHtml}
+        ${organicHtml}
       </section>
     `;
 

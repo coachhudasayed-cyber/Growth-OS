@@ -1,6 +1,7 @@
 import {
   WeeklyReport,
   WeeklyReportCampaignEntry,
+  WeeklyReportOrganicEntry,
   WeeklyReportQuestion,
   WeeklyReportQuestionAnswer,
   WeeklyReportSection
@@ -8,7 +9,7 @@ import {
 
 export const DEFAULT_WEEKLY_REPORT_SECTIONS: WeeklyReportSection[] = [
   { id: 'campaigns', title: '1. CAMPAIGNS PERFORMANCE', kind: 'campaigns' },
-  { id: 'next_week', title: '2. NEXT WEEK', kind: 'fields' }
+  { id: 'organic', title: '2. ORGANIC CONTENT PERFORMANCE', kind: 'organic' }
 ];
 
 export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
@@ -69,12 +70,60 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
     standardKey: 'performanceSummary'
   },
   {
-    id: 'next_week_actions',
-    sectionId: 'next_week',
-    label: 'Next Week Actions',
-    placeholder: 'اكتبي هنكمل ايه، هنوقف ايه، وهنختبر أو نغير ايه الأسبوع الجاي...',
-    type: 'textarea',
-    standardKey: 'nextWeekActions'
+    id: 'organic_platform',
+    sectionId: 'organic',
+    label: 'Platform',
+    placeholder: 'Instagram / Facebook / TikTok / ...',
+    type: 'text',
+    standardKey: 'organicPlatform'
+  },
+  {
+    id: 'organic_content_published',
+    sectionId: 'organic',
+    label: 'Content Published',
+    placeholder: '0',
+    type: 'number',
+    standardKey: 'contentPublished'
+  },
+  {
+    id: 'organic_reach',
+    sectionId: 'organic',
+    label: 'Reach',
+    placeholder: '0',
+    type: 'number',
+    standardKey: 'organicReach'
+  },
+  {
+    id: 'organic_reach_change',
+    sectionId: 'organic',
+    label: 'Reach Change %',
+    placeholder: 'مثال: 25 أو -10',
+    type: 'number',
+    standardKey: 'reachChange'
+  },
+  {
+    id: 'organic_interactions',
+    sectionId: 'organic',
+    label: 'Engagement / Interactions',
+    placeholder: '0',
+    type: 'number',
+    standardKey: 'interactions'
+  },
+  {
+    id: 'organic_followers_gained',
+    sectionId: 'organic',
+    label: 'Followers Gained',
+    placeholder: '0',
+    type: 'number',
+    standardKey: 'followersGained'
+  },
+  {
+    id: 'organic_profile_visits',
+    sectionId: 'organic',
+    label: 'Profile Visits',
+    placeholder: '0',
+    type: 'number',
+    standardKey: 'profileVisits'
   }
 ];
 
@@ -96,10 +145,12 @@ const hasAnswer = (answer: unknown) => {
 export interface WeeklyReportDisplaySection {
   id: string;
   title: string;
-  kind: 'fields' | 'campaigns';
+  kind: 'fields' | 'campaigns' | 'organic';
   fields: WeeklyReportQuestionAnswer[];
   campaignFields: WeeklyReportQuestion[];
   campaignEntries: WeeklyReportCampaignEntry[];
+  organicFields: WeeklyReportQuestion[];
+  organicEntries: WeeklyReportOrganicEntry[];
 }
 
 const getLegacyQuestionsFromFields = (rep: WeeklyReport): WeeklyReportQuestionAnswer[] => {
@@ -168,15 +219,21 @@ export const getWeeklyReportDisplaySections = (rep: WeeklyReport): WeeklyReportD
       const nonEmptyCampaigns = campaignEntries.filter(entry =>
         sectionQuestions.some(q => hasAnswer(entry.answers?.[q.id]))
       );
+      const organicEntries = section.kind === 'organic' ? (rep.organicEntries || []) : [];
+      const nonEmptyOrganic = organicEntries.filter(entry =>
+        sectionQuestions.some(q => hasAnswer(entry.answers?.[q.id]))
+      );
       return {
         id: section.id,
         title: section.title,
         kind: section.kind || (section.id === 'campaigns' ? 'campaigns' : 'fields'),
         fields,
-        campaignFields: sectionQuestions,
-        campaignEntries: nonEmptyCampaigns
+        campaignFields: section.kind === 'campaigns' ? sectionQuestions : [],
+        campaignEntries: nonEmptyCampaigns,
+        organicFields: section.kind === 'organic' ? sectionQuestions : [],
+        organicEntries: nonEmptyOrganic
       };
-    }).filter(section => section.fields.length > 0 || section.campaignEntries.length > 0);
+    }).filter(section => section.fields.length > 0 || section.campaignEntries.length > 0 || section.organicEntries.length > 0);
   }
 
   // Historical reports keep their saved question/answer snapshot and remain readable.
@@ -193,7 +250,9 @@ export const getWeeklyReportDisplaySections = (rep: WeeklyReport): WeeklyReportD
     kind: 'fields' as const,
     fields: legacyAnswers.filter(qa => String(qa.sectionId || 'performance') === sectionId),
     campaignFields: [],
-    campaignEntries: []
+    campaignEntries: [],
+    organicFields: [],
+    organicEntries: []
   })).filter(section => section.fields.length > 0);
 };
 
@@ -211,6 +270,9 @@ export const getWeeklyReportSearchText = (rep: WeeklyReport) => {
     parts.push(qa.question, String(qa.answer ?? ''));
   });
   (rep.campaignEntries || []).forEach(entry => {
+    Object.values(entry.answers || {}).forEach(value => parts.push(String(value ?? '')));
+  });
+  (rep.organicEntries || []).forEach(entry => {
     Object.values(entry.answers || {}).forEach(value => parts.push(String(value ?? '')));
   });
 
