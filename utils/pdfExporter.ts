@@ -1146,7 +1146,9 @@ export async function exportWeeklyReportToPDF(
   const host = createPdfStagingHost();
   const displayBrand = brandName || 'البراند';
   const periodText = `من ${rep.weekStartDate || ''}${rep.weekEndDate ? ` إلى ${rep.weekEndDate}` : ''}`;
-  const docTitle = rep.title ? `${rep.title} - ${periodText}` : `Weekly Report - ${periodText}`;
+  const docTitle = rep.title
+    ? `${linkifyPdfText(rep.title)} - ${escapeHtml(periodText)}`
+    : `Weekly Report - ${escapeHtml(periodText)}`;
 
   const pages: HTMLElement[] = [];
   const createPage = () => {
@@ -1180,7 +1182,7 @@ export async function exportWeeklyReportToPDF(
       return `
         <div data-pdf-block style="background:#ffffff;border:1px solid #E5E5E0;border-radius:8px;padding:9px;margin-bottom:6px;">
           <div style="font-size:9px;font-weight:800;color:#8E8E85;margin-bottom:3px;font-family:'Cairo',sans-serif;">
-            ${escapeHtml(field.question)}
+            ${linkifyPdfText(field.question)}
           </div>
           <div style="font-size:10px;font-weight:600;color:#2D2D2A;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
             ${linkifyPdfText(value)}
@@ -1208,7 +1210,7 @@ export async function exportWeeklyReportToPDF(
           return `
             <td style="width:33.33%;vertical-align:top;padding:6px;">
               <div style="font-size:8px;font-weight:800;color:#8E8E85;margin-bottom:2px;font-family:'Cairo',sans-serif;">
-                ${escapeHtml(field.label)}
+                ${linkifyPdfText(field.label)}
               </div>
               <div style="font-size:9px;font-weight:700;color:#2D2D2A;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
                 ${linkifyPdfText(value)}
@@ -1230,7 +1232,7 @@ export async function exportWeeklyReportToPDF(
             <tr>
               <td colspan="3" style="vertical-align:top;padding:7px 6px;">
                 <div style="font-size:8px;font-weight:800;color:#8E8E85;margin-bottom:3px;font-family:'Cairo',sans-serif;">
-                  ${escapeHtml(field.label)}
+                  ${linkifyPdfText(field.label)}
                 </div>
                 <div style="font-size:9px;font-weight:600;color:#2D2D2A;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
                   ${linkifyPdfText(value)}
@@ -1271,7 +1273,7 @@ export async function exportWeeklyReportToPDF(
           return `
             <td style="width:33.33%;vertical-align:top;padding:6px;">
               <div style="font-size:8px;font-weight:800;color:#8E8E85;margin-bottom:2px;font-family:'Cairo',sans-serif;">
-                ${escapeHtml(field.label)}
+                ${linkifyPdfText(field.label)}
               </div>
               <div style="font-size:9px;font-weight:700;color:#2D2D2A;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
                 ${linkifyPdfText(value)}
@@ -1293,7 +1295,7 @@ export async function exportWeeklyReportToPDF(
             <tr>
               <td colspan="3" style="vertical-align:top;padding:7px 6px;">
                 <div style="font-size:8px;font-weight:800;color:#8E8E85;margin-bottom:3px;font-family:'Cairo',sans-serif;">
-                  ${escapeHtml(field.label)}
+                  ${linkifyPdfText(field.label)}
                 </div>
                 <div style="font-size:9px;font-weight:600;color:#2D2D2A;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'Cairo',sans-serif;">
                   ${linkifyPdfText(value)}
@@ -1318,7 +1320,7 @@ export async function exportWeeklyReportToPDF(
     sectionBlock.innerHTML = `
       <section data-pdf-block style="margin-bottom:4px;">
         <div style="background:#F9F8F6;border:1px solid #E5E5E0;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:900;color:#2D2D2A;margin-bottom:7px;font-family:'Cairo',sans-serif;">
-          ${escapeHtml(section.title)}
+          ${linkifyPdfText(section.title)}
         </div>
         ${fieldsHtml}
         ${campaignsHtml}
