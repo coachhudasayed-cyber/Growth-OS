@@ -7,29 +7,11 @@ import {
 } from '../types';
 
 export const DEFAULT_WEEKLY_REPORT_SECTIONS: WeeklyReportSection[] = [
-  { id: 'overview', title: '1. WEEK OVERVIEW', kind: 'fields' },
-  { id: 'campaigns', title: '2. CAMPAIGNS PERFORMANCE', kind: 'campaigns' },
-  { id: 'learnings', title: '3. KEY LEARNINGS', kind: 'fields' },
-  { id: 'next_week', title: '4. NEXT WEEK', kind: 'fields' }
+  { id: 'campaigns', title: '1. CAMPAIGNS PERFORMANCE', kind: 'campaigns' },
+  { id: 'next_week', title: '2. NEXT WEEK', kind: 'fields' }
 ];
 
 export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
-  {
-    id: 'overview_campaigns_run',
-    sectionId: 'overview',
-    label: 'Campaigns Run This Week',
-    placeholder: 'اكتبي أسماء أو أنواع الحملات اللي اشتغلت خلال الأسبوع...',
-    type: 'textarea',
-    standardKey: 'campaignsRunThisWeek'
-  },
-  {
-    id: 'overview_total_spend',
-    sectionId: 'overview',
-    label: 'Total Spend',
-    placeholder: '0',
-    type: 'number',
-    standardKey: 'totalSpent'
-  },
   {
     id: 'campaign_name',
     sectionId: 'campaigns',
@@ -42,14 +24,14 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
     id: 'campaign_objective',
     sectionId: 'campaigns',
     label: 'Objective',
-    placeholder: 'اكتبي الهدف يدويا',
+    placeholder: 'اكتبي هدف الحملة يدويا',
     type: 'text',
     standardKey: 'objective'
   },
   {
     id: 'campaign_platform',
     sectionId: 'campaigns',
-    label: 'Platform',
+    label: 'Platforms',
     placeholder: 'Meta / TikTok / Google / ...',
     type: 'text',
     standardKey: 'platform'
@@ -57,32 +39,40 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
   {
     id: 'campaign_spend',
     sectionId: 'campaigns',
-    label: 'Spend',
+    label: 'Total Spend',
     placeholder: '0',
     type: 'number',
     standardKey: 'spend'
   },
   {
+    id: 'campaign_days_worked',
+    sectionId: 'campaigns',
+    label: 'Days Worked',
+    placeholder: 'مثال: 5',
+    type: 'number',
+    standardKey: 'daysWorked'
+  },
+  {
     id: 'campaign_main_result',
     sectionId: 'campaigns',
-    label: 'Main Result',
-    placeholder: 'اكتبي النتيجة الأهم للحملة يدويا',
+    label: 'Result So Far',
+    placeholder: 'اكتبي أهم نتيجة وصلنالها لحد دلوقتي',
     type: 'text',
     standardKey: 'mainResult'
   },
   {
-    id: 'learnings_key',
-    sectionId: 'learnings',
-    label: 'Key Learnings',
-    placeholder: 'اكتبي أهم الاستنتاجات من أداء الأسبوع...',
+    id: 'campaign_performance_summary',
+    sectionId: 'campaigns',
+    label: 'Performance Summary',
+    placeholder: 'اكتبي شرح بسيط لملخص أداء الحملة...',
     type: 'textarea',
-    standardKey: 'keyLearnings'
+    standardKey: 'performanceSummary'
   },
   {
     id: 'next_week_actions',
     sectionId: 'next_week',
     label: 'Next Week Actions',
-    placeholder: 'اكتبي ما سيتم الاستمرار فيه أو إيقافه أو اختباره أو تغييره الأسبوع القادم...',
+    placeholder: 'اكتبي هنكمل ايه، هنوقف ايه، وهنختبر أو نغير ايه الأسبوع الجاي...',
     type: 'textarea',
     standardKey: 'nextWeekActions'
   }
