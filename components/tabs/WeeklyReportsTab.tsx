@@ -185,12 +185,45 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     setNewQuestionPlaceholder('');
   };
 
+  const mergeCurrentWeeklySummaryIntoTemplate = (
+    sections: WeeklyReportSection[],
+    questions: WeeklyReportQuestion[]
+  ) => {
+    const currentSections = templateSections.length ? templateSections : DEFAULT_WEEKLY_REPORT_SECTIONS;
+    const currentQuestions = templateQuestions.length ? templateQuestions : DEFAULT_WEEKLY_REPORT_QUESTIONS;
+    const summarySection = currentSections.find(section => String(section.id) === 'weekly_summary');
+
+    if (!summarySection) return { sections, questions };
+
+    const nextSections = sections.some(section => String(section.id) === 'weekly_summary')
+      ? sections
+      : [...sections, { ...summarySection }];
+
+    const summaryQuestions = currentQuestions.filter(
+      question => String(question.sectionId) === 'weekly_summary'
+    );
+    const existingQuestionIds = new Set(questions.map(question => question.id));
+    const existingStandardKeys = new Set(
+      questions.map(question => question.standardKey).filter(Boolean)
+    );
+
+    const missingSummaryQuestions = summaryQuestions.filter(question =>
+      !existingQuestionIds.has(question.id) &&
+      (!question.standardKey || !existingStandardKeys.has(question.standardKey))
+    );
+
+    return {
+      sections: nextSections,
+      questions: [...questions, ...cloneQuestions(missingSummaryQuestions)]
+    };
+  };
+
   const getEditTemplateForReport = (report: WeeklyReport) => {
     if (report.sectionsSnapshot?.length) {
-      return {
-        sections: cloneSections(report.sectionsSnapshot),
-        questions: cloneQuestions(report.customSectionsQuestions || [])
-      };
+      return mergeCurrentWeeklySummaryIntoTemplate(
+        cloneSections(report.sectionsSnapshot),
+        cloneQuestions(report.customSectionsQuestions || [])
+      );
     }
 
     const displaySections = getWeeklyReportDisplaySections(report);
@@ -210,7 +243,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
           standardKey: answer.standardKey
         }));
 
-    return { sections, questions };
+    return mergeCurrentWeeklySummaryIntoTemplate(sections, questions);
   };
 
   const handleOpenAdd = () => {
