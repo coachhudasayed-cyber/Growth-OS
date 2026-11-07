@@ -112,13 +112,13 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const todayStr = formatLocalDate();
 
   const [templateSections, setTemplateSections] = useSupabaseSetting<WeeklyReportSection[]>(
-    'weekly_report_sections_simple_v5',
+    'weekly_report_sections_simple_v6',
     null,
     DEFAULT_WEEKLY_REPORT_SECTIONS,
     !isClient
   );
   const [templateQuestions, setTemplateQuestions] = useSupabaseSetting<WeeklyReportQuestion[]>(
-    'weekly_report_questions_simple_v5',
+    'weekly_report_questions_simple_v6',
     null,
     DEFAULT_WEEKLY_REPORT_QUESTIONS,
     !isClient
@@ -185,42 +185,61 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     setNewQuestionPlaceholder('');
   };
 
-  const mergeCurrentWeeklySummaryIntoTemplate = (
+  const isCampaignNextWeekQuestion = (question: WeeklyReportQuestion) =>
+    String(question.sectionId) === 'campaigns' && (
+      question.standardKey === 'nextWeekActions' ||
+      question.label.trim().toLowerCase() === 'next week actions'
+    );
+
+  const mergeCurrentCoreSectionsIntoTemplate = (
     sections: WeeklyReportSection[],
     questions: WeeklyReportQuestion[]
   ) => {
     const currentSections = templateSections.length ? templateSections : DEFAULT_WEEKLY_REPORT_SECTIONS;
     const currentQuestions = templateQuestions.length ? templateQuestions : DEFAULT_WEEKLY_REPORT_QUESTIONS;
-    const summarySection = currentSections.find(section => String(section.id) === 'weekly_summary');
+    const cleanedQuestions = questions.filter(question => !isCampaignNextWeekQuestion(question));
 
-    if (!summarySection) return { sections, questions };
-
-    const nextSections = sections.some(section => String(section.id) === 'weekly_summary')
-      ? sections
-      : [...sections, { ...summarySection }];
-
-    const summaryQuestions = currentQuestions.filter(
-      question => String(question.sectionId) === 'weekly_summary'
+    const requiredSectionIds = ['weekly_summary', 'next_week'];
+    let nextSections = cloneSections(sections).filter(
+      (section, index, all) => all.findIndex(item => String(item.id) === String(section.id)) === index
     );
-    const existingQuestionIds = new Set(questions.map(question => question.id));
+
+    requiredSectionIds.forEach(sectionId => {
+      if (nextSections.some(section => String(section.id) === sectionId)) return;
+      const source = currentSections.find(section => String(section.id) === sectionId);
+      if (source) nextSections.push({ ...source });
+    });
+
+    const summaryIndex = nextSections.findIndex(section => String(section.id) === 'weekly_summary');
+    const nextWeekIndex = nextSections.findIndex(section => String(section.id) === 'next_week');
+    if (summaryIndex >= 0 && nextWeekIndex >= 0 && nextWeekIndex !== summaryIndex + 1) {
+      const [nextWeekSection] = nextSections.splice(nextWeekIndex, 1);
+      const updatedSummaryIndex = nextSections.findIndex(section => String(section.id) === 'weekly_summary');
+      nextSections.splice(updatedSummaryIndex + 1, 0, nextWeekSection);
+    }
+
+    const existingQuestionIds = new Set(cleanedQuestions.map(question => question.id));
     const existingStandardKeys = new Set(
-      questions.map(question => question.standardKey).filter(Boolean)
+      cleanedQuestions.map(question => question.standardKey).filter(Boolean)
     );
 
-    const missingSummaryQuestions = summaryQuestions.filter(question =>
+    const requiredQuestions = currentQuestions.filter(question =>
+      requiredSectionIds.includes(String(question.sectionId))
+    );
+    const missingRequiredQuestions = requiredQuestions.filter(question =>
       !existingQuestionIds.has(question.id) &&
       (!question.standardKey || !existingStandardKeys.has(question.standardKey))
     );
 
     return {
       sections: nextSections,
-      questions: [...questions, ...cloneQuestions(missingSummaryQuestions)]
+      questions: [...cleanedQuestions, ...cloneQuestions(missingRequiredQuestions)]
     };
   };
 
   const getEditTemplateForReport = (report: WeeklyReport) => {
     if (report.sectionsSnapshot?.length) {
-      return mergeCurrentWeeklySummaryIntoTemplate(
+      return mergeCurrentCoreSectionsIntoTemplate(
         cloneSections(report.sectionsSnapshot),
         cloneQuestions(report.customSectionsQuestions || [])
       );
@@ -243,7 +262,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
           standardKey: answer.standardKey
         }));
 
-    return mergeCurrentWeeklySummaryIntoTemplate(sections, questions);
+    return mergeCurrentCoreSectionsIntoTemplate(sections, questions);
   };
 
   const handleOpenAdd = () => {
@@ -279,6 +298,37 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
       if (answer.standardKey) values[answer.standardKey] = answer.answer;
     });
 
+    const legacyNextWeekQuestions = (report.customSectionsQuestions || []).filter(isCampaignNextWeekQuestion);
+    const legacyNextWeekQuestionIds = new Set(legacyNextWeekQuestions.map(question => question.id));
+    const migratedActions = (report.campaignEntries || [])
+      .map((entry, index) => {
+        const action = legacyNextWeekQuestions
+          .map(question => entry.answers?.[question.id])
+          .find(value => isFilled(value));
+        if (!isFilled(action)) return '';
+        const name = String(entry.answers?.campaign_name || `Campaign ${index + 1}`);
+        return `${name}: ${String(action)}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    const nextWeekQuestion = questions.find(question => question.standardKey === 'nextWeekActions');
+    const existingNextWeek = String(
+      (nextWeekQuestion ? values[nextWeekQuestion.id] : '') ||
+      values.nextWeekActions ||
+      report.nextWeekActions ||
+      ''
+    ).trim();
+    const mergedNextWeek = [existingNextWeek, migratedActions]
+      .filter(Boolean)
+      .filter((value, index, all) => all.indexOf(value) === index)
+      .join('\n');
+
+    if (nextWeekQuestion) {
+      values[nextWeekQuestion.id] = mergedNextWeek;
+      values.nextWeekActions = mergedNextWeek;
+    }
+
     setEditingReport(report);
     setReportTitle(report.title || '');
     setWeekStartDate(report.weekStartDate || todayStr);
@@ -288,7 +338,9 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
     setFormValues(values);
     setCampaignEntries((report.campaignEntries || []).map(entry => ({
       ...entry,
-      answers: { ...(entry.answers || {}) }
+      answers: Object.fromEntries(
+        Object.entries(entry.answers || {}).filter(([key]) => !legacyNextWeekQuestionIds.has(key))
+      )
     })));
     setOrganicEntries((report.organicEntries || []).map(entry => ({
       ...entry,
