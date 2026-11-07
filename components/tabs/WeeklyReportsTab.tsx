@@ -719,14 +719,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm font-black text-[#2D2D2A]">{section.title}</h4>
-                    {section.kind === 'campaigns' && (
-                      <span className="text-[10px] font-extrabold text-[#5A5A40] bg-[#F9F8F6] border border-[#E5E5E0] rounded-lg px-2 py-0.5">
-                        {section.campaignEntries.length} Campaigns
-                      </span>
-                    )}
-                  </div>
+                            <h4 className="text-sm font-black text-[#2D2D2A]">{section.title}</h4>
                             {section.kind === 'campaigns' && (
                               <span className="text-[10px] font-extrabold text-[#5A5A40] bg-[#F9F8F6] border border-[#E5E5E0] rounded-lg px-2 py-0.5">
                                 {campaignEntries.length} Campaigns
