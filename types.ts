@@ -660,6 +660,7 @@ export interface ClientDailyReport {
 export type WeeklyReportSectionId =
   | 'overview'
   | 'campaigns'
+  | 'organic'
   | 'learnings'
   | 'next_week'
   // Legacy section ids are retained so historical saved reports remain readable.
