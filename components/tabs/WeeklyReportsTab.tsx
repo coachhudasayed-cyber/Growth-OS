@@ -655,7 +655,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
           {filteredReports.map(report => {
             const sections = getWeeklyReportDisplaySections(report);
             const filledFields = sections.reduce(
-              (sum, section) => sum + section.fields.length + section.campaignEntries.length,
+              (sum, section) => sum + section.fields.length + section.campaignEntries.length + section.organicEntries.length,
               0
             );
             return (
