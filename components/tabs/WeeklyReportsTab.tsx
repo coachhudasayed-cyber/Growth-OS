@@ -106,13 +106,13 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const todayStr = formatLocalDate();
 
   const [templateSections, setTemplateSections] = useSupabaseSetting<WeeklyReportSection[]>(
-    'weekly_report_sections_simple_v2',
+    'weekly_report_sections_simple_v3',
     null,
     DEFAULT_WEEKLY_REPORT_SECTIONS,
     !isClient
   );
   const [templateQuestions, setTemplateQuestions] = useSupabaseSetting<WeeklyReportQuestion[]>(
-    'weekly_report_questions_simple_v2',
+    'weekly_report_questions_simple_v3',
     null,
     DEFAULT_WEEKLY_REPORT_QUESTIONS,
     !isClient
@@ -552,7 +552,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
             <span>Weekly Reports</span>
           </h2>
           <p className="text-xs text-[#78786E] mt-1">
-            تقرير أسبوعي مرن ومختصر للحملات، الاستنتاجات، وخطوات الأسبوع القادم.
+            تقرير أسبوعي بسيط: الحملات اللي اشتغلت هذا الأسبوع وهنعمل ايه الأسبوع القادم.
           </p>
         </div>
 
@@ -718,7 +718,21 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
                             </button>
                           </div>
                         ) : (
-                          <h4 className="text-sm font-black text-[#2D2D2A]">{section.title}</h4>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-sm font-black text-[#2D2D2A]">{section.title}</h4>
+                    {section.kind === 'campaigns' && (
+                      <span className="text-[10px] font-extrabold text-[#5A5A40] bg-[#F9F8F6] border border-[#E5E5E0] rounded-lg px-2 py-0.5">
+                        {section.campaignEntries.length} Campaigns
+                      </span>
+                    )}
+                  </div>
+                            {section.kind === 'campaigns' && (
+                              <span className="text-[10px] font-extrabold text-[#5A5A40] bg-[#F9F8F6] border border-[#E5E5E0] rounded-lg px-2 py-0.5">
+                                {campaignEntries.length} Campaigns
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
 
