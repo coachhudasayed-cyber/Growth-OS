@@ -10,7 +10,8 @@ import {
 export const DEFAULT_WEEKLY_REPORT_SECTIONS: WeeklyReportSection[] = [
   { id: 'campaigns', title: '1. CAMPAIGNS PERFORMANCE', kind: 'campaigns' },
   { id: 'organic', title: '2. ORGANIC CONTENT PERFORMANCE', kind: 'organic' },
-  { id: 'weekly_summary', title: '3. WEEKLY PERFORMANCE SUMMARY', kind: 'fields' }
+  { id: 'weekly_summary', title: '3. WEEKLY PERFORMANCE SUMMARY', kind: 'fields' },
+  { id: 'next_week', title: '4. NEXT WEEK ACTIONS', kind: 'fields' }
 ];
 
 export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
@@ -71,6 +72,14 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
     standardKey: 'performanceSummary'
   },
   {
+    id: 'campaign_status',
+    sectionId: 'campaigns',
+    label: 'Campaign Status',
+    placeholder: 'Active / Paused / Completed / Ended',
+    type: 'text',
+    standardKey: 'campaignStatus'
+  },
+  {
     id: 'organic_platform',
     sectionId: 'organic',
     label: 'Platform',
@@ -82,39 +91,39 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
     id: 'organic_content_published',
     sectionId: 'organic',
     label: 'Content Published',
-    placeholder: '0',
-    type: 'number',
+    placeholder: 'اكتبي عدد وتفاصيل المحتوى المنشور...',
+    type: 'textarea',
     standardKey: 'contentPublished'
   },
   {
-    id: 'organic_reach_before',
+    id: 'organic_reach',
     sectionId: 'organic',
-    label: 'Reach Before',
-    placeholder: '0',
-    type: 'number',
-    standardKey: 'reachBefore'
+    label: 'Views Before',
+    placeholder: 'اكتبي الرقم أو الوصف...',
+    type: 'text',
+    standardKey: 'organicReach'
   },
   {
-    id: 'organic_reach_now',
+    id: 'organic_reach_change',
     sectionId: 'organic',
-    label: 'Reach Now',
-    placeholder: '0',
-    type: 'number',
-    standardKey: 'reachNow'
+    label: 'Views Now',
+    placeholder: 'اكتبي الرقم أو الوصف...',
+    type: 'text',
+    standardKey: 'reachChange'
   },
   {
     id: 'organic_followers_gained',
     sectionId: 'organic',
     label: 'Followers Gained',
-    placeholder: '0',
-    type: 'number',
+    placeholder: 'اكتبي مقارنة المتابعين...',
+    type: 'textarea',
     standardKey: 'followersGained'
   },
   {
     id: 'organic_performance_summary',
     sectionId: 'organic',
     label: 'Performance Summary',
-    placeholder: 'اكتبي شرح بسيط لملخص أداء المحتوى العضوي على المنصة...',
+    placeholder: 'اكتبي ملخص أداء المحتوى العضوي على المنصة...',
     type: 'textarea',
     standardKey: 'organicPerformanceSummary'
   },
@@ -125,6 +134,14 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
     placeholder: 'اكتبي ملخص الأداء الأسبوعي العام بالطريقة اللي تناسبك...',
     type: 'textarea',
     standardKey: 'weeklyPerformanceSummary'
+  },
+  {
+    id: 'next_week_actions',
+    sectionId: 'next_week',
+    label: 'Next Week Actions',
+    placeholder: 'اكتبي خطة أو خطوات الأسبوع القادم...',
+    type: 'textarea',
+    standardKey: 'nextWeekActions'
   }
 ];
 
