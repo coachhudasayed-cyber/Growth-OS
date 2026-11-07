@@ -673,7 +673,7 @@ export type WeeklyReportSectionId =
 export interface WeeklyReportSection {
   id: WeeklyReportSectionId;
   title: string;
-  kind?: 'fields' | 'campaigns';
+  kind?: 'fields' | 'campaigns' | 'organic';
 }
 
 export interface WeeklyReportQuestion {
@@ -700,6 +700,11 @@ export interface WeeklyReportCampaignEntry {
   answers: Record<string, string | number>;
 }
 
+export interface WeeklyReportOrganicEntry {
+  id: string;
+  answers: Record<string, string | number>;
+}
+
 export interface WeeklyReport {
   id: string;
   clientId: string;
@@ -714,6 +719,7 @@ export interface WeeklyReport {
   keyLearnings?: string;
   nextWeekActions?: string;
   campaignEntries?: WeeklyReportCampaignEntry[];
+  organicEntries?: WeeklyReportOrganicEntry[];
   sectionsSnapshot?: WeeklyReportSection[];
 
   // Dynamic/custom template snapshot saved with every report.
