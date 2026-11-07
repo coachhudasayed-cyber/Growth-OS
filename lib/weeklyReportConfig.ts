@@ -9,7 +9,8 @@ import {
 
 export const DEFAULT_WEEKLY_REPORT_SECTIONS: WeeklyReportSection[] = [
   { id: 'campaigns', title: '1. CAMPAIGNS PERFORMANCE', kind: 'campaigns' },
-  { id: 'organic', title: '2. ORGANIC CONTENT PERFORMANCE', kind: 'organic' }
+  { id: 'organic', title: '2. ORGANIC CONTENT PERFORMANCE', kind: 'organic' },
+  { id: 'weekly_summary', title: '3. WEEKLY PERFORMANCE SUMMARY', kind: 'fields' }
 ];
 
 export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
@@ -86,28 +87,20 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
     standardKey: 'contentPublished'
   },
   {
-    id: 'organic_reach',
+    id: 'organic_reach_before',
     sectionId: 'organic',
-    label: 'Reach',
+    label: 'Reach Before',
     placeholder: '0',
     type: 'number',
-    standardKey: 'organicReach'
+    standardKey: 'reachBefore'
   },
   {
-    id: 'organic_reach_change',
+    id: 'organic_reach_now',
     sectionId: 'organic',
-    label: 'Reach Change %',
-    placeholder: 'مثال: 25 أو -10',
-    type: 'number',
-    standardKey: 'reachChange'
-  },
-  {
-    id: 'organic_interactions',
-    sectionId: 'organic',
-    label: 'Engagement / Interactions',
+    label: 'Reach Now',
     placeholder: '0',
     type: 'number',
-    standardKey: 'interactions'
+    standardKey: 'reachNow'
   },
   {
     id: 'organic_followers_gained',
@@ -118,12 +111,20 @@ export const DEFAULT_WEEKLY_REPORT_QUESTIONS: WeeklyReportQuestion[] = [
     standardKey: 'followersGained'
   },
   {
-    id: 'organic_profile_visits',
+    id: 'organic_performance_summary',
     sectionId: 'organic',
-    label: 'Profile Visits',
-    placeholder: '0',
-    type: 'number',
-    standardKey: 'profileVisits'
+    label: 'Performance Summary',
+    placeholder: 'اكتبي شرح بسيط لملخص أداء المحتوى العضوي على المنصة...',
+    type: 'textarea',
+    standardKey: 'organicPerformanceSummary'
+  },
+  {
+    id: 'weekly_performance_summary',
+    sectionId: 'weekly_summary',
+    label: 'Weekly Performance Summary',
+    placeholder: 'اكتبي ملخص الأداء الأسبوعي العام بالطريقة اللي تناسبك...',
+    type: 'textarea',
+    standardKey: 'weeklyPerformanceSummary'
   }
 ];
 
