@@ -112,13 +112,13 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
   const todayStr = formatLocalDate();
 
   const [templateSections, setTemplateSections] = useSupabaseSetting<WeeklyReportSection[]>(
-    'weekly_report_sections_simple_v4',
+    'weekly_report_sections_simple_v5',
     null,
     DEFAULT_WEEKLY_REPORT_SECTIONS,
     !isClient
   );
   const [templateQuestions, setTemplateQuestions] = useSupabaseSetting<WeeklyReportQuestion[]>(
-    'weekly_report_questions_simple_v4',
+    'weekly_report_questions_simple_v5',
     null,
     DEFAULT_WEEKLY_REPORT_QUESTIONS,
     !isClient
@@ -615,7 +615,7 @@ export const WeeklyReportsTab: React.FC<WeeklyReportsTabProps> = ({
             <span>Weekly Reports</span>
           </h2>
           <p className="text-xs text-[#78786E] mt-1">
-            تقرير أسبوعي مختصر لأداء الحملات المدفوعة والمحتوى العضوي على المنصات.
+            تقرير أسبوعي مختصر لأداء الحملات المدفوعة والمحتوى العضوي مع ملخص عام للأسبوع.
           </p>
         </div>
 
