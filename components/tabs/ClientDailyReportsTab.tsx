@@ -3,6 +3,15 @@ import { MASTER_TEMPLATE_CLIENT_ID } from '../../lib/templateSource';
 import { formatLocalDate } from '../../lib/dateUtils';
 import React, { useState } from 'react';
 import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
+import {
   FileSpreadsheet,
   Plus,
   Calendar,
@@ -31,6 +40,7 @@ import {
 } from 'lucide-react';
 import {
   ClientDailyReport,
+  DailyReportPlatformOrder,
   DailyReportQuestion,
   ClientDailyReportQuestionAnswer,
   UserRole
@@ -138,6 +148,33 @@ export const DEFAULT_DAILY_REPORT_QUESTIONS: DailyReportQuestion[] = [
   }
 ];
 
+const STRUCTURED_DAILY_STANDARD_KEYS = new Set([
+  'ordersCount',
+  'salesAmount',
+  'cancelledOrdersCount',
+  'returnsCountAndType'
+]);
+
+const isStructuredDailyQuestion = (question: DailyReportQuestion | ClientDailyReportQuestionAnswer) =>
+  !!question.standardKey && STRUCTURED_DAILY_STANDARD_KEYS.has(question.standardKey);
+
+const createPlatformOrderRow = (): DailyReportPlatformOrder => ({
+  id: `platform-${crypto.randomUUID()}`,
+  platform: '',
+  orders: 0
+});
+
+const getReportTotalOrders = (report: ClientDailyReport): number | null => {
+  if (typeof report.totalOrders === 'number' && Number.isFinite(report.totalOrders)) {
+    return report.totalOrders;
+  }
+  if (typeof report.ordersCount === 'number' && Number.isFinite(report.ordersCount)) {
+    return report.ordersCount;
+  }
+  const raw = String(report.ordersCount ?? '').trim();
+  return /^\d+$/.test(raw) ? Number(raw) : null;
+};
+
 export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   reports,
   clientId,
@@ -160,6 +197,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   );
 
   const saveQuestions = (newQuestions: DailyReportQuestion[]) => setQuestions(newQuestions);
+  const reportQuestions = questions.filter(question => !isStructuredDailyQuestion(question));
 
   React.useEffect(() => {
     const notes = DEFAULT_DAILY_REPORT_QUESTIONS.find(question => question.id === 'q-notes');
@@ -202,6 +240,13 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   // Form Fields State (Dynamic Answers Map + Date)
   const [date, setDate] = useState(formatLocalDate());
   const [answersMap, setAnswersMap] = useState<Record<string, string | number>>({});
+  const [totalOrdersInput, setTotalOrdersInput] = useState('');
+  const [salesAmountInput, setSalesAmountInput] = useState('');
+  const [cancelledOrdersInput, setCancelledOrdersInput] = useState('');
+  const [returnsCountInput, setReturnsCountInput] = useState('');
+  const [orderDetailsInput, setOrderDetailsInput] = useState('');
+  const [returnsDetailsInput, setReturnsDetailsInput] = useState('');
+  const [platformOrders, setPlatformOrders] = useState<DailyReportPlatformOrder[]>([]);
 
   // Search & Date Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -209,7 +254,13 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
 
-  const filteredReports = clientReps.filter((rep) => {
+  const periodReports = clientReps.filter((rep) => {
+    if (startDateFilter && rep.date < startDateFilter) return false;
+    if (endDateFilter && rep.date > endDateFilter) return false;
+    return true;
+  });
+
+  const filteredReports = periodReports.filter((rep) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchDate = (rep.date || '').toLowerCase().includes(q);
@@ -247,11 +298,63 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
       }
     }
 
-    if (startDateFilter && rep.date < startDateFilter) return false;
-    if (endDateFilter && rep.date > endDateFilter) return false;
-
     return true;
   });
+
+  const dashboardTotalOrders = periodReports.reduce((sum, report) => {
+    const value = getReportTotalOrders(report);
+    return sum + (value ?? 0);
+  }, 0);
+  const reportsWithKnownOrders = periodReports.filter(report => getReportTotalOrders(report) !== null).length;
+  const dashboardSales = periodReports.reduce(
+    (sum, report) => sum + (Number(report.salesAmount) || 0),
+    0
+  );
+  const dashboardCancelled = periodReports.reduce(
+    (sum, report) => sum + (Number(report.cancelledOrdersCount) || 0),
+    0
+  );
+  const reportsWithKnownReturns = periodReports.filter(
+    report => typeof report.returnsCount === 'number' && Number.isFinite(report.returnsCount)
+  ).length;
+  const dashboardReturns = periodReports.reduce(
+    (sum, report) => sum + (
+      typeof report.returnsCount === 'number' && Number.isFinite(report.returnsCount)
+        ? report.returnsCount
+        : 0
+    ),
+    0
+  );
+  const dashboardAov = dashboardTotalOrders > 0 ? dashboardSales / dashboardTotalOrders : 0;
+  const cancellationRate = dashboardTotalOrders > 0
+    ? (dashboardCancelled / dashboardTotalOrders) * 100
+    : 0;
+  const returnRate = dashboardTotalOrders > 0 && reportsWithKnownReturns > 0
+    ? (dashboardReturns / dashboardTotalOrders) * 100
+    : null;
+
+  const platformTotals = periodReports.reduce<Record<string, number>>((totals, report) => {
+    (report.platformOrders || []).forEach(item => {
+      const platform = item.platform.trim();
+      const orders = Number(item.orders) || 0;
+      if (!platform || orders <= 0) return;
+      totals[platform] = (totals[platform] || 0) + orders;
+    });
+    return totals;
+  }, {});
+
+  const platformPerformance = Object.entries(platformTotals)
+    .map(([platform, orders]) => ({ platform, orders }))
+    .sort((a, b) => b.orders - a.orders);
+  const maxPlatformOrders = platformPerformance[0]?.orders || 0;
+  const topPlatform = platformPerformance[0] || null;
+
+  const trendData = [...periodReports]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(report => ({
+      date: report.date.slice(5),
+      orders: getReportTotalOrders(report)
+    }));
 
   // Helper to get initial answer from existing report or default
   const getInitialAnswerForQuestion = (q: DailyReportQuestion, rep?: ClientDailyReport | null) => {
@@ -282,10 +385,17 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     setEditingReport(null);
     setDate(formatLocalDate());
     const initialMap: Record<string, string | number> = {};
-    questions.forEach((q) => {
+    reportQuestions.forEach((q) => {
       initialMap[q.id] = '';
     });
     setAnswersMap(initialMap);
+    setTotalOrdersInput('');
+    setSalesAmountInput('');
+    setCancelledOrdersInput('');
+    setReturnsCountInput('');
+    setOrderDetailsInput('');
+    setReturnsDetailsInput('');
+    setPlatformOrders([createPlatformOrderRow()]);
     setShowAddModal(true);
   };
 
@@ -295,7 +405,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
 
     // Populate answers for each current question
     const currentMap: Record<string, string | number> = {};
-    questions.forEach((q) => {
+    reportQuestions.forEach((q) => {
       currentMap[q.id] = getInitialAnswerForQuestion(q, rep);
     });
 
@@ -309,6 +419,22 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     }
 
     setAnswersMap(currentMap);
+    const legacyTotal = getReportTotalOrders(rep);
+    setTotalOrdersInput(legacyTotal === null ? '' : String(legacyTotal));
+    setSalesAmountInput(String(rep.salesAmount ?? ''));
+    setCancelledOrdersInput(String(rep.cancelledOrdersCount ?? ''));
+    setReturnsCountInput(
+      typeof rep.returnsCount === 'number' && Number.isFinite(rep.returnsCount)
+        ? String(rep.returnsCount)
+        : ''
+    );
+    setOrderDetailsInput(typeof rep.ordersCount === 'string' ? rep.ordersCount : '');
+    setReturnsDetailsInput(rep.returnsCountAndType || '');
+    setPlatformOrders(
+      rep.platformOrders?.length
+        ? rep.platformOrders.map(item => ({ ...item }))
+        : [createPlatformOrderRow()]
+    );
     setShowAddModal(true);
   };
 
@@ -398,8 +524,10 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     });
   };
 
-  const handleMoveQuestion = (index: number, direction: 'up' | 'down') => {
+  const handleMoveQuestion = (questionId: string, direction: 'up' | 'down') => {
     if (userRole === 'client') return;
+    const index = questions.findIndex(question => question.id === questionId);
+    if (index < 0) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= questions.length) return;
     const newQuestions = [...questions];
@@ -434,7 +562,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     e.preventDefault();
 
     // Build the questionsList array
-    const questionsList: ClientDailyReportQuestionAnswer[] = questions.map((q) => {
+    const currentQuestionsList: ClientDailyReportQuestionAnswer[] = reportQuestions.map((q) => {
       const val = answersMap[q.id];
       return {
         id: q.id,
@@ -445,27 +573,53 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
       };
     });
 
-    // Helper to find standard value
+    const preservedLegacyStructuredQuestions = (editingReport?.questionsList || [])
+      .filter(isStructuredDailyQuestion);
+    const questionsList: ClientDailyReportQuestionAnswer[] = [
+      ...preservedLegacyStructuredQuestions,
+      ...currentQuestionsList
+    ];
+
+    // Helper to find qualitative values from the current editable questions.
     const getVal = (key: string, fallback: any = '') => {
-      const item = questionsList.find((q) => q.standardKey === key);
+      const item = currentQuestionsList.find((q) => q.standardKey === key);
       return item ? item.answer : fallback;
     };
+
+    const normalizedPlatformOrders = platformOrders
+      .map(item => ({
+        ...item,
+        platform: item.platform.trim(),
+        orders: Number(item.orders) || 0
+      }))
+      .filter(item => item.platform && item.orders > 0);
+
+    const totalOrders = Number(totalOrdersInput) || 0;
+    const salesAmount = Number(salesAmountInput) || 0;
+    const cancelledOrdersCount = Number(cancelledOrdersInput) || 0;
+    const returnsCount = returnsCountInput === '' ? undefined : (Number(returnsCountInput) || 0);
 
     const reportData: Omit<ClientDailyReport, 'id'> = {
       clientId,
       date,
-      ordersCount: getVal('ordersCount', '0 أوردر'),
-      salesAmount: Number(getVal('salesAmount', 0)) || 0,
-      cancelledOrdersCount: Number(getVal('cancelledOrdersCount', 0)) || 0,
+      totalOrders,
+      platformOrders: normalizedPlatformOrders,
+      ordersCount: orderDetailsInput.trim() || String(totalOrders),
+      salesAmount,
+      cancelledOrdersCount,
+      returnsCount,
       cancellationReason: String(getVal('cancellationReason', 'لا يوجد إلغاءات مسجلة')),
       commonQuestions: String(getVal('commonQuestions', 'لا يوجد استفسارات خاصة')),
       customerObjections: String(getVal('customerObjections', 'لا يوجد اعتراضات مسجلة')),
       inventoryIssues: String(getVal('inventoryIssues', 'المخزون متوفر ومستقر')),
       shippingOperationalIssues: String(getVal('shippingOperationalIssues', 'لا يوجد مشاكل شحن أو تشغيل')),
       updatesOrOffers: String(getVal('updatesOrOffers', 'لا يوجد عروض أو تعديلات جديدة')),
-      returnsCountAndType: String(getVal('returnsCountAndType', 'لا توجد مرتجعات مسجلة')),
+      returnsCountAndType: returnsDetailsInput.trim() || 'لا توجد تفاصيل مرتجعات مسجلة',
       notes: String(getVal('notes', answersMap['q-notes'] || '')),
-      customAnswers: answersMap,
+      customAnswers: {
+        ...(editingReport?.customAnswers || {}),
+        ...answersMap
+      },
       questionsList
     };
 
@@ -558,6 +712,135 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
         filteredCount={filteredReports.length}
       />
 
+      {/* BUSINESS HEALTH DASHBOARD */}
+      <div className="bg-white border border-[#E5E5E0] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="font-extrabold text-sm sm:text-base text-[#2D2D2A]">
+              Business Health Dashboard
+            </h3>
+            <p className="text-[11px] text-[#8E8E85] mt-0.5">
+              ملخص بيانات العميل اليومية للفترة المختارة — بدون أي بيانات إعلانية.
+            </p>
+          </div>
+          <span className="text-[10px] font-extrabold text-[#5A5A40] bg-[#F9F8F6] border border-[#E5E5E0] px-2.5 py-1 rounded-lg">
+            {periodReports.length} Daily Reports
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-2.5">
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Total Orders</span>
+            <div className="text-xl font-black text-emerald-800 mt-1">
+              {reportsWithKnownOrders > 0 ? dashboardTotalOrders.toLocaleString() : '—'}
+            </div>
+          </div>
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Total Sales</span>
+            <div className="text-xl font-black text-amber-800 mt-1">
+              {dashboardSales.toLocaleString()} <span className="text-[10px]">EGP</span>
+            </div>
+          </div>
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Average Order Value</span>
+            <div className="text-xl font-black text-[#2D2D2A] mt-1">
+              {dashboardTotalOrders > 0 ? Math.round(dashboardAov).toLocaleString() : '—'}
+              {dashboardTotalOrders > 0 && <span className="text-[10px]"> EGP</span>}
+            </div>
+          </div>
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Cancelled Orders</span>
+            <div className="text-xl font-black text-rose-700 mt-1">{dashboardCancelled.toLocaleString()}</div>
+            {dashboardTotalOrders > 0 && (
+              <span className="text-[9px] text-[#8E8E85]">{cancellationRate.toFixed(1)}% of orders</span>
+            )}
+          </div>
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Returns</span>
+            <div className="text-xl font-black text-rose-700 mt-1">
+              {reportsWithKnownReturns > 0 ? dashboardReturns.toLocaleString() : '—'}
+            </div>
+            {returnRate !== null && (
+              <span className="text-[9px] text-[#8E8E85]">{returnRate.toFixed(1)}% of orders</span>
+            )}
+          </div>
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Reports Submitted</span>
+            <div className="text-xl font-black text-[#5A5A40] mt-1">{periodReports.length}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-extrabold text-[#2D2D2A]">Orders by Platform</h4>
+                <p className="text-[10px] text-[#8E8E85]">
+                  {topPlatform
+                    ? `Top Platform: ${topPlatform.platform} — ${topPlatform.orders} orders`
+                    : 'ستظهر المنصات هنا بمجرد تسجيلها في التقارير الجديدة.'}
+                </p>
+              </div>
+            </div>
+            {platformPerformance.length === 0 ? (
+              <div className="text-[11px] text-[#8E8E85] py-6 text-center">
+                لا توجد بيانات منصات منظمة في الفترة المختارة.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {platformPerformance.map(item => (
+                  <div key={item.platform} className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-[#2D2D2A]">{item.platform}</span>
+                      <span className="font-extrabold text-[#5A5A40]">
+                        {item.orders} ({dashboardTotalOrders > 0 ? Math.round((item.orders / dashboardTotalOrders) * 100) : 0}%)
+                      </span>
+                    </div>
+                    <div className="h-2 bg-white border border-[#E5E5E0] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#5A5A40] rounded-full"
+                        style={{ width: `${maxPlatformOrders > 0 ? (item.orders / maxPlatformOrders) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3.5">
+            <div className="mb-2">
+              <h4 className="text-xs font-extrabold text-[#2D2D2A]">Orders Trend</h4>
+              <p className="text-[10px] text-[#8E8E85]">عدد الأوردرات يوميًا خلال الفترة المختارة.</p>
+            </div>
+            {trendData.some(item => item.orders !== null) ? (
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E5E0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 9 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 9 }} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="orders"
+                      stroke="#5A5A40"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="text-[11px] text-[#8E8E85] py-14 text-center">
+                لا توجد بيانات Orders منظمة للفترة المختارة.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* REPORTS LIST */}
       <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-[#E5E5E0] pb-3">
@@ -627,7 +910,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                         الأوردرات اليومية
                       </span>
                       <p className="font-bold text-emerald-800 line-clamp-2">
-                        {rep.ordersCount || '0 أوردر'}
+                        {getReportTotalOrders(rep) !== null ? `${getReportTotalOrders(rep)} أوردر` : (rep.ordersCount || '—')}
                       </p>
                     </div>
 
@@ -733,7 +1016,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
 
                       {/* Orders Count & Products Text */}
                       <td className="p-3.5 font-bold text-emerald-800 max-w-[240px] truncate">
-                        {rep.ordersCount || '0 أوردر'}
+                        {getReportTotalOrders(rep) !== null ? `${getReportTotalOrders(rep)} أوردر` : (rep.ordersCount || '—')}
                       </td>
 
                       {/* Sales Amount */}
@@ -827,7 +1110,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                   <span>
                     {editingReport
                       ? 'تعديل التقرير اليومي'
-                      : `نموذج التقرير اليومي للعميل (${questions.length} أسئلة)`}
+                      : `نموذج التقرير اليومي للعميل (${reportQuestions.length} أسئلة إضافية)`}
                   </span>
                 </h3>
                 <p className="text-[10px] sm:text-[11px] text-[#8E8E85] mt-0.5">
@@ -867,12 +1150,144 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                 />
               </div>
 
+              {/* Structured business numbers */}
+              <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] shadow-2xs space-y-3">
+                <div>
+                  <h4 className="text-xs font-extrabold text-[#2D2D2A]">أرقام اليوم الأساسية</h4>
+                  <p className="text-[10px] text-[#8E8E85] mt-0.5">
+                    الأرقام دي هي اللي بتظهر تلقائيًا في Business Health Dashboard.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#5A5A40] mb-1">Total Orders *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={totalOrdersInput}
+                      onChange={event => setTotalOrdersInput(event.target.value)}
+                      required
+                      placeholder="0"
+                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#5A5A40] mb-1">Total Sales (EGP) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={salesAmountInput}
+                      onChange={event => setSalesAmountInput(event.target.value)}
+                      required
+                      placeholder="0"
+                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#5A5A40] mb-1">Cancelled Orders</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={cancelledOrdersInput}
+                      onChange={event => setCancelledOrdersInput(event.target.value)}
+                      placeholder="0"
+                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#5A5A40] mb-1">Returns</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={returnsCountInput}
+                      onChange={event => setReturnsCountInput(event.target.value)}
+                      placeholder="0"
+                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-[#E5E5E0] pt-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-extrabold text-[#2D2D2A]">Orders by Platform</span>
+                      <p className="text-[9px] text-[#8E8E85]">مثال: Facebook 4 / Instagram 2</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPlatformOrders(rows => [...rows, createPlatformOrderRow()])}
+                      className="text-[10px] font-extrabold text-[#5A5A40] flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" /> Add Platform
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {platformOrders.map((row, index) => (
+                      <div key={row.id} className="grid grid-cols-[1fr_90px_32px] gap-2 items-center">
+                        <input
+                          type="text"
+                          value={row.platform}
+                          onChange={event => setPlatformOrders(rows => rows.map(item =>
+                            item.id === row.id ? { ...item, platform: event.target.value } : item
+                          ))}
+                          placeholder="Instagram / Facebook / WhatsApp..."
+                          className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#5A5A40]"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.orders || ''}
+                          onChange={event => setPlatformOrders(rows => rows.map(item =>
+                            item.id === row.id ? { ...item, orders: Number(event.target.value) || 0 } : item
+                          ))}
+                          placeholder="Orders"
+                          className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-2 py-2 text-xs font-bold outline-none focus:border-[#5A5A40]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPlatformOrders(rows => rows.filter(item => item.id !== row.id))}
+                          className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                          aria-label={`حذف المنصة ${index + 1}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#5A5A40] mb-1">تفاصيل المنتجات/الأوردرات (اختياري)</label>
+                    <textarea
+                      rows={2}
+                      value={orderDetailsInput}
+                      onChange={event => setOrderDetailsInput(event.target.value)}
+                      placeholder="مثال: 5 قطع من المنتج A، 2 من المنتج B..."
+                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl p-2.5 text-xs outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#5A5A40] mb-1">تفاصيل/أسباب المرتجعات (اختياري)</label>
+                    <textarea
+                      rows={2}
+                      value={returnsDetailsInput}
+                      onChange={event => setReturnsDetailsInput(event.target.value)}
+                      placeholder="اكتبي سبب أو نوع المرتجعات إن وجد..."
+                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl p-2.5 text-xs outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Dynamic Questions List */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                   <span className="font-extrabold text-[#5A5A40] text-xs flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>أسئلة وبنود التقرير ({questions.length})</span>
+                    <span>أسئلة وبنود التقرير ({reportQuestions.length})</span>
                   </span>
 
                   {userRole !== 'client' && (
@@ -905,7 +1320,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                   )}
                 </div>
 
-                {questions.map((q, idx) => (
+                {reportQuestions.map((q, idx) => (
                   <div
                     key={q.id}
                     className="bg-white p-3.5 rounded-2xl border border-[#E5E5E0] shadow-2xs hover:border-[#5A5A40]/40 transition space-y-2 group"
@@ -924,7 +1339,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                           <button
                             type="button"
                             disabled={idx === 0}
-                            onClick={() => handleMoveQuestion(idx, 'up')}
+                            onClick={() => handleMoveQuestion(q.id, 'up')}
                             title="تحريك لأعلى"
                             className="p-1 text-[#8E8E85] hover:text-[#2D2D2A] disabled:opacity-20 rounded-lg hover:bg-[#F5F5F0] transition cursor-pointer"
                           >
@@ -932,8 +1347,8 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                           </button>
                           <button
                             type="button"
-                            disabled={idx === questions.length - 1}
-                            onClick={() => handleMoveQuestion(idx, 'down')}
+                            disabled={idx === reportQuestions.length - 1}
+                            onClick={() => handleMoveQuestion(q.id, 'down')}
                             title="تحريك لأسفل"
                             className="p-1 text-[#8E8E85] hover:text-[#2D2D2A] disabled:opacity-20 rounded-lg hover:bg-[#F5F5F0] transition cursor-pointer"
                           >
@@ -1094,35 +1509,50 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto py-3 space-y-3 text-xs pl-1 pr-1 my-1">
               {/* Quick Numbers Bar */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
-                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5 flex items-center justify-center gap-1">
-                    <DollarSign className="w-3 h-3 text-amber-700" />
-                    <span>إجمالي المبيعات</span>
-                  </div>
-                  <div className="text-sm sm:text-base font-black text-amber-800">
-                    {selectedReport.salesAmount
-                      ? Number(selectedReport.salesAmount).toLocaleString()
-                      : 0}{' '}
-                    جنيه
+                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5">Total Orders</div>
+                  <div className="text-sm sm:text-base font-black text-emerald-800">
+                    {getReportTotalOrders(selectedReport) ?? '—'}
                   </div>
                 </div>
-
                 <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
-                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5 flex items-center justify-center gap-1">
-                    <XCircle className="w-3 h-3 text-rose-600" />
-                    <span>الأوردرات الملغية</span>
+                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5">Total Sales</div>
+                  <div className="text-sm sm:text-base font-black text-amber-800">
+                    {(Number(selectedReport.salesAmount) || 0).toLocaleString()} <span className="text-[9px]">EGP</span>
                   </div>
+                </div>
+                <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
+                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5">Cancelled</div>
                   <div className="text-sm sm:text-base font-black text-rose-700">
-                    {selectedReport.cancelledOrdersCount || 0} ملغي
+                    {selectedReport.cancelledOrdersCount || 0}
+                  </div>
+                </div>
+                <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
+                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5">Returns</div>
+                  <div className="text-sm sm:text-base font-black text-rose-700">
+                    {typeof selectedReport.returnsCount === 'number' ? selectedReport.returnsCount : '—'}
                   </div>
                 </div>
               </div>
 
+              {selectedReport.platformOrders && selectedReport.platformOrders.length > 0 && (
+                <div className="bg-white border border-[#E5E5E0] rounded-2xl p-3 shadow-2xs">
+                  <div className="text-[10px] font-extrabold text-[#5A5A40] mb-2">Orders by Platform</div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedReport.platformOrders.map(item => (
+                      <span key={item.id} className="text-[10px] font-bold bg-[#F9F8F6] border border-[#E5E5E0] rounded-lg px-2 py-1">
+                        {item.platform}: {item.orders}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Detailed Questions & Answers List */}
               <div className="space-y-2.5 text-xs">
-                {selectedReport.questionsList && selectedReport.questionsList.length > 0 ? (
-                  selectedReport.questionsList.map((qa, index) => (
+                {selectedReport.questionsList && selectedReport.questionsList.filter(qa => !isStructuredDailyQuestion(qa)).length > 0 ? (
+                  selectedReport.questionsList.filter(qa => !isStructuredDailyQuestion(qa)).map((qa, index) => (
                     <div
                       key={qa.id || index}
                       className="bg-white border border-[#E5E5E0] rounded-2xl p-3 space-y-1 shadow-2xs"
