@@ -175,6 +175,14 @@ const getReportTotalOrders = (report: ClientDailyReport): number | null => {
   return /^\d+$/.test(raw) ? Number(raw) : null;
 };
 
+// Structured item count stays separate from order count for multi-item orders.
+const getReportTotalItems = (report: ClientDailyReport): number | null => {
+  if (typeof report.totalItems === 'number' && Number.isFinite(report.totalItems)) {
+    return report.totalItems;
+  }
+  return null;
+};
+
 export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   reports,
   clientId,
@@ -241,6 +249,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
   const [date, setDate] = useState(formatLocalDate());
   const [answersMap, setAnswersMap] = useState<Record<string, string | number>>({});
   const [totalOrdersInput, setTotalOrdersInput] = useState('');
+  const [totalItemsInput, setTotalItemsInput] = useState('');
   const [salesAmountInput, setSalesAmountInput] = useState('');
   const [cancelledOrdersInput, setCancelledOrdersInput] = useState('');
   const [returnsCountInput, setReturnsCountInput] = useState('');
@@ -306,6 +315,11 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     return sum + (value ?? 0);
   }, 0);
   const reportsWithKnownOrders = periodReports.filter(report => getReportTotalOrders(report) !== null).length;
+  const dashboardTotalItems = periodReports.reduce((sum, report) => {
+    const value = getReportTotalItems(report);
+    return sum + (value ?? 0);
+  }, 0);
+  const reportsWithKnownItems = periodReports.filter(report => getReportTotalItems(report) !== null).length;
   const dashboardSales = periodReports.reduce(
     (sum, report) => sum + (Number(report.salesAmount) || 0),
     0
@@ -326,6 +340,9 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     0
   );
   const dashboardAov = dashboardTotalOrders > 0 ? dashboardSales / dashboardTotalOrders : 0;
+  const dashboardItemsPerOrder = dashboardTotalOrders > 0 && reportsWithKnownItems > 0
+    ? dashboardTotalItems / dashboardTotalOrders
+    : null;
   const cancellationRate = dashboardTotalOrders > 0
     ? (dashboardCancelled / dashboardTotalOrders) * 100
     : 0;
@@ -393,6 +410,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     });
     setAnswersMap(initialMap);
     setTotalOrdersInput('');
+    setTotalItemsInput('');
     setSalesAmountInput('');
     setCancelledOrdersInput('');
     setReturnsCountInput('');
@@ -424,6 +442,9 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     setAnswersMap(currentMap);
     const legacyTotal = getReportTotalOrders(rep);
     setTotalOrdersInput(legacyTotal === null ? '' : String(legacyTotal));
+    setTotalItemsInput(
+      getReportTotalItems(rep) === null ? '' : String(getReportTotalItems(rep))
+    );
     setSalesAmountInput(String(rep.salesAmount ?? ''));
     setCancelledOrdersInput(String(rep.cancelledOrdersCount ?? ''));
     setReturnsCountInput(
@@ -598,6 +619,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
       .filter(item => item.platform && item.orders > 0);
 
     const totalOrders = Number(totalOrdersInput) || 0;
+    const totalItems = Number(totalItemsInput) || 0;
     const salesAmount = Number(salesAmountInput) || 0;
     const cancelledOrdersCount = Number(cancelledOrdersInput) || 0;
     const returnsCount = returnsCountInput === '' ? undefined : (Number(returnsCountInput) || 0);
@@ -606,6 +628,7 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
       clientId,
       date,
       totalOrders,
+      totalItems,
       platformOrders: normalizedPlatformOrders,
       ordersCount: orderDetailsInput.trim() || String(totalOrders),
       salesAmount,
@@ -731,11 +754,23 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-2.5">
           <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
             <span className="text-[10px] text-[#8E8E85] font-bold">Total Orders</span>
             <div className="text-xl font-black text-emerald-800 mt-1">
               {reportsWithKnownOrders > 0 ? dashboardTotalOrders.toLocaleString() : '—'}
+            </div>
+          </div>
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Total Items</span>
+            <div className="text-xl font-black text-[#2D2D2A] mt-1">
+              {reportsWithKnownItems > 0 ? dashboardTotalItems.toLocaleString() : '—'}
+            </div>
+          </div>
+          <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
+            <span className="text-[10px] text-[#8E8E85] font-bold">Items / Order</span>
+            <div className="text-xl font-black text-[#2D2D2A] mt-1">
+              {dashboardItemsPerOrder !== null ? dashboardItemsPerOrder.toFixed(2) : '—'}
             </div>
           </div>
           <div className="bg-[#F9F8F6] border border-[#E5E5E0] rounded-2xl p-3">
@@ -995,8 +1030,9 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                 <thead>
                   <tr className="bg-[#E5E5E0]/50 text-[#5A5A40] font-black border-b border-[#E5E5E0]">
                     <th className="p-3.5 rounded-r-xl">تاريخ التقرير</th>
-                    <th className="p-3.5">1. أوردرات اليوم والمنتجات</th>
-                    <th className="p-3.5">2. إجمالي المبيعات</th>
+                    <th className="p-3.5">1. أوردرات اليوم</th>
+                    <th className="p-3.5">2. عدد القطع</th>
+                    <th className="p-3.5">3. إجمالي المبيعات</th>
                     <th className="p-3.5">3. الأوردرات الملغية</th>
                     <th className="p-3.5 text-center rounded-l-xl">إجراءات والتفاصيل</th>
                   </tr>
@@ -1020,6 +1056,11 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                       {/* Orders Count & Products Text */}
                       <td className="p-3.5 font-bold text-emerald-800 max-w-[240px] truncate">
                         {getReportTotalOrders(rep) !== null ? `${getReportTotalOrders(rep)} أوردر` : (rep.ordersCount || '—')}
+                      </td>
+
+                      {/* Items Count */}
+                      <td className="p-3.5 font-black text-[#5A5A40]">
+                        {getReportTotalItems(rep) !== null ? `${getReportTotalItems(rep)} قطعة` : '—'}
                       </td>
 
                       {/* Sales Amount */}
@@ -1170,6 +1211,18 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
                       min="0"
                       value={totalOrdersInput}
                       onChange={event => setTotalOrdersInput(event.target.value)}
+                      required
+                      placeholder="0"
+                      className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#5A5A40]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#5A5A40] mb-1">Total Items / عدد القطع *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={totalItemsInput}
+                      onChange={event => setTotalItemsInput(event.target.value)}
                       required
                       placeholder="0"
                       className="w-full bg-[#F9F8F6] border border-[#E5E5E0] rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#5A5A40]"
@@ -1512,11 +1565,25 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto py-3 space-y-3 text-xs pl-1 pr-1 my-1">
               {/* Quick Numbers Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
                   <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5">Total Orders</div>
                   <div className="text-sm sm:text-base font-black text-emerald-800">
                     {getReportTotalOrders(selectedReport) ?? '—'}
+                  </div>
+                </div>
+                <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
+                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5">Total Items</div>
+                  <div className="text-sm sm:text-base font-black text-[#2D2D2A]">
+                    {getReportTotalItems(selectedReport) ?? '—'}
+                  </div>
+                </div>
+                <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
+                  <div className="text-[9px] text-[#8E8E85] font-bold mb-0.5">Items / Order</div>
+                  <div className="text-sm sm:text-base font-black text-[#2D2D2A]">
+                    {getReportTotalItems(selectedReport) !== null && (getReportTotalOrders(selectedReport) || 0) > 0
+                      ? (Number(getReportTotalItems(selectedReport)) / Number(getReportTotalOrders(selectedReport))).toFixed(2)
+                      : '—'}
                   </div>
                 </div>
                 <div className="bg-white border border-[#E5E5E0] rounded-2xl p-2.5 text-center shadow-2xs">
