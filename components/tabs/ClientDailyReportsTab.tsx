@@ -333,18 +333,21 @@ export const ClientDailyReportsTab: React.FC<ClientDailyReportsTabProps> = ({
     ? (dashboardReturns / dashboardTotalOrders) * 100
     : null;
 
-  const platformTotals = periodReports.reduce<Record<string, number>>((totals, report) => {
-    (report.platformOrders || []).forEach(item => {
-      const platform = item.platform.trim();
-      const orders = Number(item.orders) || 0;
-      if (!platform || orders <= 0) return;
-      totals[platform] = (totals[platform] || 0) + orders;
-    });
-    return totals;
-  }, {});
+  const platformTotals = periodReports.reduce(
+    (totals: Record<string, number>, report: ClientDailyReport) => {
+      (report.platformOrders || []).forEach(item => {
+        const platform = item.platform.trim();
+        const orders = Number(item.orders) || 0;
+        if (!platform || orders <= 0) return;
+        totals[platform] = (totals[platform] || 0) + orders;
+      });
+      return totals;
+    },
+    {} as Record<string, number>
+  );
 
-  const platformPerformance = Object.entries(platformTotals)
-    .map(([platform, orders]) => ({ platform, orders }))
+  const platformPerformance: Array<{ platform: string; orders: number }> = Object.entries(platformTotals)
+    .map(([platform, orders]) => ({ platform, orders: Number(orders) || 0 }))
     .sort((a, b) => b.orders - a.orders);
   const maxPlatformOrders = platformPerformance[0]?.orders || 0;
   const topPlatform = platformPerformance[0] || null;
