@@ -644,6 +644,7 @@ export interface ClientDailyReport {
   date: string;
   ordersCount: number | string;      // Legacy/details field retained for historical reports.
   totalOrders?: number;              // Structured total daily orders for business-health dashboard.
+  totalItems?: number;               // Total product units/items sold across all orders.
   platformOrders?: DailyReportPlatformOrder[]; // Structured orders split by source platform.
   salesAmount: number;               // إجمالي قيمة المبيعات (جنيه)
   topProductsSold?: string;          // (اختياري / ملغى)
