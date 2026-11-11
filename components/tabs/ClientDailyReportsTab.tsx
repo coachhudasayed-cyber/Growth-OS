@@ -175,6 +175,7 @@ const getReportTotalOrders = (report: ClientDailyReport): number | null => {
   return /^\d+$/.test(raw) ? Number(raw) : null;
 };
 
+// Structured item count stays separate from order count for multi-item orders.
 const getReportTotalItems = (report: ClientDailyReport): number | null => {
   if (typeof report.totalItems === 'number' && Number.isFinite(report.totalItems)) {
     return report.totalItems;
