@@ -632,11 +632,19 @@ export interface ClientDailyReportQuestionAnswer {
   standardKey?: string;
 }
 
+export interface DailyReportPlatformOrder {
+  id: string;
+  platform: string;
+  orders: number;
+}
+
 export interface ClientDailyReport {
   id: string;
   clientId: string;
   date: string;
-  ordersCount: number | string;      // عدد أوردرات النهاردة و كام أوردر لكل منتج؟
+  ordersCount: number | string;      // Legacy/details field retained for historical reports.
+  totalOrders?: number;              // Structured total daily orders for business-health dashboard.
+  platformOrders?: DailyReportPlatformOrder[]; // Structured orders split by source platform.
   salesAmount: number;               // إجمالي قيمة المبيعات (جنيه)
   topProductsSold?: string;          // (اختياري / ملغى)
   cancelledOrdersCount?: number;     // عدد الأوردرات الملغية
@@ -646,7 +654,8 @@ export interface ClientDailyReport {
   inventoryIssues?: string;          // هل فيه مشكلة في المخزون او فيه منتج معين قرب يخلص؟
   shippingOperationalIssues?: string;// هل فيه مشكلة في الشحن أو التشغيل او اي حاجة واجهتكوا النهاردة؟
   updatesOrOffers?: string;          // هل فيه اي تعديلات في المنتجات او الاسعار او العروض تمت جديدة؟
-  returnsCountAndType?: string;      // 10. عدد المرتجعات اليوم؟ و نوعها:
+  returnsCountAndType?: string;      // Legacy/details text for returns.
+  returnsCount?: number;             // Structured return count for dashboard aggregation.
   inquiriesCount?: number;
   leadsCount?: number;
   topPlatforms?: string;
